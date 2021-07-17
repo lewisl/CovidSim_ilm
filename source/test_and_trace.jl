@@ -43,7 +43,7 @@ function t_n_t_case_gen(start_day, end_day;         # these args go into the ret
     q_comply=0.8, c_comply=0.9, breakout_pct=.3, test_delay=3, generations=3, qdays=15,
     target_test=false, past_contacts=false) 
     # args match runcases loop in run_a_sim
-    function scase(locale; opendat, isodat, testdat, spreadparams)  # case loop in run_a_sim provides required args
+    function runcase(locale; opendat, isodat, testdat, spreadparams)  # case loop in run_a_sim provides required args
         t_n_t_case(start_day, end_day; 
                    spreadparams=spreadparams, opendat=opendat, isodat=isodat, testdat=testdat, locale=locale,  # from case loop
                    tc_perday=tc_perday, sensitivity=sensitivity, specificity=specificity, 

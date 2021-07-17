@@ -74,16 +74,16 @@ function pop_data(pop; age_dist=age_dist, cols="all")
             agegrp = reduce(vcat,[fill(age, parts[Int(age)]) for age in agegrps]), 
             cond = fill(notsick, pop),
             sickday = zeros(Int, pop),   
-            recov_day = zeros(Int, pop),  
-            dead_day = zeros(Int, pop),   
+            recovday = zeros(Int, pop),  
+            deadday = zeros(Int, pop),   
             cluster = zeros(Int, pop), 
             sdcomply = fill(:none, pop),  
-            vax = zeros(Int, pop),   
-            vax_day = zeros(Int, pop),  
+            vax = Vector{Union{Nothing, Vector{Symbol}}}(nothing, pop),   
+            vaxday = Vector{Union{Nothing, Vector{Int}}}(nothing, pop), 
             test = falses(pop),  
-            test_day = zeros(Int, pop),  
+            testday = zeros(Int, pop),  
             quar = falses(pop),
-            quar_day = zeros(Int, pop))
+            quarday = zeros(Int, pop))
 
     elseif cols == "track"
         parts = apportion(pop, age_dist)

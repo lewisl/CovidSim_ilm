@@ -48,6 +48,7 @@ using YAML
 using TypedTables
 using OffsetArrays
 using SplitApplyCombine
+using Interpolations
 
 
 # order matters for these includes!

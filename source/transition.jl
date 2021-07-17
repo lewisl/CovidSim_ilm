@@ -56,11 +56,11 @@ change, but the number days a person has been sick is incremented.
     tocond = node[:outcomes][choice]  # next condition or status
 
     if tocond == dead  
-        locdat.dead_day[p] = day_ctr[:day]
+        locdat.deadday[p] = day_ctr[:day]
         locdat.status[p] = dead  # change the status
         locdat.cond[p] = notsick # change the condition
     elseif tocond == recovered
-        locdat.recov_day[p] = day_ctr[:day]
+        locdat.recovday[p] = day_ctr[:day]
         locdat.status[p] = recovered
         locdat.cond[p] = notsick
     else   

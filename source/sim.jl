@@ -49,10 +49,10 @@ function run_a_sim(n_days, locales; runcases=[], showr0 = true, silent=true,
             locdat = popdat[loc]
             ages = agegrp_idx[loc]  # indices by agegrp
             
-            density_factor = geodf[geodf[!, :fips] .== loc, :density_factor][]
+            density_factor = geodf[geodf[!, :fips] .== loc, :density_factor][]  # TODO not a good place for this
             
             for case in runcases
-                case(loc, popdat, spreadparams, sdcases, ages)  # TODO extend ages to be any filter for 
+                case(loc, popdat, spreadparams, sdcases, ages; startofday=true)  # TODO extend ages to be any filter for 
             end                                                 # who participates in a given case
 
             idxtime += @elapsed begin
@@ -63,6 +63,10 @@ function run_a_sim(n_days, locales; runcases=[], showr0 = true, silent=true,
             # two fundamental steps of the simulation: spread! and transition!
             sprtime += @elapsed spread!(locdat, infect_idx, contactable_idx, sdcases, spreadparams, density_factor)   
             trtime += @elapsed transition!(locdat, infect_idx, dectree)                        
+
+            for case in runcases
+                case(loc, popdat, spreadparams, sdcases, ages; startofday=false)  # TODO extend ages to be any filter for 
+            end                                                 # who participates in a given case
 
             # r0 displayed every 10 days
             if showr0 && (mod(day_ctr[:day],10) == 0)   # do we ever want to do this by locale -- maybe
@@ -366,31 +370,3 @@ function categorical_sim(prs, n::Int, do_assert=true)
     end
     ret
 end
-
-
-
-####################################################################################
-#   convenience functions for reading and inputting population statistics
-#                in the population data matrices
-####################################################################################
-
-
-function make_sick!(dat; cnt, fromage, tocond, tosickday=1)
-
-    @assert size(cnt, 1) == size(fromage, 1)
-
-    filt_unexp = optfindall(==(unexposed), dat.status, 1) # must be unexposed
-
-    for i in 1:size(fromage, 1)  # by target age groups
-
-        filt_age = dat.agegrp[filt_unexp] .== fromage[i] # age of the unexposed
-        rowrange = 1:cnt[i]
-        filt_all = filt_unexp[filt_age][rowrange]
-
-        dat.status[filt_all] .= infectious
-        dat.cond[filt_all] .= tocond
-        dat.sickday[filt_all] .= tosickday
-    end
-end
-
-

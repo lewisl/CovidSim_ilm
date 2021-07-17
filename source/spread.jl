@@ -28,7 +28,7 @@ end
 
 function sd_gen(;startday::Int, comply::Float64, cf::Tuple{Float64, Float64},
     tf::Tuple{Float64, Float64}, name::Symbol, include_ages=[])
-    function scase(locale, dat, spreadparams, sdcases, ages)   # scase(locale, dat, spreadparams, sdcases)
+    function runcase(locale, dat, spreadparams, sdcases, ages)   # runcase(locale, dat, spreadparams, sdcases)
         s_d_seed!(dat, sdcases, startday, comply, cf, tf, name, include_ages, locale, spreadparams, ages)
     end
 end
@@ -202,6 +202,25 @@ columns in the population table. Runs social distancing cases.
     end  # for p in infect_idx
 
     return n_newly_infected # n_contacts, n_touched, n_newly_infected
+end
+
+
+function make_sick!(dat; cnt, fromage, tocond, tosickday=1)
+
+    @assert size(cnt, 1) == size(fromage, 1)
+
+    filt_unexp = optfindall(==(unexposed), dat.status, 1) # must be unexposed
+
+    for i in 1:size(fromage, 1)  # by target age groups
+
+        filt_age = dat.agegrp[filt_unexp] .== fromage[i] # age of the unexposed
+        rowrange = 1:cnt[i]
+        filt_all = filt_unexp[filt_age][rowrange]
+
+        dat.status[filt_all] .= infectious
+        dat.cond[filt_all] .= tocond
+        dat.sickday[filt_all] .= tosickday
+    end
 end
 
 

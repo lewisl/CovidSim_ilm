@@ -71,7 +71,7 @@ ilmat = alldict["dat"]["popdat"][locale]
 
 
     Table with 14 columns and 95626 rows:
-          status  agegrp  cond  sickday  recov_day  dead_day  cluster  sdcomply  ⋯
+          status  agegrp  cond  sickday  recovday  deadday  cluster  sdcomply  ⋯
         ┌───────────────────────────────────────────────────────────────────────────
      1  │ 1       1       0     0        0          0         0        none        ⋯
      2  │ 1       1       0     0        0          0         0        none        ⋯
@@ -125,7 +125,7 @@ columnnames(ilmat)
 
 
 
-    (:status, :agegrp, :cond, :sickday, :recov_day, :dead_day, :cluster, :sdcomply, :vax, :vax_day, :test, :test_day, :quar, :quar_day)
+    (:status, :agegrp, :cond, :sickday, :recovday, :deadday, :cluster, :sdcomply, :vax, :vaxday, :test, :testday, :quar, :quarday)
 
 
 
@@ -422,7 +422,7 @@ popdat = result_dict["dat"]["popdat"][locale]
 
 
     Table with 14 columns and 95626 rows:
-          status  agegrp  cond  sickday  recov_day  dead_day  cluster  sdcomply  ⋯
+          status  agegrp  cond  sickday  recovday  deadday  cluster  sdcomply  ⋯
         ┌───────────────────────────────────────────────────────────────────────────
      1  │ 3       1       0     9        68         0         0        none        ⋯
      2  │ 3       1       0     14       99         0         0        none        ⋯
@@ -587,7 +587,7 @@ outdat = result_dict["dat"]["popdat"][locale]
 
 
     Table with 14 columns and 95626 rows:
-          status  agegrp  cond  sickday  recov_day  dead_day  cluster  sdcomply  ⋯
+          status  agegrp  cond  sickday  recovday  deadday  cluster  sdcomply  ⋯
         ┌───────────────────────────────────────────────────────────────────────────
      1  │ 1       1       0     0        0          0         0        none        ⋯
      2  │ 1       1       0     0        0          0         0        none        ⋯

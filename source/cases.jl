@@ -19,8 +19,8 @@ Returns a function that can be used in runcases input to run_a_sim.
 """
 function seed_case_gen(day, cnt, sickday, cond, agegrp) # these args go into the returned seed! case
     # this gets returned; assign it a value at the cmdline; use as an input to run_a_sim
-    function scase(locale, dat, spreadparams, sdcases, ages)  # args must match runcases loop in run_a_sim
-        seed!(day, cnt, sickday, cond, agegrp, locale, dat)  # payload: this is what the function will do when run
+    function runcase(locale, dat, spreadparams, sdcases, ages; startofday)  # args must match runcases loop in run_a_sim
+        seed!(day, cnt, sickday, cond, agegrp, locale, dat; startofday=startofday)  # payload: this is what the function will do when run
     end
 end
 
@@ -30,7 +30,10 @@ end
 
 This is the action function that setups and implements a seeding case all in one execution.
 """
-function seed!(day, cnt, sickday, conds, agegrps, locale, dat)
+function seed!(day, cnt, sickday, conds, agegrps, locale, dat; startofday)
+
+    startofday || return  # if true->don't return.  if false->then do return
+
     @assert length(sickday) == 1 "input only one sickday value"
     # @warn "Seeding is for testing and may result in case counts out of balance"
     if day == day_ctr[:day]
