@@ -33,12 +33,14 @@ refresh = copy(ilmat)
 # ## Spread
 
 # %%
-spfilename="../parameters/spread_params.yml"
-spread_params = CovidSim.read_spread_params(spfilename)
-contact_factors = spread_params[:contact_factors]
-touch_factors = spread_params[:touch_factors]
-send_risk = spread_params[:send_risk]
-recv_risk = spread_params[:recv_risk]
+infectfilename="../parameters/infectparams.yml"
+socialfilename="../parameters/socialparams.yml"
+infectparams = CovidSim.read_infectparams(infectfilename)
+socialparams = CovidSim.read_socialparams(socialfilename)
+contact_factors = socialparams[:contact_factors]
+touch_factors = socialparams[:touch_factors]
+send_risk = infectparams[:send_risk]
+recv_risk = infectparams[:recv_risk]
 riskmx = CovidSim.send_risk_by_recv_risk(send_risk, recv_risk) # (sickdays, agegrp);
 
 # %%

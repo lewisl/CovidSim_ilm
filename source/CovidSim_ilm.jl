@@ -9,8 +9,11 @@
     # add transq to ilm and test
     # recovery should not guarantee future immmunity
     # vaccination with 3 vaccines / 1 or 2 shots
-    # extend to one year
+    # support variants for transition, spread and vaccination
+    # use currying to simplify case APIs
+    # extend to two years
     # clean up reports and notebooks to work with latest ilm model: get rid of some...
+        # get rid of riskmx
     # should quarantine be special or is it extreme social distancing--with no contacts?
         #= 
         tricky because we only using contacts for outgoing contacts by spreaders.
@@ -59,6 +62,7 @@ include("cases.jl")
 include("test_and_trace.jl")
 include("transition.jl")
 include("spread.jl")
+include("vax.jl")
 include("sim.jl")
 include("johns_hopkins_data.jl")
 

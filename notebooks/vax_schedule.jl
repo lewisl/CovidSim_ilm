@@ -22,8 +22,31 @@ using Plots
 @Base.kwdef struct Vaxsched
     dayrange::UnitRange{Int64}
     targetpct::Float64
-    shape::Vector{Float64}
+    shape::Vector{Float64} = [0.0, .02, .05, .10, .15, .19, 
+        .21, .16, .08, .03, .01]
 end
+
+# %%
+sch1 = Vaxsched(dayrange=45:300,targetpct=0.85)
+
+# %%
+abstract type Vaccine end
+
+    @Base.kwdef mutable struct Pfizer <: Vaccine
+        name::Symbol = :Pfizer
+        shots::Int
+        halflife::Int
+        send_risk::Vector{Float64}
+        recv_risk::Vector{Float64}
+    end
+
+# %%
+pf = Pfizer(shots=2,halflife=720,send_risk=Float64[], recv_risk=Float64[])
+
+# %%
+pf.send_risk = [0.00, 0.30, 0.65, 0.75, 0.85, 0.85, 0.75, 0.70, 0.65, 0.6, 
+             0.50, 0.20, 0.10, 0.10, 0.10, 0.05, 0.05, 0.00, 0.00, 0.0, 
+             0.00, 0.00, 0.00, 0.00, 0.00] .* .5
 
 # %%
 function makevax(vx::Vaxsched)

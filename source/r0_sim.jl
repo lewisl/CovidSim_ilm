@@ -1,4 +1,4 @@
-function r0_sim(pop=200_000, age_dist=age_dist, dectree, spreadparams, density_factor=1.0; scale=5)
+function r0_sim(pop=200_000, age_dist=age_dist, dectree, infectparams, density_factor=1.0; scale=5)
     # create simulation population
     r0pop = pop_data(pop, age_dist)
 
@@ -23,7 +23,7 @@ function r0_sim(pop=200_000, age_dist=age_dist, dectree, spreadparams, density_f
 
     for i = 1:sickdaylim        
         contactable_idx = findall(locdat.status .!= dead)
-        n_newly_infected = spread!(r0pop, gen1_infect_idx, contactable_idx,  sdcases, spreadparams, density_factor)  
+        n_newly_infected = spread!(r0pop, gen1_infect_idx, contactable_idx,  sdcases, socialparams, infectparams, density_factor)  
         infect_idx = findall(locdat.status .== infectious)
         r0_infected += n_newly_infected
         transition!(r0pop, infect_idx, dectree) 

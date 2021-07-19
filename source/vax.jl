@@ -1,26 +1,39 @@
 abstract type Vaccine end
 
-    @Base.kwdef struct Pfizer <: Vaccine
-        name::Symbol
+    @Base.kwdef mutable struct Pfizer <: Vaccine
+        name::Symbol = :Pfizer
         shots::Int
         halflife::Int
         send_risk::Vector{Float64}
         recv_risk::Vector{Float64}
     end
 
-@Base.kwdef struct Vaxsched
-    dayrange::UnitRange{Int64}
-    targetpct::Float64
-    shape::Vector{Float64}
-end
+abstract type Vaxsched end
+
+    @Base.kwdef mutable struct Pfizer_sched <: Vaxsched
+        name::Symbol = :Pfizer # use this as the name of the schedule, not the name of the vaccine.
+        dayrange::UnitRange{Int64}
+        targetpct::Float64
+        distrib::Vector{Float64} = [0.0, .02, .05, .10, .15, .19, 
+                                    .21, .16, .08, .03, .01]
+    end
 
 
+"""
+    makevax(vx::Vaxsched)
+
+    returns: function vaxsched(day)
+
+Create a function that implements the vaccination schedule for a given vaccine type.
+This function, when called with a simulation day, returns the percentage of the
+target population to receive the vaccine on that day.
+"""
 function makevax(vx::Vaxsched)
     schedlength = length(vx.dayrange)
-    shapescale = vx.shape .* ((length(vx.shape)-1)/schedlength)
-    interp = LinearInterpolation(0:length(shapescale)-1, shapescale)
+    distribscale = vx.distrib .* ((length(vx.distrib)-1)/schedlength)
+    interp = LinearInterpolation(0:length(distribscale)-1, distribscale)
     startday = vx.dayrange.start; endday = vx.dayrange.stop
-    return  function vaxsched(day)
+    return  function vaxpctday(day)
                 @assert startday <= day <= endday "Day not in dayrange $(vx.dayrange)"
                 p = (day - startday + 1) * round((length(interp)-1) / schedlength, digits=4)
                 return interp(p) * maxpct
@@ -32,24 +45,31 @@ end
 function setup_vax()
 end
 
-function dovax()
-end
 
-    """
-    isinfected(riskmx, spreadersickday, contactagegrp)::Bool
-
-Returns true if the spreader infected the contact. 
-"""
-@inline function isinfected(vax_spreadparams, spreadparams,  spreader, contact, locdat)::Bool
-    @inbounds @fastmath prob = (spreadparams.send_risk[spreadersickday] * 
-                        spreadparams.recv_risk[Int(contactagegrp)])            # TODO also vaccinated people will have partially unsusceptible
-    return @fastmath rand(Binomial(1, prob)) == 1
-end
-
-function make_isinfected(spreadparams)
-    return 
-        
+function getashot!(locdat, p, day, vx::Vaccine)
+    if isnothing(locdat.vax[p])
+        locdat.vax[p] = [vx.name]
+        locdat.vaxday[p] = [day]
+    else
+        push!(locdat.vax[p], vx.name)
+        push!(locdat.vaxday[p], day)
+    end
 end
 
 
-function shots(vaxname::Symbol, vaxsched)
+function getashot!(locdat, pvec::Vector{Int}, day, vx::Vaccine)
+    for p in pvec
+        if isnothing(locdat.vax[p])
+            locdat.vax[p] = [vx.name]
+            locdat.vaxday[p] = [day]
+        else
+            push!(locdat.vax[p], vx.name)
+            push!(locdat.vaxday[p], day)
+        end
+    end
+end
+
+
+
+
+

@@ -6,7 +6,8 @@
 function setup(n_days, locales;  # must provide following inputs
     geofilename="../data/geo2data.csv", 
     dectreefilename="../parameters/transition.yml",
-    spfilename="../parameters/spread_params.yml")
+    infectfilename="../parameters/infectparams.yml",
+    socialfilename="../parameters/socialparams.yml")
 
     # geodata
         geodata = buildgeodata(geofilename)
@@ -14,8 +15,11 @@ function setup(n_days, locales;  # must provide following inputs
     # simulation data matrix
         datadict = build_data(locales, geodata, n_days)
 
+    # social parameters
+        socialparams = build_socialparams(socialfilename)
+
     # spread parameters
-        spreadparams = build_spread_params(spfilename)
+        infectparams = build_infectparams(infectfilename)
 
     # transition decision trees     
         dectree = setup_dt(dectreefilename)
@@ -23,7 +27,8 @@ function setup(n_days, locales;  # must provide following inputs
     # isolation probabilities: not sure we need this
         # iso_pr = build_iso_probs()
 
-    return Dict("dat"=>datadict, "dectree"=>dectree, "geo"=>geodata, "sp"=>spreadparams)  
+    return Dict("dat"=>datadict, "dectree"=>dectree, "geo"=>geodata, "infect"=>infectparams, 
+                "social"=>socialparams)  
 end
 
 
@@ -125,41 +130,56 @@ function buildgeodata(filename)
 end
 
 
-function send_risk_by_recv_risk(send_risk, recv_risk)
-    recv_risk' .* send_risk  # (sickdaylim, agegrps)
-end
+function build_infectparams(infectfilename)
 
+    infect_inputs = YAML.load_file(infectfilename)
 
-function build_spread_params(spfilename)
-
-    spread_inputs = YAML.load_file(spfilename)
-
-    required_params = ["send_risk", "recv_risk", "contact_factors", "touch_factors", "shape"]
+    required_params = ["send_risk", "recv_risk"]
     has_all = true
-    missing = []
+    lacking = []
     for p in required_params
-        if !haskey(spread_inputs, p)
-            push!(missing, p)
+        if !haskey(infect_inputs, p)
+            push!(lacking, p)
             has_all = false
         end
     end
-    @assert has_all "required keys: $missing not in $(spfilename)"
-
-    send_risk = send_risk_by_recv_risk(spread_inputs["send_risk"], spread_inputs["recv_risk"])
+    @assert has_all "required keys: $lacking not in $(infectfilename)"
 
     # named tuple doesn't result in type instability of Dict that requires "function barrier" to fix
-    spreadparams = (
-        send_risk          = spread_inputs["send_risk"]::Vector{Float64},
-        recv_risk          = spread_inputs["recv_risk"]::Vector{Float64},
-        contact_factors    = Dict(symtoage[Symbol(k1)] => 
-                                Dict(symtocond[Symbol(k2)] => Float64(v2) for (k2, v2) in v1)  for (k1, v1) in spread_inputs["contact_factors"]),
-        touch_factors      = Dict(symtoage[Symbol(k1)] => 
-                                Dict(symtoallconds[Symbol(k2)] => Float64(v2) for (k2, v2) in v1)  for (k1, v1) in spread_inputs["touch_factors"]),
-        shape              = spread_inputs["shape"],
-        # riskmx             = send_risk
+    infectparams = (
+        send_risk          = infect_inputs["send_risk"]::Vector{Float64},
+        recv_risk          = infect_inputs["recv_risk"]::Vector{Float64}
         )
     
-    return spreadparams
+    return infectparams
+end
+
+
+function build_socialparams(socialfilename)
+
+    social_inputs = YAML.load_file(socialfilename)
+
+    required_params = ["contact_factors", "touch_factors", "gammashape"]
+    has_all = true
+    lacking = []
+    for p in required_params
+        if !haskey(social_inputs, p)
+            push!(lacking, p)
+            has_all = false
+        end
+    end
+    @assert has_all "required keys: $lacking not in $(infectfilename)"
+
+    # named tuple doesn't result in type instability of Dict that requires "function barrier" to fix
+    socialparams = (
+        gammashape         = social_inputs["gammashape"],
+        contact_factors    = Dict(symtoage[Symbol(k1)] => 
+                                Dict(symtocond[Symbol(k2)] => Float64(v2) for (k2, v2) in v1)  for (k1, v1) in social_inputs["contact_factors"]),
+        touch_factors      = Dict(symtoage[Symbol(k1)] => 
+                                Dict(symtoallconds[Symbol(k2)] => Float64(v2) for (k2, v2) in v1)  for (k1, v1) in social_inputs["touch_factors"])
+        )
+    
+    return socialparams
 end
 
 

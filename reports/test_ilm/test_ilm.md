@@ -184,12 +184,12 @@ density_factor = geodf[geodf[!, :fips] .== locale, :density_factor][]
 
 
 ```julia
-spreadparams = alldict["sp"];  # the spread parameters are loaded as a dict of float arrays
+infectparams = alldict["infect"];  # the spread parameters are loaded as a dict of float arrays
 ```
 
 
 ```julia
-keys(spreadparams)
+keys(infectparams)
 ```
 
 
@@ -201,7 +201,7 @@ keys(spreadparams)
 
 
 ```julia
-contact_factors = spreadparams.contact_factors
+contact_factors = infectparams.contact_factors
 ```
 
 
@@ -234,7 +234,7 @@ contact_factors[5]
 
 
 ```julia
-touch_factors =  spreadparams.touch_factors
+touch_factors =  infectparams.touch_factors
 ```
 
 

@@ -43,10 +43,10 @@ spreadparams = alldict["sp"]  # the spread parameters are loaded as a dict of fl
 keys(spreadparams)
 
 # %%
-spfilename="../parameters/spread_params.yml"
+infectfilename="../parameters/spread_params.yml"
 
 # %%
-spread_inputs = YAML.load_file(spfilename)
+spread_inputs = YAML.load_file(infectfilename)
 
 # %%
 spr_day = 6; recv_age = 4

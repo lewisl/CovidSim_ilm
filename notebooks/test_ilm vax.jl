@@ -22,6 +22,7 @@ using TypedTables
 using BenchmarkTools
 using Distributions
 using YAML
+using PrettyPrint
 
 # %%
 cd(joinpath(homedir(),"Dropbox/Covid Modeling/Covid-ILM/source"))
@@ -41,40 +42,37 @@ alldict = setup(ndays, [locale])
 alldict["dat"]
 
 # %%
-locdat = alldict["dat"]["popdat"][locale]
+ilmat = alldict["dat"]["popdat"][locale]
 
 # %%
 ages = alldict["dat"]["agegrp_idx"][locale]
 
 # %%
-columnnames(locdat)
+columnnames(ilmat)
 
 # %%
-countmap(locdat.agegrp)
+countmap(ilmat.agegrp)
 
 # %%
-countmap(locdat.status)  # everyone begins as unexposed
+countmap(ilmat.status)  # everyone begins as unexposed
 
-# %%
+# %% tags=[]
 geodf = alldict["geo"]   # the date for all locales has been read into a dataframe
 
 # %%
 density_factor = geodf[geodf[!, :fips] .== locale, :density_factor][]
 
 # %%
-socialparams = alldict["social"]  # the spread parameters are loaded as a dict of float arrays
+spreadparams = alldict["sp"]  # the spread parameters are loaded as a dict of float arrays
 
 # %%
-keys(socialparams)
+keys(spreadparams)
+
+# %% tags=[]
+typeof(spreadparams.shape)
 
 # %%
-typeof(socialparams.gammashape)
-
-# %%
-infectparams = alldict["infect"]
-
-# %%
-contact_factors = socialparams.contact_factors
+contact_factors = spreadparams.contact_factors
 
 # %%
 typeof(contact_factors)
@@ -83,7 +81,7 @@ typeof(contact_factors)
 contact_factors[age80_up]
 
 # %%
-touch_factors =  socialparams.touch_factors
+touch_factors =  spreadparams.touch_factors
 
 # %%
 touch_factors[age40_59]
@@ -108,7 +106,7 @@ display_tree(dectree)
 # %% [markdown]
 # Dict{Int64, OrderedCollections.OrderedDict{Int, Dict{String, Vector{T} where T}
 
-# %%
+# %% jupyter={"source_hidden": true} tags=[]
 dectree[age80_up]
 
 # %%
@@ -121,6 +119,77 @@ end
 
 # %%
 @btime get_node(dectree, age80_up, 25, sick)[:probs]
+
+# %% [markdown]
+# # Load vaccine parameters
+
+# %%
+vaccines = YAML.load_file("../parameters/vaccines.yml"; dicttype=Dict{Symbol,Any})
+
+# %%
+vaccines[:Pfizer]
+
+# %%
+vaxkeys = keys(vaccines)
+
+# %% [markdown]
+# ### Transition Parameters
+
+# %%
+transitionset = Dict()
+dectreefilename="../parameters/transition.yml"
+for vax in vaxkeys
+    transitionset[vax] = setup_dt(joinpath("../parameters", vaccines[vax][:directory_name], 
+            vaccines[vax][:transition_fname]))
+end
+transitionset[:default] = setup_dt(dectreefilename)
+transitionset
+
+# %% [markdown]
+# ### Spread Parameters and other vaccine parameters
+
+# %%
+pfizer_spread = YAML.load_file("../parameters/pfizer/pfizer_spread.yml"; dicttype=Dict{Symbol,Any})
+    
+
+# %%
+spreadset = Dict()
+for vax in vaxkeys
+    vaxset[vax] = YAML.load_file(joinpath("../parameters",vaccines[vax][:directory_name],
+        vaccines[vax][:spread_fname]), dicttype=Dict{Symbol, Any})
+end
+# vaxset[:default] = YAML.load_file(joinpath("../parameters",vaccines[vax][:directory_name],
+#         vaccines[vax][:spread_fname]), dicttype=Dict{Symbol, Any})
+
+# %%
+spreadset
+
+# %% jupyter={"outputs_hidden": true} tags=[]
+pprint(vaxset[:JnJ])
+
+# %% [markdown]
+# ### Vaccination Schedule
+
+# %%
+pfsched = Vaxsched(name=:pfsched1, dayrange=60:150, targetpct=0.75)
+
+# %% [markdown] tags=[]
+# # Define a vaccine and give some shots
+
+# %%
+includet("vax.jl")
+
+# %%
+pf = Pfizer(shots=2, halflife=270, send_risk=Float64[], recv_risk=Float64[])
+
+# %%
+getashot!(ilmat, collect(10:20), 90, pf)
+
+# %%
+ilmat.vax[10:20]
+
+# %%
+ilmat.vaxday[10:20]
 
 # %% [markdown]
 # # Create a seed case
@@ -252,7 +321,7 @@ mixdat = result_dict["dat"]["popdat"][locale]
 cumplot(series, locale, [:infectious, :dead])
 
 # %%
-@Select(status, agegrp, cond, sdcomply)(locdat)
+@Select(status, agegrp, cond, sdcomply)(ilmat)
 
 # %% [markdown]
 # alldict
@@ -270,10 +339,10 @@ include_ages = [age0_19, age20_39]
 union((ages[i] for i in include_ages)...)
 
 # %%
-locdat.sdcomply[collect(1:5:95000)] .= :test
+ilmat.sdcomply[collect(1:5:95000)] .= :test
 
 # %%
-incase_idx = findall(locdat.sdcomply .== :test)
+incase_idx = findall(ilmat.sdcomply .== :test)
 
 # %%
 byage_idx = intersect(incase_idx, union((ages[i] for i in include_ages)...))

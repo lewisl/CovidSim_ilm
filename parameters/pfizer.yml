@@ -1,7 +1,0 @@
----
-
-name:         pfizer
-shots:        2
-halflife:     2.0
-cond_fname:   pfizer_cond.yml
-spread_fname: pfizer_spread.yml

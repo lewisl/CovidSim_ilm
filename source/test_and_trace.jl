@@ -43,10 +43,10 @@ function t_n_t_case_gen(start_day, end_day;         # these args go into the ret
     q_comply=0.8, c_comply=0.9, breakout_pct=.3, test_delay=3, generations=3, qdays=15,
     target_test=false, past_contacts=false) 
     # args match runcases loop in run_a_sim
-    function runcase(locale; opendat, isodat, testdat, spreadparams)  # case loop in run_a_sim provides required args
+    function runcase(locale; opendat, isodat, testdat, infectparams)  # case loop in run_a_sim provides required args
         t_n_t_case(start_day, end_day; 
-                   spreadparams=spreadparams, opendat=opendat, isodat=isodat, testdat=testdat, locale=locale,  # from case loop
-                   tc_perday=tc_perday, sensitivity=sensitivity, specificity=specificity, 
+                   socialparams=socialparams, infectparams=infectparams, opendat=opendat, isodat=isodat,  
+                   testdat=testdat, locale=locale, tc_perday=tc_perday, sensitivity=sensitivity, specificity=specificity, 
                    infect_prior=infect_prior, test_pct=test_pct, q_comply=q_comply, c_comply=c_comply,
 				   breakout_pct=breakout_pct, test_delay=test_delay, generations=generations, qdays=qdays,
                    target_test=target_test, past_contacts=past_contacts)
@@ -55,7 +55,7 @@ end
 
 
 function t_n_t_case(start_date, end_date; 
-                spreadparams, opendat, isodat, testdat, locale,     # from case loop
+                socialparams, infectparams, opendat, isodat, testdat, locale,     
                 tc_perday=1000, sensitivity=.95, specificity=0.90, infect_prior=0.5, test_pct=.95,  
                 q_comply=0.8, c_comply=0.9, breakout_pct=.3, test_delay=3, generations=3, qdays=15,
                 target_test=false, past_contacts=false)
@@ -80,13 +80,13 @@ function t_n_t_case(start_date, end_date;
                         if cnt > 0
                             # println("  GOT HERE:  unquarantine breakouts  $cnt ")
                             t_n_t_unquarantine(cnt_2_array(cnt, isodat[q]), q, opendat=opendat, 
-                                               isodat=isodat, spreadparams=spreadparams)
+                                               isodat=isodat, infectparams=infectparams)
                             push!(tntq, (day=thisday, breakout=cnt))
                         end
                     # quarantines ending today
                     elseif q.quar_date + qdays == thisday # end of quarantine is today
                         cnt = grab(ret_conds, agegrps, sickdays, q, isodat)
-                        t_n_t_unquarantine(cnt, q, opendat, isodat, spreadparams)
+                        t_n_t_unquarantine(cnt, q, opendat, isodat, infectparams)
                         push!(tntq, (day=day_ctr[:day], unquarantine=sum(cnt)))
                         delete!(isodat, q)  # remove dated locale
                         delete!(tnt_stash, q)  # remove dated locale from stash
@@ -108,7 +108,7 @@ function t_n_t_case(start_date, end_date;
                                 breakout!(breakout_pct, put_in, qloc, qdays) # Int[] (14, )
                             end
                             t_n_t_quarantine(put_in, qloc::Quar_Loc, opendat, 
-                                             isodat, spreadparams)
+                                             isodat, infectparams)
                             push!(tntq, (day=day_ctr[:day], quarantine=sum(put_in)))
                             delete!(tnt_stash, t) # pop the stash (delete!)
                         end
@@ -119,8 +119,8 @@ function t_n_t_case(start_date, end_date;
 
     # do more testing today
     test_and_trace(start_date, end_date; 
-        spreadparams=spreadparams, opendat=opendat, isodat=isodat, testdat=testdat, locale=locale,   # from case loop
-        tc_perday=tc_perday, sensitivity=sensitivity, specificity=specificity, # optional
+        socialparams=socialparams, infectparams=infectparams, opendat=opendat, isodat=isodat,    # from case loop
+        testdat=testdat, locale=locale, tc_perday=tc_perday, sensitivity=sensitivity, specificity=specificity, # optional
         infect_prior=infect_prior, test_pct=test_pct, q_comply=q_comply, c_comply=c_comply, 
 		breakout_pct=breakout_pct, test_delay=test_delay, generations=generations, qdays=qdays,
         target_test=target_test, past_contacts=past_contacts)
@@ -128,7 +128,7 @@ end
 
 
 function test_and_trace(start_date, end_date; 
-    spreadparams, opendat, isodat, testdat, locale,  # from case loop
+    socialparams, infectparams, opendat, isodat, testdat, locale,  # from case loop
     tc_perday=1000, sensitivity=.95, specificity=0.95, infect_prior=0.5, test_pct=.95, # optional
     q_comply=0.8, c_comply=0.9, breakout_pct=.3, test_delay=3, generations=3, qdays=15,
     target_test=false, past_contacts=false)
@@ -190,7 +190,7 @@ function test_and_trace(start_date, end_date;
 
             # test
             postests[gen][:], all_tests = simtests(to_test[gen]; tc_perday=tc_perday, sensitivity=sensitivity, 
-                            specificity=specificity, infect_prior=0.05, test_pct=test_pct, spreadparams=spreadparams)
+                            specificity=specificity, infect_prior=0.05, test_pct=test_pct, infectparams=infectparams)
             conducted = sum(all_tests)
             perday_conducted += conducted
             if sum(all_tests) != 0  # track the test cases
@@ -199,19 +199,19 @@ function test_and_trace(start_date, end_date;
             
 
             # trace contacts  TODO THIS WILL NO LONGER WORK
-            target_cf = repeat(view(spreadparams.contact_factors,1,:)',4,1) # use unexposed for all rows
+            target_cf = repeat(view(infectparams.contact_factors,1,:)',4,1) # use unexposed for all rows
             poscontacts[gen][:] = how_many_contacts!(poscontacts[gen], 
                                     postests[gen],  # equivalent to spreaders in spread
                                     avail_to_test,
                                     target_cf, 
-                                    density_factor, spreadparams=spreadparams)  								
+                                    density_factor, infectparams=infectparams)  								
 			poscontacts[gen][:] = round.(Int, c_comply .* poscontacts[gen])
 
             # contacts lead to consquential touches that we count
-            target_tf = view(spreadparams.touch_factors,map2access[unexposed]:map2access[mild], agegrps)
+            target_tf = view(infectparams.touch_factors,map2access[unexposed]:map2access[mild], agegrps)
             postouched[gen][:] = how_many_touched!(postouched[gen], poscontacts[gen], 
                                         avail_to_test, test_conds, 
-                                        target_tf, spreadparams=spreadparams)
+                                        target_tf, infectparams=infectparams)
             if past_contacts # going back "5" pretend days
                 up_multiple = floor(Int, sum(shifter(rand(5),0.4, 1.3)))
                 postouched[gen][:] = postouched[gen] .* up_multiple
@@ -225,7 +225,7 @@ function test_and_trace(start_date, end_date;
                 if breakout_pct != 0.0  # future breakouts from this quarantine cohort
                     breakout!(breakout_pct, put_in, qloc, qdays) 
                 end
-                t_n_t_quarantine(put_in, qloc::Quar_Loc; opendat=opendat, isodat=isodat, spreadparams=spreadparams)
+                t_n_t_quarantine(put_in, qloc::Quar_Loc; opendat=opendat, isodat=isodat, infectparams=infectparams)
                 push!(tntq, (day=day_ctr[:day], quarantine=sum(put_in)))
             end
         end  # for gen 
@@ -244,7 +244,7 @@ end
 
 
 function simtests(to_test; tc_perday=1000, sensitivity=.9, specificity=.9, infect_prior=.05, 
-    test_pct=.95, spreadparams=spreadparams)
+    test_pct=.95, infectparams=infectparams)
 
     # distribute the tests across disease conditions by age group and condition
            # we could do probabilistically but the probs are very small and the whole thing
@@ -307,7 +307,7 @@ function bayes(sensitivity, specificity, pr_pop)
 end
 
 
-function t_n_t_quarantine(postests, qloc::Quar_Loc; opendat, isodat, spreadparams)
+function t_n_t_quarantine(postests, qloc::Quar_Loc; opendat, isodat, infectparams)
     if !haskey(isodat, qloc)  
         isodat[qloc] = zeros(Int, sickdaylim, length(conditions), length(agegrps))
     end
@@ -317,7 +317,7 @@ function t_n_t_quarantine(postests, qloc::Quar_Loc; opendat, isodat, spreadparam
 end
 
 
-function t_n_t_unquarantine(cnt, qloc::Quar_Loc, opendat, isodat, spreadparams)
+function t_n_t_unquarantine(cnt, qloc::Quar_Loc, opendat, isodat, infectparams)
     ret_conds = [unexposed, recovered, nil, mild, sick, severe] 
     unisolate_by!(cnt, ret_conds, agegrps, sickdays, qloc, 
                   opendat, isodat, mode=:plus) # delete the qloc when unq all

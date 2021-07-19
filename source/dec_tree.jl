@@ -9,14 +9,14 @@ function setup_dt(dtfilename)
     trees = YAML.load_file(dtfilename)
 
     newdict = (
-    Dict(symtoage[Symbol(k1)] =>         
-        Dict(k2 =>             
-            Dict(symtocond[Symbol(k3)] => 
-                Dict(Symbol(k4) => v4 for (k4, v4) in v3) 
-                                            for (k3, v3) in v2)
-                                                for (k2, v2) in v1)
-                                                    for (k1,v1) in trees)
-    )
+                Dict(symtoage[Symbol(k1)] =>         
+                    Dict(k2 =>             
+                        Dict(symtocond[Symbol(k3)] => 
+                            Dict(Symbol(k4) => v4 for (k4, v4) in v3) 
+                                                        for (k3, v3) in v2)
+                                                            for (k2, v2) in v1)
+                                                                for (k1,v1) in trees)
+                )
 
     # Convert values in :outcomes to Enum condition or status
     for (k1,v1) in newdict

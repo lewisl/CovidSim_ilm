@@ -7,13 +7,15 @@
 function run_a_sim(n_days, locales; runcases=[], showr0 = true, silent=true, 
             geofilename="../data/geo2data.csv", 
             dectreefilename="../parameters/transition.yml",
-            spfilename="../parameters/spread_params.yml")
+            infectfilename="../parameters/infectparams.yml",
+            socialfilename="../parameters/socialparams.yml")
 
     empty_all_caches!() # from previous runs
 
     # access input data and pre-allocate storage
     alldict = setup(n_days, locales; geofilename=geofilename, 
-                    dectreefilename=dectreefilename, spfilename=spfilename)
+                    dectreefilename=dectreefilename, infectfilename=infectfilename,
+                    socialfilename=socialfilename)
 
                     dectree = alldict["dectree"]  # decision trees for transition
                     popdat = alldict["dat"]["popdat"]   # first key locale
@@ -21,7 +23,8 @@ function run_a_sim(n_days, locales; runcases=[], showr0 = true, silent=true,
                     cumhistmx = alldict["dat"]["cumhistmx"]   # first key locale
                     newhistmx = alldict["dat"]["newhistmx"]   # first key locale
                     geodf = alldict["geo"]
-                    spreadparams = alldict["sp"]
+                    infectparams = alldict["infect"]
+                    socialparams = alldict["social"]
 
     # start the day counter at zero
     reset!(day_ctr, :day)  # return and reset key to 0 :day leftover from prior runs
@@ -52,7 +55,7 @@ function run_a_sim(n_days, locales; runcases=[], showr0 = true, silent=true,
             density_factor = geodf[geodf[!, :fips] .== loc, :density_factor][]  # TODO not a good place for this
             
             for case in runcases
-                case(loc, popdat, spreadparams, sdcases, ages; startofday=true)  # TODO extend ages to be any filter for 
+                case(loc, popdat, socialparams, infectparams, sdcases, ages; startofday=true)  # TODO extend ages to be any filter for 
             end                                                 # who participates in a given case
 
             idxtime += @elapsed begin
@@ -61,16 +64,16 @@ function run_a_sim(n_days, locales; runcases=[], showr0 = true, silent=true,
             end
 
             # two fundamental steps of the simulation: spread! and transition!
-            sprtime += @elapsed spread!(locdat, infect_idx, contactable_idx, sdcases, spreadparams, density_factor)   
+            sprtime += @elapsed spread!(locdat, infect_idx, contactable_idx, sdcases, socialparams, infectparams, density_factor)   
             trtime += @elapsed transition!(locdat, infect_idx, dectree)                        
 
             for case in runcases
-                case(loc, popdat, spreadparams, sdcases, ages; startofday=false)  # TODO extend ages to be any filter for 
+                case(loc, popdat, socialparams, infectparams, sdcases, ages; startofday=false)  # TODO extend ages to be any filter for 
             end                                                 # who participates in a given case
 
             # r0 displayed every 10 days
             if showr0 && (mod(day_ctr[:day],10) == 0)   # do we ever want to do this by locale -- maybe
-                current_r0 = r0_sim(locdat, age_dist=age_dist, dectree=dectree, spreadparams=spreadparams, sdcases=sdcases)
+                current_r0 = r0_sim(locdat, age_dist=age_dist, dectree=dectree, socialparams=socialparams, infectparams=infectparams, sdcases=sdcases)
                 println("day $(day_ctr[:day]), locale $loc: rt = $current_r0")
             end
 

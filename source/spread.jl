@@ -28,15 +28,18 @@ end
 
 function sd_gen(;startday::Int, comply::Float64, cf::Tuple{Float64, Float64},
     tf::Tuple{Float64, Float64}, name::Symbol, include_ages=[])
-    function runcase(locale, dat, spreadparams, sdcases, ages)   # runcase(locale, dat, spreadparams, sdcases)
-        s_d_seed!(dat, sdcases, startday, comply, cf, tf, name, include_ages, locale, spreadparams, ages)
+    function runcase(locale, dat, socialparams, infectparams, sdcases, ages; startofday)   
+        s_d_seed!(dat, sdcases, startday, comply, cf, tf, name, include_ages, locale, socialparams, infectparams, ages;
+                    startofday=startofday)
     end
 end
 
 
-@inline function s_d_seed!(dat, sdcases, startday, comply, cf, tf, name, include_ages, locale, spreadparams, ages)
+@inline function s_d_seed!(dat, sdcases, startday, comply, cf, tf, name, include_ages, locale, socialparams, infectparams, ages; startofday)
     @assert 0.0 <= comply <= 1.0  "comply must be floating point in 0.0 to 1.0 inclusive"
     
+    startofday || return
+
     if startday == day_ctr[:day]
         locdat = dat[locale]
 
@@ -52,8 +55,8 @@ end
                         cfdelta = cf,         
                         tfdelta = tf,         
                         comply  = comply,     
-                        cfcase  = shifter(spreadparams.contact_factors, cf...),  
-                        tfcase  = shifter(spreadparams.touch_factors, tf...)     
+                        cfcase  = shifter(socialparams.contact_factors, cf...),  
+                        tfcase  = shifter(socialparams.touch_factors, tf...)     
                         )
 
         # load the sdcomply column of the population table
@@ -96,25 +99,25 @@ end
 
 
 """
-    numcontacts(density_factor, shape, agegrp, cond, contact_factors)::Int
+    numcontacts(density_factor, gammashape, agegrp, cond, contact_factors)::Int
 
 Returns the number of contacts that someone spreading the disease will make on a day. This
 method uses the default contact_factors for the current spreader.
 """
-@inline function numcontacts(density_factor, shape, agegrp, cond, contact_factors)::Int 
+@inline function numcontacts(density_factor, gammashape, agegrp, cond, contact_factors)::Int 
     @inbounds @fastmath scale = density_factor * contact_factors[agegrp][cond]
-    @fastmath round(Int,rand(Gamma(shape, scale)))
+    @fastmath round(Int,rand(Gamma(gammashape, scale)))
 end
 
 """
-    numcontacts(density_factor, shape, agegrp, cond, acase::Spreadcase)::Int
+    numcontacts(density_factor, gammashape, agegrp, cond, acase::Spreadcase)::Int
 
 Returns the number of contacts that someone spreading the disease will make on a day. This 
 method uses the spreadcase applicable to the current spreader.
 """
-@inline function numcontacts(density_factor, shape, agegrp, cond, acase::Spreadcase)::Int
+@inline function numcontacts(density_factor, gammashape, agegrp, cond, acase::Spreadcase)::Int
     @inbounds @fastmath scale = density_factor * acase.cfcase[agegrp][cond]  
-    @fastmath round(Int,rand(Gamma(shape, scale)))
+    @fastmath round(Int,rand(Gamma(gammashape, scale)))
 end
 
 
@@ -141,31 +144,45 @@ end
 
 
 """
-    function isinfected(riskmx, spreadersickday, contactagegrp)::Bool
+    function isinfected(infectparams, spreadersickday, contactagegrp)::Bool
 
 Returns true if the spreader infected the contact. 
 """
-@inline function isinfected(spreadparams, spreadersickday, contactagegrp)::Bool
-    @inbounds @fastmath prob = (spreadparams.send_risk[spreadersickday] * 
-                        spreadparams.recv_risk[Int(contactagegrp)])            # TODO also vaccinated people will have partially unsusceptible
+@inline function isinfected(infectparams, spreader, contact, locdat)::Bool
+    send_risk = if isnothing(locdat.vax[spreader])
+                    infectparams.send_risk[locdat.sickday[spreader]]
+                else
+                    vaxtype = locdat.vax[spreader][end]
+                    vaxset[vaxtype][:vaccine].send_risk[locdat.sickday[spreader]]
+                end
+
+    recv_risk = if isnothing(locdat.vax[contact])
+                    infectparams.recv_risk[Int(locdat.agegrp[contact])]
+                else
+                    vaxtype = locdat.vax[contact][end]
+                    vaxset[vaxtype][:vaccine].recv_risk[Int(locdat.agegrp[contact])]
+                end
+
+
+    @inbounds @fastmath prob = send_risk * recv_risk            # TODO also vaccinated people will have partially unsusceptible
     return @fastmath rand(Binomial(1, prob)) == 1
 end
 
 
 """
-    spread!(locdat, infect_idx, contactable_idx, sdcases, spreadparams, density_factor)
+    spread!(locdat, infect_idx, contactable_idx, sdcases, socialparams, infectparams, density_factor)
 
 Infectious people spread the virus to susceptible people for a single locale. Changes attribute
 columns in the population table. Runs social distancing cases.
 """
-@inline function spread!(locdat, infect_idx, contactable_idx, sdcases, spreadparams, density_factor)
+@inline function spread!(locdat, infect_idx, contactable_idx, sdcases, socialparams, infectparams, density_factor)
 
     n_newly_infected = 0
 
     # retrieve params
-    contact_factors = spreadparams.contact_factors
-    touch_factors   = spreadparams.touch_factors
-    shape           = spreadparams.shape
+    contact_factors = socialparams.contact_factors
+    touch_factors   = socialparams.touch_factors
+    gammashape      = socialparams.gammashape
 
     # column aliases as vector v_...
     v_cond     = locdat.cond
@@ -177,7 +194,7 @@ columns in the population table. Runs social distancing cases.
     # assign contacts, do touches, do new infections
     @inbounds for spr in infect_idx      # spr is the person who is the spreader
         contact_param = v_sdcomply[spr] == :none ? contact_factors : sdcases[v_sdcomply[spr]]
-        nc = numcontacts(density_factor, shape, v_agegrp[spr], v_cond[spr], contact_param)  
+        nc = numcontacts(density_factor, gammashape, v_agegrp[spr], v_cond[spr], contact_param)  
         
         # TODO we could keep track of contacts for contact tracing
         @inbounds @fastmath for contact in sample(contactable_idx, nc, replace=false) # people can get contacted more than once
@@ -190,7 +207,7 @@ columns in the population table. Runs social distancing cases.
 
                 # infection outcome
                 if touched         # TODO some recovered people will become susceptible again
-                    if isinfected(spreadparams, v_sickday[spr], v_agegrp[contact])
+                    if isinfected(infectparams, spr, contact, locdat)
                         v_cond[contact] = nil # nil === asymptomatic or pre-symptomatic
                         v_status[contact] = infectious
                         v_sickday[contact] = 1
@@ -225,8 +242,8 @@ end
 
 
 """
-    r0_sim(; pop=200_000, age_dist=age_dist, dectree=dectree, spreadparams=spreadparams, density_factor=1.0, scale=5)
-    r0_sim(locdat; age_dist=age_dist, dectree=dectree, spreadparams=spreadparams, sdcases=sdcases, density_factor=1.0, scale=5)
+    r0_sim(; pop=200_000, age_dist=age_dist, dectree=dectree, socialparams=socialparams, infectparams=infectparams, density_factor=1.0, scale=5)
+    r0_sim(locdat; age_dist=age_dist, dectree=dectree, socialparams=socialparams, infectparams=infectparams, sdcases=sdcases, density_factor=1.0, scale=5)
 
 Simulates r0 or rt. The first method creates a population and tracks how many infections
 are caused by first generation spreaders and NOT spreaders who were infected by the
@@ -236,7 +253,7 @@ The second method simulates r at time t given the characteristics of the simulat
 you are running. This shows how r, reproduction rate, is affected by public health
 measures and the characteristics of the population over time. This simulates r(t).
 """
-function r0_sim(; pop=200_000, age_dist=age_dist, dectree=dectree, spreadparams=spreadparams, density_factor=1.0, scale=5)
+function r0_sim(; pop=200_000, age_dist=age_dist, dectree=dectree, socialparams=socialparams, infectparams=infectparams, density_factor=1.0, scale=5)
     # create simulation population
     r0pop = pop_data(pop)
 
@@ -268,7 +285,7 @@ function r0_sim(; pop=200_000, age_dist=age_dist, dectree=dectree, spreadparams=
 
     for i = 1:sickdaylim        
         contactable_idx = findall(r0pop.status .!= dead)
-        n_newly_infected = spread!(r0pop, gen1_infect_idx, contactable_idx,  sdcases, spreadparams, density_factor)  
+        n_newly_infected = spread!(r0pop, gen1_infect_idx, contactable_idx,  sdcases, socialparams, infectparams, density_factor)  
         infect_idx = findall(r0pop.status .== infectious)
         r0_infected += n_newly_infected
         transition!(r0pop, infect_idx, dectree) 
@@ -281,7 +298,7 @@ function r0_sim(; pop=200_000, age_dist=age_dist, dectree=dectree, spreadparams=
 end
 
 
-function r0_sim(locdat; age_dist=age_dist, dectree=dectree, spreadparams=spreadparams, sdcases=sdcases, density_factor=1.0, scale=5)
+function r0_sim(locdat; age_dist=age_dist, dectree=dectree, socialparams=socialparams, infectparams=infectparams, sdcases=sdcases, density_factor=1.0, scale=5)
     # create simulation population
     r0pop = deepcopy(locdat)
 
@@ -309,8 +326,8 @@ function r0_sim(locdat; age_dist=age_dist, dectree=dectree, spreadparams=spreadp
     for i = 1:sickdaylim      
         infect_idx = findall((r0pop.status .== infectious) .& (r0pop.sickday .> 0))
         contactable_idx = findall(r0pop.status .!= dead)
-        # spread!(locdat, infect_idx, contactable_idx, sdcases, spreadparams, density_factor)                                    
-        r0_infected += spread!(r0pop, infect_idx, contactable_idx, sdcases, spreadparams, density_factor)  
+        # spread!(locdat, infect_idx, contactable_idx, sdcases, socialparams, infectparams, density_factor)                                    
+        r0_infected += spread!(r0pop, infect_idx, contactable_idx, sdcases, socialparams, infectparams, density_factor)  
 
         transition!(r0pop, infect_idx, dectree) 
 
@@ -338,13 +355,13 @@ function set_by_level(x, levels=[[1, 300_000], [5, 500_000], [10, 10_000_000_000
 end
 
 
-function r0_table(n=6, cfstart = 0.9, tfstart = 0.3; spreadparams=spreadparams, dt=dt)
+function r0_table(n=6, cfstart = 0.9, tfstart = 0.3; socialparams=socialparams, infectparams=infectparams, dt=dt)
     tbl = zeros(n+1,n+1)
     cfiter = [cfstart + (i-1) * .1 for i=1:n]
     tfiter = [tfstart + (i-1) * 0.05 for i=1:n]
     for (j,cf) in enumerate(cfiter)
         for (i,tf) = enumerate(tfiter)
-            tbl[i+1,j+1] = r0_sim(spreadparams=spreadparams, dt=dt, decpoints=decpoints, shift_contact=(0.2,cf), shift_touch=(.18,tf)).r0
+            tbl[i+1,j+1] = r0_sim(socialparams=socialparams, infectparams=infectparams, dt=dt, decpoints=decpoints, shift_contact=(0.2,cf), shift_touch=(.18,tf)).r0
         end
     end
     tbl[1, 2:n+1] .= cfiter
