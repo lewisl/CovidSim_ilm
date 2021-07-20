@@ -22,6 +22,7 @@ using TypedTables
 using BenchmarkTools
 using Distributions
 using YAML
+using PrettyPrint
 
 # %%
 cd(joinpath(homedir(),"Dropbox/Covid Modeling/Covid-ILM/source"))
@@ -65,7 +66,7 @@ density_factor = geodf[geodf[!, :fips] .== locale, :density_factor][]
 socialparams = alldict["social"]  # the spread parameters are loaded as a dict of float arrays
 
 # %%
-keys(socialparams)
+fieldnames(typeof(socialparams))
 
 # %%
 typeof(socialparams.gammashape)
@@ -74,27 +75,27 @@ typeof(socialparams.gammashape)
 infectparams = alldict["infect"]
 
 # %%
-contact_factors = socialparams.contact_factors
+contactfactors = socialparams.contactfactors
 
 # %%
-typeof(contact_factors)
+typeof(contactfactors)
 
 # %%
-contact_factors[age80_up]
+contactfactors[age80_up]
 
 # %%
-touch_factors =  socialparams.touch_factors
+touchfactors =  socialparams.touchfactors
 
 # %%
-touch_factors[age40_59]
+touchfactors[age40_59]
 
 # %%
 limdict = CovidSim_ilm.limdict
-limdict(touch_factors, <)
+limdict(touchfactors, <)
 
 # %%
 # is shifter working?
-shifter(touch_factors, (.18, .3)...)[age40_59]
+shifter(touchfactors, (.18, .3)...)[age40_59]
 
 # %%
 dectree = alldict["dectree"] # the decision trees for all age groups are loaded

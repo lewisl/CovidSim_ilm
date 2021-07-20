@@ -10,11 +10,24 @@
 #      struct to hold parameters for defining the case
 #      implement the case: 
 #           - set social distance compliance for each person
-#           - define the contact_factors and touch_factors for the case
+#           - define the contactfactors and touchfactors for the case
 #######################################################################          
 # mod_90 = sd_gen(start=90,cf=(.2,1.5), tf=(.18,.6),comply=.85)
 # str_45 = sd_gen(start=45, comply=.90, cf=(.2,1.0), tf=(.18,.3))
 # str_55 = sd_gen(start=55, comply=.95, cf=(.2,1.0), tf=(.18,.3))
+
+
+Base.@kwdef struct Infectparams
+    sendrisk::Vector{Float64}
+    recvrisk::Vector{Float64}
+end
+
+
+Base.@kwdef struct Socialparams
+    gammashape::Float64
+    contactfactors::Dict{Enum, Dict{Enum, Float64}}
+    touchfactors::Dict{Enum, Dict{Enum, Float64}}
+end
 
 Base.@kwdef struct Spreadcase                 # Base.@kwdef -> use keyword arguments in constructor
     name::Symbol
@@ -55,8 +68,8 @@ end
                         cfdelta = cf,         
                         tfdelta = tf,         
                         comply  = comply,     
-                        cfcase  = shifter(socialparams.contact_factors, cf...),  
-                        tfcase  = shifter(socialparams.touch_factors, tf...)     
+                        cfcase  = shifter(socialparams.contactfactors, cf...),  
+                        tfcase  = shifter(socialparams.touchfactors, tf...)     
                         )
 
         # load the sdcomply column of the population table
@@ -99,13 +112,13 @@ end
 
 
 """
-    numcontacts(density_factor, gammashape, agegrp, cond, contact_factors)::Int
+    numcontacts(density_factor, gammashape, agegrp, cond, contactfactors)::Int
 
 Returns the number of contacts that someone spreading the disease will make on a day. This
-method uses the default contact_factors for the current spreader.
+method uses the default contactfactors for the current spreader.
 """
-@inline function numcontacts(density_factor, gammashape, agegrp, cond, contact_factors)::Int 
-    @inbounds @fastmath scale = density_factor * contact_factors[agegrp][cond]
+@inline function numcontacts(density_factor, gammashape, agegrp, cond, contactfactors)::Int 
+    @inbounds @fastmath scale = density_factor * contactfactors[agegrp][cond]
     @fastmath round(Int,rand(Gamma(gammashape, scale)))
 end
 
@@ -122,13 +135,13 @@ end
 
 
 """
-    function istouched(agegrp, lookup, touch_factors)::Bool
+    function istouched(agegrp, lookup, touchfactors)::Bool
 
 Returns true if the contact made was significant to the recipient or false if not.
-This method uses the default touch_factors for the current recipient.
+This method uses the default touchfactors for the current recipient.
 """
-@inline function istouched(agegrp, lookup, touch_factors)::Bool
-    return @inbounds @fastmath rand(Binomial(1, touch_factors[agegrp][lookup])) == 1
+@inline function istouched(agegrp, lookup, touchfactors)::Bool
+    return @inbounds @fastmath rand(Binomial(1, touchfactors[agegrp][lookup])) == 1
 end
 
 
@@ -149,22 +162,22 @@ end
 Returns true if the spreader infected the contact. 
 """
 @inline function isinfected(infectparams, spreader, contact, locdat)::Bool
-    send_risk = if isnothing(locdat.vax[spreader])
-                    infectparams.send_risk[locdat.sickday[spreader]]
+    sendrisk = if isnothing(locdat.vax[spreader])
+                    infectparams.sendrisk[locdat.sickday[spreader]]
                 else
                     vaxtype = locdat.vax[spreader][end]
-                    vaxset[vaxtype][:vaccine].send_risk[locdat.sickday[spreader]]
+                    vaxset[vaxtype][:vaccine].sendrisk[locdat.sickday[spreader]]
                 end
 
-    recv_risk = if isnothing(locdat.vax[contact])
-                    infectparams.recv_risk[Int(locdat.agegrp[contact])]
+    recvrisk = if isnothing(locdat.vax[contact])
+                    infectparams.recvrisk[Int(locdat.agegrp[contact])]
                 else
                     vaxtype = locdat.vax[contact][end]
-                    vaxset[vaxtype][:vaccine].recv_risk[Int(locdat.agegrp[contact])]
+                    vaxset[vaxtype][:vaccine].recvrisk[Int(locdat.agegrp[contact])]
                 end
 
 
-    @inbounds @fastmath prob = send_risk * recv_risk            # TODO also vaccinated people will have partially unsusceptible
+    @inbounds @fastmath prob = sendrisk * recvrisk            # TODO also vaccinated people will have partially unsusceptible
     return @fastmath rand(Binomial(1, prob)) == 1
 end
 
@@ -180,8 +193,8 @@ columns in the population table. Runs social distancing cases.
     n_newly_infected = 0
 
     # retrieve params
-    contact_factors = socialparams.contact_factors
-    touch_factors   = socialparams.touch_factors
+    contactfactors = socialparams.contactfactors
+    touchfactors   = socialparams.touchfactors
     gammashape      = socialparams.gammashape
 
     # column aliases as vector v_...
@@ -193,7 +206,7 @@ columns in the population table. Runs social distancing cases.
 
     # assign contacts, do touches, do new infections
     @inbounds for spr in infect_idx      # spr is the person who is the spreader
-        contact_param = v_sdcomply[spr] == :none ? contact_factors : sdcases[v_sdcomply[spr]]
+        contact_param = v_sdcomply[spr] == :none ? contactfactors : sdcases[v_sdcomply[spr]]
         nc = numcontacts(density_factor, gammashape, v_agegrp[spr], v_cond[spr], contact_param)  
         
         # TODO we could keep track of contacts for contact tracing
@@ -202,7 +215,7 @@ columns in the population table. Runs social distancing cases.
             contactlookup = v_status[contact] == infectious ?  v_cond[contact] : v_status[contact]  # unexposed or recovered
                             
             if v_status[contact] == unexposed  # only condition that can get infected   TODO: handle reinfection of recovered
-                touch_param = v_sdcomply[contact] == :none ? touch_factors : sdcases[v_sdcomply[contact]]
+                touch_param = v_sdcomply[contact] == :none ? touchfactors : sdcases[v_sdcomply[contact]]
                 touched = istouched(v_agegrp[contact], contactlookup, touch_param)  
 
                 # infection outcome

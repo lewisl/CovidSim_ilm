@@ -40,7 +40,7 @@ alldict = setup(150, [locale])
 
     Dict{String, Any} with 4 entries:
       "geo"     => [1m15×10 DataFrame[0m…
-      "sp"      => (contact_factors = Dict(5=>Dict("sick"=>0.6, "nil"=>1.0, "severe…
+      "sp"      => (contactfactors = Dict(5=>Dict("sick"=>0.6, "nil"=>1.0, "severe…
       "dat"     => Dict{String, Dict{Int64, V} where V}("agegrp_idx"=>Dict(38015=>D…
       "dt_dict" => Dict{String, Dict{Int64, V} where V}("sickdays"=>Dict(5=>[5, 9, …
 
@@ -195,13 +195,13 @@ keys(infectparams)
 
 
 
-    (:contact_factors, :touch_factors, :shape, :riskmx)
+    (:contactfactors, :touchfactors, :shape, :riskmx)
 
 
 
 
 ```julia
-contact_factors = infectparams.contact_factors
+contactfactors = infectparams.contactfactors
 ```
 
 
@@ -218,7 +218,7 @@ contact_factors = infectparams.contact_factors
 
 
 ```julia
-contact_factors[5]
+contactfactors[5]
 ```
 
 
@@ -234,7 +234,7 @@ contact_factors[5]
 
 
 ```julia
-touch_factors =  infectparams.touch_factors
+touchfactors =  infectparams.touchfactors
 ```
 
 
@@ -251,7 +251,7 @@ touch_factors =  infectparams.touch_factors
 
 
 ```julia
-touch_factors[1]
+touchfactors[1]
 ```
 
 
@@ -407,7 +407,7 @@ result_dict
 
     Dict{String, Any} with 4 entries:
       "geo"     => [1m15×10 DataFrame[0m…
-      "sp"      => (contact_factors = Dict(5=>Dict("sick"=>0.6, "nil"=>1.0, "severe…
+      "sp"      => (contactfactors = Dict(5=>Dict("sick"=>0.6, "nil"=>1.0, "severe…
       "dat"     => Dict{String, Dict{Int64, V} where V}("agegrp_idx"=>Dict(38015=>D…
       "dt_dict" => Dict{String, Dict{Int64, V} where V}("sickdays"=>Dict(5=>[5, 9, …
 

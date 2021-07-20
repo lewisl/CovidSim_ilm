@@ -45,15 +45,15 @@ The basic processes of the simulation are:
 Basic tracking includes cumulative data series for each group, new daily values for each group, and detailed daily progression of spreading.  Charts are defined for cumulative data, daily data, and spreading progression.
 
 There are many input parameters that control the behavior of the simulation. Key parameters that affect spreading are:
-- contact_factors 
+- contactfactors 
 
     Determine the number of people that infectious "spreaders" contact, on average, per day. These vary by age group and disease condition of the spreader.
 
-- touch_factors 
+- touchfactors 
 
     Determine the probability that a contact is consequential--significant enough to *potentially* transmit the virus 
 
-- send_risk and recv_risk 
+- sendrisk and recvrisk 
 
     Determine the probability of actually transmitting the virus from sender, which varies by number of days the person has had the disease, and the probability of infecting the recipient, which varies by age group.
 

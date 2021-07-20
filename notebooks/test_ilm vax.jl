@@ -42,19 +42,19 @@ alldict = setup(ndays, [locale])
 alldict["dat"]
 
 # %%
-ilmat = alldict["dat"]["popdat"][locale]
+locdat = alldict["dat"]["popdat"][locale]
 
 # %%
 ages = alldict["dat"]["agegrp_idx"][locale]
 
 # %%
-columnnames(ilmat)
+columnnames(locdat)
 
 # %%
-countmap(ilmat.agegrp)
+countmap(locdat.agegrp)
 
 # %%
-countmap(ilmat.status)  # everyone begins as unexposed
+countmap(locdat.status)  # everyone begins as unexposed
 
 # %% tags=[]
 geodf = alldict["geo"]   # the date for all locales has been read into a dataframe
@@ -63,36 +63,39 @@ geodf = alldict["geo"]   # the date for all locales has been read into a datafra
 density_factor = geodf[geodf[!, :fips] .== locale, :density_factor][]
 
 # %%
-spreadparams = alldict["sp"]  # the spread parameters are loaded as a dict of float arrays
+infectparams = alldict["infect"]  # the spread parameters are loaded as a dict of float arrays
 
 # %%
-keys(spreadparams)
-
-# %% tags=[]
-typeof(spreadparams.shape)
+typeof(infectparams)
 
 # %%
-contact_factors = spreadparams.contact_factors
+socialparams = alldict["social"]
 
 # %%
-typeof(contact_factors)
+fieldnames(typeof(socialparams))
 
 # %%
-contact_factors[age80_up]
+contactfactors = socialparams.contactfactors
 
 # %%
-touch_factors =  spreadparams.touch_factors
+typeof(contactfactors)
 
 # %%
-touch_factors[age40_59]
+contactfactors[age80_up]
+
+# %%
+touchfactors =  socialparams.touchfactors
+
+# %%
+touchfactors[age40_59]
 
 # %%
 limdict = CovidSim_ilm.limdict
-limdict(touch_factors, <)
+limdict(touchfactors, <)  # recursive minimum
 
 # %%
 # is shifter working?
-shifter(touch_factors, (.18, .3)...)[age40_59]
+shifter(touchfactors, (.18, .3)...)[age40_59]
 
 # %%
 dectree = alldict["dectree"] # the decision trees for all age groups are loaded
@@ -106,7 +109,7 @@ display_tree(dectree)
 # %% [markdown]
 # Dict{Int64, OrderedCollections.OrderedDict{Int, Dict{String, Vector{T} where T}
 
-# %% jupyter={"source_hidden": true} tags=[]
+# %% tags=[]
 dectree[age80_up]
 
 # %%
@@ -124,13 +127,14 @@ end
 # # Load vaccine parameters
 
 # %%
+# mapping for all vaccines to parameters for each vaccine
 vaccines = YAML.load_file("../parameters/vaccines.yml"; dicttype=Dict{Symbol,Any})
 
 # %%
-vaccines[:Pfizer]
+vaxkeys = keys(vaccines)
 
 # %%
-vaxkeys = keys(vaccines)
+vaccines[:Pfizer]
 
 # %% [markdown]
 # ### Transition Parameters
@@ -149,47 +153,36 @@ transitionset
 # ### Spread Parameters and other vaccine parameters
 
 # %%
-pfizer_spread = YAML.load_file("../parameters/pfizer/pfizer_spread.yml"; dicttype=Dict{Symbol,Any})
-    
-
-# %%
 spreadset = Dict()
 for vax in vaxkeys
-    vaxset[vax] = YAML.load_file(joinpath("../parameters",vaccines[vax][:directory_name],
+    spreadset[vax] = YAML.load_file(joinpath("../parameters",vaccines[vax][:directory_name],
         vaccines[vax][:spread_fname]), dicttype=Dict{Symbol, Any})
 end
-# vaxset[:default] = YAML.load_file(joinpath("../parameters",vaccines[vax][:directory_name],
-#         vaccines[vax][:spread_fname]), dicttype=Dict{Symbol, Any})
+spreadset[:default] = YAML.load_file(joinpath("../parameters", "infectparams.yml"))
 
 # %%
 spreadset
 
-# %% jupyter={"outputs_hidden": true} tags=[]
-pprint(vaxset[:JnJ])
+# %%
+spreadset[:Pfizer]
 
 # %% [markdown]
 # ### Vaccination Schedule
 
 # %%
-pfsched = Vaxsched(name=:pfsched1, dayrange=60:150, targetpct=0.75)
+pfsched1 = Vaxsched(vaccine=:Pfizer, dayrange=60:150, targetpct=0.75)
 
 # %% [markdown] tags=[]
 # # Define a vaccine and give some shots
 
 # %%
-includet("vax.jl")
+getashot!(locdat, collect(10:20), 90, pfsched1)
 
 # %%
-pf = Pfizer(shots=2, halflife=270, send_risk=Float64[], recv_risk=Float64[])
+locdat.vax[10:20]
 
 # %%
-getashot!(ilmat, collect(10:20), 90, pf)
-
-# %%
-ilmat.vax[10:20]
-
-# %%
-ilmat.vaxday[10:20]
+locdat.vaxday[10:20]
 
 # %% [markdown]
 # # Create a seed case
@@ -321,7 +314,7 @@ mixdat = result_dict["dat"]["popdat"][locale]
 cumplot(series, locale, [:infectious, :dead])
 
 # %%
-@Select(status, agegrp, cond, sdcomply)(ilmat)
+@Select(status, agegrp, cond, sdcomply)(locdat)
 
 # %% [markdown]
 # alldict
@@ -339,10 +332,10 @@ include_ages = [age0_19, age20_39]
 union((ages[i] for i in include_ages)...)
 
 # %%
-ilmat.sdcomply[collect(1:5:95000)] .= :test
+locdat.sdcomply[collect(1:5:95000)] .= :test
 
 # %%
-incase_idx = findall(ilmat.sdcomply .== :test)
+incase_idx = findall(locdat.sdcomply .== :test)
 
 # %%
 byage_idx = intersect(incase_idx, union((ages[i] for i in include_ages)...))

@@ -4,7 +4,7 @@
 ####################################################################################
 
 
-function run_a_sim(n_days, locales; runcases=[], showr0 = true, silent=true, 
+function run_a_sim(n_days, locales; runcases=[], showr0 = true, silent=true, dovax=false,
             geofilename="../data/geo2data.csv", 
             dectreefilename="../parameters/transition.yml",
             infectfilename="../parameters/infectparams.yml",

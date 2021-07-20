@@ -134,7 +134,7 @@ function build_infectparams(infectfilename)
 
     infect_inputs = YAML.load_file(infectfilename)
 
-    required_params = ["send_risk", "recv_risk"]
+    required_params = ["sendrisk", "recvrisk"]
     has_all = true
     lacking = []
     for p in required_params
@@ -145,13 +145,10 @@ function build_infectparams(infectfilename)
     end
     @assert has_all "required keys: $lacking not in $(infectfilename)"
 
-    # named tuple doesn't result in type instability of Dict that requires "function barrier" to fix
-    infectparams = (
-        send_risk          = infect_inputs["send_risk"]::Vector{Float64},
-        recv_risk          = infect_inputs["recv_risk"]::Vector{Float64}
-        )
+    Infectparams(sendrisk = infect_inputs["sendrisk"]::Vector{Float64},
+                 recvrisk = infect_inputs["recvrisk"]::Vector{Float64}
+                 )
     
-    return infectparams
 end
 
 
@@ -159,7 +156,7 @@ function build_socialparams(socialfilename)
 
     social_inputs = YAML.load_file(socialfilename)
 
-    required_params = ["contact_factors", "touch_factors", "gammashape"]
+    required_params = ["contactfactors", "touchfactors", "gammashape"]
     has_all = true
     lacking = []
     for p in required_params
@@ -170,16 +167,14 @@ function build_socialparams(socialfilename)
     end
     @assert has_all "required keys: $lacking not in $(infectfilename)"
 
-    # named tuple doesn't result in type instability of Dict that requires "function barrier" to fix
-    socialparams = (
+    Socialparams(
         gammashape         = social_inputs["gammashape"],
-        contact_factors    = Dict(symtoage[Symbol(k1)] => 
-                                Dict(symtocond[Symbol(k2)] => Float64(v2) for (k2, v2) in v1)  for (k1, v1) in social_inputs["contact_factors"]),
-        touch_factors      = Dict(symtoage[Symbol(k1)] => 
-                                Dict(symtoallconds[Symbol(k2)] => Float64(v2) for (k2, v2) in v1)  for (k1, v1) in social_inputs["touch_factors"])
+        contactfactors    = Dict(symtoage[Symbol(k1)] => 
+                                Dict(symtocond[Symbol(k2)] => Float64(v2) for (k2, v2) in v1)  for (k1, v1) in social_inputs["contactfactors"]),
+        touchfactors      = Dict(symtoage[Symbol(k1)] => 
+                                Dict(symtoallconds[Symbol(k2)] => Float64(v2) for (k2, v2) in v1)  for (k1, v1) in social_inputs["touchfactors"])
         )
     
-    return socialparams
 end
 
 

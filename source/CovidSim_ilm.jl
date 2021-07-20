@@ -88,6 +88,12 @@ export
     istouched,
     isinfected
 
+# functions for vaccines
+export
+    Vaxsched,
+    makevaxfn,
+    getashot!
+
 # functions for transition
 export
     transition!,
@@ -192,7 +198,7 @@ export
     age80_up, 
     agegrps,
     n_agegrps,
-    recv_risk,
+    recvrisk,
     totalcol,
     symtocond,
     symtostat,

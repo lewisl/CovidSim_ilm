@@ -40,7 +40,7 @@ socialparams = CovidSim.read_socialparams(socialfilename)
 contact_factors = socialparams[:contact_factors]
 touch_factors = socialparams[:touch_factors]
 send_risk = infectparams[:send_risk]
-recv_risk = infectparams[:recv_risk]
+recvrisk = infectparams[:recv_risk]
 riskmx = CovidSim.send_risk_by_recv_risk(send_risk, recv_risk) # (sickdays, agegrp);
 
 # %%

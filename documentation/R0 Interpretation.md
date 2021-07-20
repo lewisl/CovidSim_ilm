@@ -2,18 +2,18 @@
 
 R0 in the model is *not* a direct input as it is in some differential equation models. Instead, it is the result of the ```spread!``` function, which models interaction of people by group (agegroup, disease condition) and the probability of virus transmission.  So, it falls out from the simulated interactions, much as R0 in the real world can't be observed directly, but is the result of the transmissibility of the virus and the social patterns of people's interactions.
 
-In the function ```how_many_contacts!```, the contact_factors determine how many people are contacted by infected people we refer to as "spreaders." In the function ```how_many_touched!``` touch_factors determine whether a contact is "consequential” and also distributes the contacts across the composition of the population.  Those who might be touched include not only the susceptible, but also people who have recovered and other infected people. They are "out there," too. This reduces the transmission of the virus because the spreader has a lower probability of contacting someone who is susceptible. This is the social dynamic of R0: as the body of people who acquire immunity by recovery or by vaccination (currently not modeled) grows larger, the effective R0 goes down because fewer people get the disease.
+In the function ```how_many_contacts!```, the contactfactors determine how many people are contacted by infected people we refer to as "spreaders." In the function ```how_many_touched!``` touchfactors determine whether a contact is "consequential” and also distributes the contacts across the composition of the population.  Those who might be touched include not only the susceptible, but also people who have recovered and other infected people. They are "out there," too. This reduces the transmission of the virus because the spreader has a lower probability of contacting someone who is susceptible. This is the social dynamic of R0: as the body of people who acquire immunity by recovery or by vaccination (currently not modeled) grows larger, the effective R0 goes down because fewer people get the disease.
 
 The combination of spreaders making contacts and recipients receptive to a touch is based on pseudo-random sampling from 2 distributions:
 
-- The contact_factors input provides the scale input to a gamma distribution sample which produces a distribution of number of contacts. A larger contact factor results in wider dispersion of the sample output--e.g., a longer tail to the right while the mode is close to the left--typically between 0 and 2.
+- The contactfactors input provides the scale input to a gamma distribution sample which produces a distribution of number of contacts. A larger contact factor results in wider dispersion of the sample output--e.g., a longer tail to the right while the mode is close to the left--typically between 0 and 2.
 
-- The touch_factors input provides the "probability of success" input to a pseudo-random sample from the binomial distribution that determines the success of the touch.
+- The touchfactors input provides the "probability of success" input to a pseudo-random sample from the binomial distribution that determines the success of the touch.
 
 The biological transmissibility of the disease, whether by respiratory droplets or aerosols or acquisition from physical surfaces, is still not fully understood. The model multiplies 2 probabilities: 
 
-- the ```send_risk``` is based on the number of days the spreader has had the disease including days when the infected person is asymptomatic (“nil”) 
-- the ```recv_risk``` is based on the age group of the recipient
+- the ```sendrisk``` is based on the number of days the spreader has had the disease including days when the infected person is asymptomatic (“nil”) 
+- the ```recvrisk``` is based on the age group of the recipient
 
 The inputs above are judgment inputs that are "sanity checked" to produce R0 values in the ranges that epidemiologists have calcuated (or assumed?) based on observations of the early stages of the spread of the Coronavirus in several countries. The tendency is that younger people, who believe that they are not infected, even though in the simulation--and in reality--they may be infectious asymptomatic or with very mild symptoms, will make more contacts. Younger recipients without observable symptoms will, likewise, be more accessible.  Older people and people in the disease categories of sick and severe will make and accept a lower rate of contact.
 

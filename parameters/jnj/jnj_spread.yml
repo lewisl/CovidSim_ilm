@@ -1,18 +1,18 @@
 ---
 name:       JnJ  # will convert to symbol at load time
 
-# send_risk must be as long as the number of sickdays--default 25
+# sendrisk must be as long as the number of sickdays--default 25
 # there is more research on vaccinated people getting sick--receiving
 # there is less research on how vaccinated people who might be sick
 #    transmit the disease to others--sending
 # as sick vaccinated person gets better that person is less likely to transmit 
-send_risk:  [0.00, 0.10, 0.20, 0.15, 0.15, 0.10, 0.05, 0.05, 0.05, 0.05, 
+sendrisk:  [0.00, 0.10, 0.20, 0.15, 0.15, 0.10, 0.05, 0.05, 0.05, 0.05, 
              0.05, 0.02, 0.01, 0.01, 0.01, 0.01, 0.01, 0.00, 0.00, 0.00, 
              0.00, 0.00, 0.00, 0.00, 0.00]
 
-# recv_risk must have 5 entries between 0.0 and 1.0 for each agegrp
-# recv_risk: [0.025, 0.1, 0.11, 0.13, 0.14]
-recv_risk: [0.0015, 0.006, 0.0066, 0.0078, 0.0084]
+# recvrisk must have 5 entries between 0.0 and 1.0 for each agegrp
+# recvrisk: [0.025, 0.1, 0.11, 0.13, 0.14]
+recvrisk: [0.0015, 0.006, 0.0066, 0.0078, 0.0084]
 # pattern defines 11 point on a piecewise linear "curve" of the pace of vaccination as the
      # percentage of a given population that receives vaccination-> must sum to 1.0
 pattern:          [0.0, .02, .05, .10, .15, .19, .21, .16, .08, .03, .01]

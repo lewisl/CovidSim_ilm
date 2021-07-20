@@ -199,7 +199,7 @@ function test_and_trace(start_date, end_date;
             
 
             # trace contacts  TODO THIS WILL NO LONGER WORK
-            target_cf = repeat(view(infectparams.contact_factors,1,:)',4,1) # use unexposed for all rows
+            target_cf = repeat(view(infectparams.contactfactors,1,:)',4,1) # use unexposed for all rows
             poscontacts[gen][:] = how_many_contacts!(poscontacts[gen], 
                                     postests[gen],  # equivalent to spreaders in spread
                                     avail_to_test,
@@ -208,7 +208,7 @@ function test_and_trace(start_date, end_date;
 			poscontacts[gen][:] = round.(Int, c_comply .* poscontacts[gen])
 
             # contacts lead to consquential touches that we count
-            target_tf = view(infectparams.touch_factors,map2access[unexposed]:map2access[mild], agegrps)
+            target_tf = view(infectparams.touchfactors,map2access[unexposed]:map2access[mild], agegrps)
             postouched[gen][:] = how_many_touched!(postouched[gen], poscontacts[gen], 
                                         avail_to_test, test_conds, 
                                         target_tf, infectparams=infectparams)
