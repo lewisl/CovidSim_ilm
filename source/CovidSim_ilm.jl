@@ -82,6 +82,7 @@ export
 
 # functions for spreading
 export
+    Infectparams,
     spread!,
     seed!,
     numcontacts,
@@ -90,6 +91,7 @@ export
 
 # functions for vaccines
 export
+    Vaccineparams,
     Vaxsched,
     makevaxfn,
     getashot!

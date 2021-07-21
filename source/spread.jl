@@ -29,6 +29,7 @@ Base.@kwdef struct Socialparams
     touchfactors::Dict{Enum, Dict{Enum, Float64}}
 end
 
+
 Base.@kwdef struct Spreadcase                 # Base.@kwdef -> use keyword arguments in constructor
     name::Symbol
     day::Int

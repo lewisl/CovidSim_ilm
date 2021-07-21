@@ -21,6 +21,8 @@ pattern:          [0.0, .02, .05, .10, .15, .19, .21, .16, .08, .03, .01]
 halflife:       360
 shots:            2
 # we need data for each known variant
-recv_reduction_alpha:   0.94
-recv_reduction_delta:   0.84
+recvrisk_reduction:   
+  alpha: 0.88 
+  delta: 0.66
+
 

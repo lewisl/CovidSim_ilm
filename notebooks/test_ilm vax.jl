@@ -23,6 +23,7 @@ using BenchmarkTools
 using Distributions
 using YAML
 using PrettyPrint
+using Plots
 
 # %%
 cd(joinpath(homedir(),"Dropbox/Covid Modeling/Covid-ILM/source"))
@@ -103,7 +104,7 @@ dectree = alldict["dectree"] # the decision trees for all age groups are loaded
 # %%
 typeof(dectree)
 
-# %% tags=[] jupyter={"outputs_hidden": true}
+# %% tags=[]
 display_tree(dectree)
 
 # %% [markdown]
@@ -150,39 +151,78 @@ transitionset[:default] = setup_dt(dectreefilename)
 transitionset
 
 # %% [markdown]
-# ### Spread Parameters and other vaccine parameters
+# ### Other vaccine parameters
 
 # %%
-spreadset = Dict()
-for vax in vaxkeys
-    spreadset[vax] = YAML.load_file(joinpath("../parameters",vaccines[vax][:directory_name],
+vax = :Moderna
+v = YAML.load_file(joinpath("../parameters",vaccines[vax][:directory_name],
         vaccines[vax][:spread_fname]), dicttype=Dict{Symbol, Any})
+
+# %%
+spreadset = Dict{Symbol, Union{Infectparams, Vaccineparams}}()
+for vax in vaxkeys
+    v = YAML.load_file(joinpath("../parameters",vaccines[vax][:directory_name],
+        vaccines[vax][:spread_fname]), dicttype=Dict{Symbol, Any})
+    v = Vaccineparams(v)
+    spreadset[vax] = v
 end
-spreadset[:default] = YAML.load_file(joinpath("../parameters", "infectparams.yml"))
+spreadset[:default] = Infectparams(; 
+    YAML.load_file(joinpath("../parameters","infectparams.yml"), dicttype=Dict{Symbol, Any})...)
 
 # %%
 spreadset
 
 # %%
-spreadset[:Pfizer]
+spreadset[:Moderna].recvrisk_reduction
+
+# %%
+spreadset[:default]
 
 # %% [markdown]
 # ### Vaccination Schedule
 
 # %%
-pfsched1 = Vaxsched(vaccine=:Pfizer, dayrange=60:150, targetpct=0.75)
+dayrange=60:151
+targetpct = 0.75
+vaxschedset = Dict{Symbol, Vaxsched}()
+for vax in keys(vaccines)
+    vaxschedset[vax] = Vaxsched(
+        vaccine   = vax,
+        dayrange  = dayrange,
+        targetpct = targetpct,
+        pctperdayfn = makevaxfn(dayrange, spreadset[vax].pattern, targetpct)
+        ) 
+end
+
+
+# %%
+println(typeof(vaxschedset))
+vaxschedset
+
+# %%
+vaxschedset[:Pfizer]
+
+# %%
+vaxschedset[:Pfizer].pctperdayfn(dayrange.stop)
+
+# %%
+sum([vaxschedset[:Pfizer].pctperdayfn(i) for i in dayrange])
+
+# %%
+plot(dayrange,[vaxschedset[:Pfizer].pctperdayfn(i) for i in dayrange],size=(600,300))
 
 # %% [markdown] tags=[]
 # # Define a vaccine and give some shots
 
 # %%
-getashot!(locdat, collect(10:20), 90, pfsched1)
+peeps = 30:40
+getashot!(locdat, peeps, 90, :Moderna, vaxkeys)
 
 # %%
-locdat.vax[10:20]
+locdat.vax[peeps]
 
 # %%
-locdat.vaxday[10:20]
+locdat.vaxday[peeps]
 
 # %% [markdown]
 # # Create a seed case
@@ -339,5 +379,77 @@ incase_idx = findall(locdat.sdcomply .== :test)
 
 # %%
 byage_idx = intersect(incase_idx, union((ages[i] for i in include_ages)...))
+
+# %%
+parms = Dict(:one=>1, :two=>2, :v=>[1.2, 2.3])
+
+# %%
+Base.@kwdef struct Parms
+    one::Int
+    two::Int
+    v::Vector{Float64}
+end
+
+# %%
+p1 = Parms(one=1, two=2, v=[1.0, 2.0])
+
+# %%
+p1.v
+
+# %%
+p2=Parms(;parms...)
+
+# %%
+p2.v
+
+# %%
+arr = [:alpha, :beta, :gamma, :delta, nothing]
+
+# %%
+@btime findfirst(isequal(:beta), arr)
+
+# %%
+@btime findfirst(arr .== :beta)
+
+# %%
+@btime findfirst(x->x==:beta, arr)
+
+# %%
+@btime indexin([:beta], arr)[]
+
+# %%
+function findit(item, arr)
+    i = 0
+    found = false
+    for it in arr
+        i+=1
+        if item == it
+            found = true
+            break
+        end
+    end
+    return i
+end
+
+# %%
+@btime begin; i = findit(:delta, arr); arr[i]; end
+
+# %%
+m = Dict("alpha"=>0.98, "beta"=>0.94, "gamma"=>0.9, "delta"=>0.84)
+
+# %%
+m = Dict(zip(Symbol.(keys(m)), values(m)))
+
+# %%
+@btime m[:beta]
+
+# %%
+nt = (alpha=1, beta=2, gamma=3, delta=4)
+
+# %%
+@btime nt.beta
+
+# %%
+@btime getindex(nt, :gamma)
 
 # %%

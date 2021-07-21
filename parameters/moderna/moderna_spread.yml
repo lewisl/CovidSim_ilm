@@ -13,16 +13,21 @@ sendrisk:  [0.00, 0.10, 0.20, 0.15, 0.15, 0.10, 0.05, 0.05, 0.05, 0.05,
 # recvrisk must have 5 entries between 0.0 and 1.0 for each agegrp
 # recvrisk: [0.025, 0.1, 0.11, 0.13, 0.14]
 recvrisk: [0.0015, 0.006, 0.0066, 0.0078, 0.0084]
+
 # shape parameter of gamma distribution used to calculate contacts
 gammashape: 1.0
+
 # pattern defines 11 point on a piecewise linear "curve" of the pace of vaccination as the
-     # percentage of a given population that receives vaccination-> must sum to 1.0
-pattern:          [0.0, .02, .05, .10, .15, .19, .21, .16, .08, .03, .01]
+# percentage of a given population that receives vaccination-> must sum to 1.0
+pattern:    [0.0, .02, .05, .10, .15, .19, .21, .16, .08, .03, .01]
 
 #
-halflife:       360
-shots:            2
+halflife:    360
+shots:         2
+
 # we need data for each known variant
-recv_reduction_alpha:   0.94
-recv_reduction_delta:   0.84
+recvrisk_reduction:   
+  alpha: 0.94
+  delta: 0.84
+
 
