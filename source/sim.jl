@@ -13,18 +13,18 @@ function run_a_sim(n_days, locales; runcases=[], showr0 = true, silent=true, dov
     empty_all_caches!() # from previous runs
 
     # access input data and pre-allocate storage
-    alldict = setup(n_days, locales; geofilename=geofilename, 
+    alldat = setup(n_days, locales; geofilename=geofilename, 
                     dectreefilename=dectreefilename, infectfilename=infectfilename,
                     socialfilename=socialfilename)
 
-                    dectree = alldict["dectree"]  # decision trees for transition
-                    popdat = alldict["dat"]["popdat"]   # first key locale
-                    agegrp_idx = alldict["dat"]["agegrp_idx"]   # first key locale
-                    cumhistmx = alldict["dat"]["cumhistmx"]   # first key locale
-                    newhistmx = alldict["dat"]["newhistmx"]   # first key locale
-                    geodf = alldict["geo"]
-                    infectparams = alldict["infect"]
-                    socialparams = alldict["social"]
+                    dectree = alldat.dectree  # decision trees for transition
+                    popdat = alldat.dat["popdat"]   # first key locale
+                    agegrp_idx = alldat.dat["agegrp_idx"]   # first key locale
+                    cumhistmx = alldat.dat["cumhistmx"]   # first key locale
+                    newhistmx = alldat.dat["newhistmx"]   # first key locale
+                    geodf = alldat.geo
+                    infectparams = alldat.infect
+                    socialparams = alldat.social
 
     # start the day counter at zero
     reset!(day_ctr, :day)  # return and reset key to 0 :day leftover from prior runs
@@ -97,7 +97,7 @@ function run_a_sim(n_days, locales; runcases=[], showr0 = true, silent=true, dov
 
     @show idxtime, sprtime, trtime, histtime
 
-    return alldict, series
+    return alldat, series
 end
 
 

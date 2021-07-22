@@ -27,7 +27,7 @@ geo[:,1:7]
 seed_1_6 = seed_case_gen(1, [0,3,3,0,0], 1, nil, agegrps)
 
 # %%
-alldict, series = run_a_sim(180,newyork.fips, showr0=false, silent=true,
+alldat, series = run_a_sim(180,newyork.fips, showr0=false, silent=true,
        dtfilename="../parameters/dec_tree_all_25.csv",
        runcases=[seed_1_6]);
 
@@ -44,7 +44,7 @@ infection_outcome(series, newyork.fips)
 # Reset the model to defaults.
 
 # %%
-alldict, series = run_a_sim(180,newyork.fips, showr0=false, silent=true,
+alldat, series = run_a_sim(180,newyork.fips, showr0=false, silent=true,
        dtfilename="../parameters/dec_tree_all_25.csv",
        runcases=[seed_1_6]);
 
@@ -52,7 +52,7 @@ alldict, series = run_a_sim(180,newyork.fips, showr0=false, silent=true,
 str_50 = sd_gen(start=50, comply=.9, cf=(.5,1.2), tf=(.18,.42))
 
 # %%
-alldict, series = run_a_sim(180,newyork.fips, showr0=false, silent=true,
+alldat, series = run_a_sim(180,newyork.fips, showr0=false, silent=true,
        dtfilename="../parameters/dec_tree_all_25.csv",
        spreadcases=[str_50],
        runcases=[seed_1_6]);
@@ -69,7 +69,7 @@ infection_outcome(series, newyork.fips)
 
 # %%
 # Reset to defaults
-alldict, series = run_a_sim(180,newyork.fips, showr0=false, silent=true,
+alldat, series = run_a_sim(180,newyork.fips, showr0=false, silent=true,
        dtfilename="../parameters/dec_tree_all_25.csv",
        spreadcases=[],
        runcases=[seed_1_6]);
@@ -78,7 +78,7 @@ alldict, series = run_a_sim(180,newyork.fips, showr0=false, silent=true,
 open = sd_gen(start=95, comply=0.0, cf=(.3,1.8), tf=(.18,.62))
 
 # %%
-alldict, series = run_a_sim(180,newyork.fips, showr0=false, silent=true,
+alldat, series = run_a_sim(180,newyork.fips, showr0=false, silent=true,
        dtfilename="../parameters/dec_tree_all_25.csv",
        spreadcases=[str_50, open],
        runcases=[seed_1_6]);
@@ -87,7 +87,7 @@ alldict, series = run_a_sim(180,newyork.fips, showr0=false, silent=true,
 nycopen=cumplot(series,newyork.fips,[infectious, dead],geo=geo)
 
 # %%
-r0_sim(;sa_pct=[1.0,0.0,0.0], density_factor=1.25, dt=alldict["dt"], cf=[], tf=[],
+r0_sim(;sa_pct=[1.0,0.0,0.0], density_factor=1.25, dt=alldat.dectree, cf=[], tf=[],
                 compliance=[1.0], shift_contact=(.6,1.8), shift_touch=(.18,.62), disp=false, spreadparams=spreadparams)
 
 # %% [markdown]
@@ -98,7 +98,7 @@ r0_sim(;sa_pct=[1.0,0.0,0.0], density_factor=1.25, dt=alldict["dt"], cf=[], tf=[
 
 # %%
 # reset the model to defaults
-alldict, series = run_a_sim(180,newyork.fips, showr0=false, silent=true,
+alldat, series = run_a_sim(180,newyork.fips, showr0=false, silent=true,
        dtfilename="../parameters/dec_tree_all_25.csv",
        spreadcases=[],
        runcases=[seed_1_6]);
@@ -107,7 +107,7 @@ alldict, series = run_a_sim(180,newyork.fips, showr0=false, silent=true,
 open = sd_gen(start=95, comply=0.7, cf=(.5,1.5), tf=(.25,.50))
 
 # %%
-alldict, series = run_a_sim(180, newyork.fips, showr0=true, silent=true,
+alldat, series = run_a_sim(180, newyork.fips, showr0=true, silent=true,
        dtfilename="../parameters/dec_tree_all_25.csv",
        spreadcases=[str_50, open],
        runcases=[seed_1_6]);
@@ -126,7 +126,7 @@ nycopen2=cumplot(series,newyork.fips,geo=geo)
 open_more = sd_gen(start=95, cf=(.5,1.55), tf=(.25,.55),comply=.6)
 
 # %%
-r0_sim(;sa_pct=[1.0,0.0,0.0], density_factor=1.25, dt=alldict["dt"], cf=[], tf=[],
+r0_sim(;sa_pct=[1.0,0.0,0.0], density_factor=1.25, dt=alldat.dectree, cf=[], tf=[],
                 compliance=[.65], shift_contact=(.5,1.55), shift_touch=(.25,.52), disp=false, spreadparams=spreadparams)
 
 # %%
@@ -139,12 +139,12 @@ end
 
 # %%
 # reset the model to defaults
-alldict, series = run_a_sim(180,newyork.fips, showr0=false, silent=true,
+alldat, series = run_a_sim(180,newyork.fips, showr0=false, silent=true,
        dtfilename="../parameters/dec_tree_all_25.csv",
        runcases=[]);
 
 # %%
-alldict, series = run_a_sim(180, newyork.fips, showr0=true, silent=true,
+alldat, series = run_a_sim(180, newyork.fips, showr0=true, silent=true,
        dtfilename="../parameters/dec_tree_all_25.csv",
        spreadcases=[str_50, open],
        runcases=[seed_1_6, isolate_vulnerable]);

@@ -30,11 +30,11 @@ seed_1_6 = seed_case_gen(1, [0,3,3,0,0], 1, nil, agegrps)
 seattle = 53033
 
 # %%
-alldict, series = run_a_sim(180, seattle, showr0=false, silent=true,
+alldat, series = run_a_sim(180, seattle, showr0=false, silent=true,
         runcases=[seed_1_6]);
 
 # %%
-cumplot(series,seattle,geo=alldict["geo"])
+cumplot(series,seattle,geo=alldat.geo)
 
 # %%
 sea_outcome = virus_outcome(series,seattle, base=:pop)
@@ -173,21 +173,21 @@ str_65 = sd_gen(start=65, comply=.8, cf=(.2,1.25), tf=(.18,.41))
 open_more = sd_gen(start=105, cf=(.5,1.50), tf=(.18,.53),comply=1.0)
 
 # %%
-alldict, series = run_a_sim(180, seattle, showr0=false, silent=true,
+alldat, series = run_a_sim(180, seattle, showr0=false, silent=true,
         runcases=[seed_1_6]);
 
 # %%
-cumplot(series,seattle,geo=alldict["geo"], [infectious, dead])
+cumplot(series,seattle,geo=alldat.geo, [infectious, dead])
 
 # %% [markdown]
 # ## Strong Social Distancing followed by Opening Up
 
 # %%
-alldict, series = run_a_sim(180, seattle, showr0=false, silent=true,
+alldat, series = run_a_sim(180, seattle, showr0=false, silent=true,
         runcases=[seed_1_6]);
 
 # %%
-cumplot(series,seattle, geo=alldict["geo"], [infectious, dead])
+cumplot(series,seattle, geo=alldat.geo, [infectious, dead])
 
 # %%
 newplot(series,seattle, dead)
@@ -227,11 +227,11 @@ function isolate_vulnerable(locale, opendat, isodat,testdat, spreadparams)
 end
 
 # %%
-alldict, series = run_a_sim(180, seattle, showr0=false, silent=true,
+alldat, series = run_a_sim(180, seattle, showr0=false, silent=true,
         runcases=[seed_1_6, isolate_vulnerable]);
 
 # %%
-cumplot(series,seattle,geo=alldict["geo"], [infectious, dead])
+cumplot(series,seattle,geo=alldat.geo, [infectious, dead])
 
 # %%
 newplot(series,seattle, dead)
@@ -272,9 +272,9 @@ areaplot(1:n, deadseries[:,1:5],labels=ageserieslabels, title="Deaths by Age Gro
 # ### Check the Basic Identities
 
 # %%
-cumhistmx = alldict["dat"]["cumhistmx"]
-newhistmx = alldict["dat"]["newhistmx"]
-openmx = alldict["dat"]["openmx"];
+cumhistmx = alldat.dat["cumhistmx"]
+newhistmx = alldat.dat["newhistmx"]
+openmx = alldat.dat["openmx"];
 
 # %%
 locale = seattle

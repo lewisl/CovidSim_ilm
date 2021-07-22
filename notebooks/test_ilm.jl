@@ -36,16 +36,16 @@ locale = 38015
 ndays = 180
 
 # %% tags=[]
-alldict = setup(ndays, [locale])
+alldat = setup(ndays, [locale])
 
 # %%
-alldict["dat"]
+alldat.dat
 
 # %%
-locdat = alldict["dat"]["popdat"][locale]
+locdat = alldat.dat["popdat"][locale]
 
 # %%
-ages = alldict["dat"]["agegrp_idx"][locale]
+ages = alldat.dat["agegrp_idx"][locale]
 
 # %%
 columnnames(locdat)
@@ -57,13 +57,13 @@ countmap(locdat.agegrp)
 countmap(locdat.status)  # everyone begins as unexposed
 
 # %%
-geodf = alldict["geo"]   # the date for all locales has been read into a dataframe
+geodf = alldat.geo   # the date for all locales has been read into a dataframe
 
 # %%
 density_factor = geodf[geodf[!, :fips] .== locale, :density_factor][]
 
 # %%
-socialparams = alldict["social"]  # the spread parameters are loaded as a dict of float arrays
+socialparams = alldat.social  # the spread parameters are loaded as a dict of float arrays
 
 # %%
 fieldnames(typeof(socialparams))
@@ -72,7 +72,7 @@ fieldnames(typeof(socialparams))
 typeof(socialparams.gammashape)
 
 # %%
-infectparams = alldict["infect"]
+infectparams = alldat.infect
 
 # %%
 contactfactors = socialparams.contactfactors
@@ -98,7 +98,7 @@ limdict(touchfactors, <)
 shifter(touchfactors, (.18, .3)...)[age40_59]
 
 # %%
-dectree = alldict["dectree"] # the decision trees for all age groups are loaded
+dectree = alldat["dectree"] # the decision trees for all age groups are loaded
 
 # %%
 typeof(dectree)
@@ -256,13 +256,13 @@ cumplot(series, locale, [:infectious, :dead])
 @Select(status, agegrp, cond, sdcomply)(locdat)
 
 # %% [markdown]
-# alldict
+# alldat
 
 # %%
-alldict
+alldat
 
 # %%
-ages = alldict["dat"]["agegrp_idx"][locale]
+ages = alldat.dat["agegrp_idx"][locale]
 
 # %%
 include_ages = [age0_19, age20_39]

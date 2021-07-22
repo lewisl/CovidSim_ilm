@@ -33,11 +33,11 @@ str_50 = sd_gen(start=50, comply=.8, cf=(.2,1.2), tf=(.18,.41))
 seattle = 53033
 
 # %%
-alldict, series = run_a_sim(180, seattle, showr0=false, silent=true,
+alldat, series = run_a_sim(180, seattle, showr0=false, silent=true,
         runcases=[seed_1_6]);
 
 # %%
-cumplot(series,seattle,geo=alldict["geo"])
+cumplot(series,seattle,geo=alldat.geo)
 
 # %%
 sea_outcome = virus_outcome(series,seattle, base=:pop)
@@ -167,9 +167,9 @@ annotate!((6,half_yscale,Plots.text("Burden: $maxsevere", 10, :left)))
 # ### Check the Basic Identities
 
 # %%
-cumhistmx = alldict["dat"]["cumhistmx"]
-newhistmx = alldict["dat"]["newhistmx"]
-openmx = alldict["dat"]["openmx"];
+cumhistmx = alldat.dat["cumhistmx"]
+newhistmx = alldat.dat["newhistmx"]
+openmx = alldat.dat["openmx"];
 
 # %%
 locale = seattle

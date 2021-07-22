@@ -24,11 +24,8 @@ function setup(n_days, locales;  # must provide following inputs
     # transition decision trees     
         dectree = setup_dt(dectreefilename)
 
-    # isolation probabilities: not sure we need this
-        # iso_pr = build_iso_probs()
 
-    return Dict("dat"=>datadict, "dectree"=>dectree, "geo"=>geodata, "infect"=>infectparams, 
-                "social"=>socialparams)  
+    return (dat=datadict, dectree=dectree, geo=geodata, infect=infectparams, social=socialparams)  
 end
 
 

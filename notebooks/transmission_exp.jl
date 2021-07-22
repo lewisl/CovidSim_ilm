@@ -34,10 +34,10 @@ cd(joinpath(homedir(),"Dropbox/Covid Modeling/Covid-ILM/source"))
 locale = 38015
 
 # %% tags=[]
-alldict = setup(180, [locale])
+alldat = setup(180, [locale])
 
 # %%
-spreadparams = alldict["sp"]  # the spread parameters are loaded as a dict of float arrays
+spreadparams = alldat["sp"]  # the spread parameters are loaded as a dict of float arrays
 
 # %%
 keys(spreadparams)

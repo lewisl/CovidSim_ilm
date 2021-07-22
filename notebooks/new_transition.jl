@@ -31,22 +31,22 @@ using Distributions
 seed_1_6 = seed_case_gen(1, [0,3,3,0,0], 1, nil, agegrps)
 
 # %%
-alldict, series = run_a_sim(80, 38015, showr0=false, silent=true, runcases=[seed_1_6]);
+alldat, series = run_a_sim(80, 38015, showr0=false, silent=true, runcases=[seed_1_6]);
 
 # %%
-locdat = alldict["dat"]["openmx"][38015];
+locdat = alldat.dat["openmx"][38015];
 
 # %%
 locdat[1:20,1:4]
 
 # %%
-dt = alldict["dt"]
+dt = alldat.dectree
 
 # %%
 dt[1][[9,5]]
 
 # %%
-dts = Dict(i=>sort(alldict["dt"][i], rev=true) for i in 1:5) 
+dts = Dict(i=>sort(alldat.dectree[i], rev=true) for i in 1:5) 
 
 # %%
 collect(keys(dts[4]))

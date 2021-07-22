@@ -32,7 +32,7 @@ locale = 38015
 
 
 ```julia
-alldict = setup(150, [locale])
+alldat = setup(150, [locale])
 ```
 
 
@@ -48,7 +48,7 @@ alldict = setup(150, [locale])
 
 
 ```julia
-alldict["dat"]
+alldat.dat
 ```
 
 
@@ -64,7 +64,7 @@ alldict["dat"]
 
 
 ```julia
-ilmat = alldict["dat"]["popdat"][locale]
+ilmat = alldat.dat["popdat"][locale]
 ```
 
 
@@ -102,7 +102,7 @@ ilmat = alldict["dat"]["popdat"][locale]
 
 
 ```julia
-ages = alldict["dat"]["agegrp_idx"][38015]
+ages = alldat.dat["agegrp_idx"][38015]
 ```
 
 
@@ -160,7 +160,7 @@ sum(ilmat.status)  # everyone begins as unexposed
 
 
 ```julia
-geodf = alldict["geo"]   # the date for all locales has been read into a dataframe
+geodf = alldat.geo   # the date for all locales has been read into a dataframe
 ```
 
 
@@ -184,7 +184,7 @@ density_factor = geodf[geodf[!, :fips] .== locale, :density_factor][]
 
 
 ```julia
-infectparams = alldict["infect"];  # the spread parameters are loaded as a dict of float arrays
+infectparams = alldat.infect;  # the spread parameters are loaded as a dict of float arrays
 ```
 
 
@@ -269,7 +269,7 @@ touchfactors[1]
 
 
 ```julia
-dectree = alldict["dt_dict"]["dt"] # the decision trees for all age groups are loaded
+dectree = alldat["dt_dict"]["dt"] # the decision trees for all age groups are loaded
 ```
 
 

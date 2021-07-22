@@ -60,12 +60,12 @@ dt = CovidSim.setup_dt("../parameters/dec_tree_all.csv");
 seed_1_6 = seed_case_gen(1, [0,3,3,0,0], 1, nil, agegrps)
 
 # %%
-alldict, series = run_a_sim(n, seattle.fips, showr0=true, silent=true,
+alldat, series = run_a_sim(n, seattle.fips, showr0=true, silent=true,
        dtfilename="../parameters/dec_tree_all_25.csv",
        runcases=[seed_1_6]);
 
 # %% jupyter={"source_hidden": true}
-geo = alldict["geo"]
+geo = alldat.geo
 
 # %%
 cumplot(series,seattle.fips,geo=geo)
@@ -90,12 +90,12 @@ end
 str_50 = sd_gen(start=50, comply=.85, cf=(.2,1.1), tf=(.18,.41))
 
 # %%
-alldict, series = run_a_sim(n, seattle.fips, showr0=false, silent=true,
+alldat, series = run_a_sim(n, seattle.fips, showr0=false, silent=true,
        dtfilename="../parameters/dec_tree_all_25.csv",
        runcases=[seed_1_6]);
 
 # %%
-sim_r0(spreadparams, alldict["dt"], alldict["decpoints"])
+sim_r0(spreadparams, alldat.dectree, alldat["decpoints"])
 
 # %%
 cumplot(series,seattle.fips,geo=geo)
@@ -144,13 +144,13 @@ println(tricities[Dates.value(rpt_inf - Date("2020-01-22")),:sea_dead], " ",
 rundays = n + adjdays
 
 # %%
-alldict, series = (rundays, seattle.fips, showr0=false, silent=true,
+alldat, series = (rundays, seattle.fips, showr0=false, silent=true,
        dtfilename="../parameters/dec_tree_all_25.csv",
        spreadcases=[str_50],
        runcases=[seed_1_6]);
 
 # %%
-cumplot(series, seattle.fips, geo=alldict["geo"])
+cumplot(series, seattle.fips, geo=alldat.geo)
 
 # %%
 
@@ -211,7 +211,7 @@ xlabel!("Days: Jan. 22 to May 23", guidefontsize=10)
 # # Virtual New York City
 
 # %%
-alldict, series = run_a_sim(n, newyork.fips, showr0=true, silent=true,
+alldat, series = run_a_sim(n, newyork.fips, showr0=true, silent=true,
        dtfilename="../parameters/dec_tree_all_25.csv",
        runcases=[seed_1_6]);
 
@@ -232,7 +232,7 @@ end
 
 # %%
 str_45_nyc = sd_gen(start=45, comply=.9, cf=(.2, 1.1), tf=(.18,.40))
-alldict, series = run_a_sim(n, newyork.fips, showr0=true, silent=true,
+alldat, series = run_a_sim(n, newyork.fips, showr0=true, silent=true,
        dtfilename="../parameters/dec_tree_all_25.csv",
        runcases=[seed_1_6]);
 
@@ -274,7 +274,7 @@ rundays = n + adjdays
 
 
 # %%
-alldict, series = run_a_sim(rundays, newyork.fips, showr0=true, silent=true,
+alldat, series = run_a_sim(rundays, newyork.fips, showr0=true, silent=true,
        dtfilename="../parameters/dec_tree_all_25.csv",
        runcases=[seed_1_6]);
 

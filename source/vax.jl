@@ -12,7 +12,7 @@
 end
 
 """
-Method for converting a dict created from YAML to this struct
+Method for converting a dict loaded from YAML to this struct
 """
 Vaccineparams(vd) =
     (Vaccineparams(
@@ -23,7 +23,8 @@ Vaccineparams(vd) =
         recvrisk                 = vd[:recvrisk],
         recvrisk_reduction       = vd[:recvrisk_reduction], 
         pattern                  = vd[:pattern]
-    ))
+        )
+    )
 
 
 @Base.kwdef mutable struct Vaxsched
@@ -32,6 +33,20 @@ Vaccineparams(vd) =
     targetpct::Float64
     pctperdayfn::Function
 end
+
+
+function setupvax(paramdir="../parameters")
+    vaccines = YAML.load_file(joinpath(paramdir, "vaccines.yml"); dicttype=Dict{Symbol,Any})
+    vaxkeys = keys(vaccines)
+
+    spreadset = build_vax_spread(vaccines, paramdir)
+
+    transitionset = build_vax_transition(vaccines, paramdir)
+
+    return (spreadset=spreadset, transitionset=transitionset)
+
+end
+
 
 
 """
@@ -58,7 +73,43 @@ end
 
 
 
-function setupvax()
+function build_vax_spread(vaccines, paramdir="../parameters")
+    spreadset = Dict{Symbol, Union{Infectparams, Vaccineparams}}()
+    for vax in vaxkeys
+        v = YAML.load_file(joinpath(paramdir,vaccines[vax][:directory_name],
+            vaccines[vax][:spread_fname]), dicttype=Dict{Symbol, Any})
+        v = Vaccineparams(v)
+        spreadset[vax] = v
+    end
+    return spreadset
+end
+
+
+function build_vax_transition(vaccines, paramdir="../parameters")
+    transitionset = Dict()
+    for vax in vaxkeys
+        transitionset[vax] = setup_dt(joinpath("../parameters", vaccines[vax][:directory_name], 
+                vaccines[vax][:transition_fname]))
+    end
+    return transitionset
+end
+
+
+"""
+Build schedule of people to be vaccinates by percent by day.
+This will typically be done as part of a runcase rather than
+as part of initial setup.
+"""
+function build_vaxsched(vaccines; dayrange, targetpct)
+    vaxschedset = Dict{Symbol, Vaxsched}()
+    for vax in keys(vaccines)
+        vaxschedset[vax] = Vaxsched(
+            vaccine   = vax,
+            dayrange  = dayrange,
+            targetpct = targetpct,
+            pctperdayfn = makevaxfn(dayrange, spreadset[vax].pattern, targetpct)
+            ) 
+    end
 end
 
 
