@@ -207,6 +207,16 @@ export
     symtoage,
     symtoallconds
 
+# constants for indices to transition arrays
+export
+    shift,
+    recover,
+    improve,
+    same,
+    worse,
+    worseplus,
+    die,
+    symtoshift
 
 ###########################################################################
 # module global constants (except in Julia things aren't really constant!)
@@ -274,6 +284,15 @@ end
     age80_up
 end
 
+@enum shift begin
+    recover=1
+    improve
+    same
+    worse
+    worseplus
+    die
+end
+
 const statuses = collect(instances(status))
 const infectious_cases = [nil, mild, sick, severe]
 const transition_cases = [recovered, nil, mild, sick, severe, dead]
@@ -328,6 +347,21 @@ Examples:
     
 """
 const symtoage = freeze(Dict(zip(Symbol.(inst_a), inst_a))) # .5x time of regular dict
+
+# lookup table for shift
+inst_shift = instances(shift)
+
+"""
+    symtoshift[sh::Symbol]
+Dict used as lookup table to convert symbol or string to enum value for an shift.
+
+Examples:
+- for symbol use symtoshift[:recover] returns shift::recover = 1
+- for string use symtoage[Symbol("recover")] returns shift::recover = 1
+    
+"""
+const symtoshift = freeze(Dict(zip(Symbol.(inst_shift), inst_shift))) # .5x time of regular dict
+
 
 # lookup table for combined status and condition
 const symtoallconds = merge(symtostat, symtocond)

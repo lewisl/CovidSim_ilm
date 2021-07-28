@@ -37,7 +37,15 @@ locale = 38015
 ndays = 180
 
 # %% tags=[]
-alldat = setup(ndays, [locale])
+alldat = setup(ndays, [locale]; paramdir="../parameters", 
+    geofilename="../data/geo2data.csv",
+    socialfilename = "socialparams.yml",
+    vaccinefilename = "vaccines.yml",
+    variantsfilename = "covidvariants.yml"
+    );
+
+# %%
+keys(alldat)
 
 # %%
 alldat.dat
@@ -64,19 +72,16 @@ geodf = alldat.geo   # the date for all locales has been read into a dataframe
 density_factor = geodf[geodf[!, :fips] .== locale, :density_factor][]
 
 # %%
-infectparams = alldat.infect  # the spread parameters are loaded as a dict of float arrays
+alldat.spreadset[:default]  # the spread parameters are loaded as a dict of float arrays
 
 # %%
-typeof(infectparams)
+alldat.social
 
 # %%
-socialparams = alldat.social
+fieldnames(typeof(alldat.social))
 
 # %%
-fieldnames(typeof(socialparams))
-
-# %%
-contactfactors = socialparams.contactfactors
+contactfactors = alldat.social.contactfactors
 
 # %%
 typeof(contactfactors)
@@ -85,7 +90,7 @@ typeof(contactfactors)
 contactfactors[age80_up]
 
 # %%
-touchfactors =  socialparams.touchfactors
+touchfactors =  alldat.social.touchfactors
 
 # %%
 touchfactors[age40_59]
@@ -99,7 +104,7 @@ limdict(touchfactors, <)  # recursive minimum
 shifter(touchfactors, (.18, .3)...)[age40_59]
 
 # %%
-dectree = alldat["dectree"] # the decision trees for all age groups are loaded
+dectree = alldat.transitionset[:default] # the decision trees for all age groups are loaded
 
 # %%
 typeof(dectree)
@@ -121,7 +126,7 @@ function get_node(dectree, agegrp, sickday, fromcond)
     dectree[agegrp][sickday][fromcond]
 end
 
-# %%
+# %% tags=[]
 @btime get_node(dectree, age80_up, 25, sick)[:probs]
 
 # %% [markdown]
@@ -132,23 +137,13 @@ end
 vaccines = YAML.load_file("../parameters/vaccines.yml"; dicttype=Dict{Symbol,Any})
 
 # %%
+vaccines[:Pfizer]
+
+# %%
 vaxkeys = keys(vaccines)
 
 # %%
 vaccines[:Pfizer]
-
-# %% [markdown]
-# ### Transition Parameters
-
-# %%
-transitionset = Dict()
-dectreefilename="../parameters/transition.yml"
-for vax in vaxkeys
-    transitionset[vax] = setup_dt(joinpath("../parameters", vaccines[vax][:directory_name], 
-            vaccines[vax][:transition_fname]))
-end
-transitionset[:default] = setup_dt(dectreefilename)
-transitionset
 
 # %% [markdown]
 # ### Other vaccine parameters
@@ -156,27 +151,13 @@ transitionset
 # %%
 vax = :Moderna
 v = YAML.load_file(joinpath("../parameters",vaccines[vax][:directory_name],
-        vaccines[vax][:spread_fname]), dicttype=Dict{Symbol, Any})
-
-# %%
-spreadset = Dict{Symbol, Union{Infectparams, Vaccineparams}}()
-for vax in vaxkeys
-    v = YAML.load_file(joinpath("../parameters",vaccines[vax][:directory_name],
-        vaccines[vax][:spread_fname]), dicttype=Dict{Symbol, Any})
-    v = Vaccineparams(v)
-    spreadset[vax] = v
-end
-spreadset[:default] = Infectparams(; 
-    YAML.load_file(joinpath("../parameters","infectparams.yml"), dicttype=Dict{Symbol, Any})...)
+        vaccines[vax][:infect_fname]), dicttype=Dict{Symbol, Any})
 
 # %%
 spreadset
 
 # %%
 spreadset[:Moderna].recvrisk_reduction
-
-# %%
-spreadset[:default]
 
 # %% [markdown]
 # ### Vaccination Schedule
@@ -234,7 +215,17 @@ seed_1_6 = seed_case_gen(1, [0,3,3,0,0], 1, nil, agegrps)
 # # Run a simulation
 
 # %%
-result_dict, series = run_a_sim(ndays, locale, showr0=false, silent=true, runcases=[seed_1_6]);
+result_dict, series = run_a_sim(ndays, locale; 
+    dovax=false, 
+    dovariant=false,
+    paramdir = "../parameters",
+    geofilename = "../data/geo2data.csv", 
+    socialfilename = "socialparams.yml",
+    vaccinefilename = "vaccines.yml",
+    variantsfilename = "covidvariants.yml",
+    showr0=false, 
+    silent=true, 
+    runcases=[seed_1_6]);
 
 # %%
 result_dict

@@ -4,10 +4,13 @@
 
 
 function setup(n_days, locales;  # must provide following inputs
-    geofilename="../data/geo2data.csv", 
-    dectreefilename="../parameters/transition.yml",
-    infectfilename="../parameters/infectparams.yml",
-    socialfilename="../parameters/socialparams.yml")
+    dovax=false,
+    dovariant=false,
+    paramdir,
+    geofilename, 
+    socialfilename,
+    vaccinefilename,
+    variantsfilename)
 
     # geodata
         geodata = buildgeodata(geofilename)
@@ -16,16 +19,26 @@ function setup(n_days, locales;  # must provide following inputs
         datadict = build_data(locales, geodata, n_days)
 
     # social parameters
-        socialparams = build_socialparams(socialfilename)
+        socialparams = build_socialparams(socialfilename, paramdir)
+
+    # variants for spread parameters and transition decision trees
+        variants = YAML.load_file(joinpath(paramdir, variantsfilename); dicttype=Dict{Symbol,Any})
 
     # spread parameters
-        infectparams = build_infectparams(infectfilename)
+        spreadset = build_spread_params(variants, paramdir)
 
-    # transition decision trees     
-        dectree = setup_dt(dectreefilename)
+    # transition decision trees   
+        transitionset = build_transition_params(variants, paramdir)
 
+    # vaccines
+    if dovax
+        vaxspread, vaxtransition = setupvax(paramdir)
+        spreadset = merge(spreadset, vaxspread)
+        transitionset = merge(transitionset, vaxtransition)
+    end
 
-    return (dat=datadict, dectree=dectree, geo=geodata, infect=infectparams, social=socialparams)  
+    return (dat=datadict, transitionset=transitionset, geo=geodata, 
+            spreadset=spreadset, social=socialparams)  
 end
 
 
@@ -55,20 +68,11 @@ function build_data(locales, geodata, n_days)
 end
 
 
-function convert_to_enumkeys(dectree)
-
-    for (k_age, v_age) in dectree
-        for (k_sickday, v_sickday) in v_age
-        end
-    end
-end
-
 """
 Pre-allocate and initialize population data for one locale in the simulation.
 """
-function pop_data(pop; age_dist=age_dist, cols="all")
+function pop_data(pop; age_dist=age_dist)
 
-    if cols == "all"
         parts = apportion(pop, age_dist)
         dat = Table(
             pid = collect(1:pop),  # ordinal persistent id for persons in matrix
@@ -76,6 +80,7 @@ function pop_data(pop; age_dist=age_dist, cols="all")
             agegrp = reduce(vcat,[fill(age, parts[Int(age)]) for age in agegrps]), 
             cond = fill(notsick, pop),
             sickday = zeros(Int, pop),   
+            variant = fill(:default, pop),
             recovday = zeros(Int, pop),  
             deadday = zeros(Int, pop),   
             cluster = zeros(Int, pop), 
@@ -86,18 +91,6 @@ function pop_data(pop; age_dist=age_dist, cols="all")
             testday = zeros(Int, pop),  
             quar = falses(pop),
             quarday = zeros(Int, pop))
-
-    elseif cols == "track"
-        parts = apportion(pop, age_dist)
-        dat = Table(
-            status = fill(unexposed, pop),        
-            agegrp=reduce(vcat,[fill(age, parts[Int(age)]) for age in instances(agegrps)]), 
-            cond = fill(notsick, pop),  
-            sickday = zeros(Int, pop))  
-
-    else
-        @error "Wrong choice of cols in pop_data: $cols"
-    end    
 
     return dat       
 end
@@ -127,31 +120,34 @@ function buildgeodata(filename)
 end
 
 
-function build_infectparams(infectfilename)
-
-    infect_inputs = YAML.load_file(infectfilename)
-
-    required_params = ["sendrisk", "recvrisk"]
-    has_all = true
-    lacking = []
-    for p in required_params
-        if !haskey(infect_inputs, p)
-            push!(lacking, p)
-            has_all = false
-        end
+function build_spread_params(variants, paramdir)
+    spreadset = Dict{Symbol, Union{Infectparams, Vaccineparams}}()
+    for variant in keys(variants)
+        v = YAML.load_file(joinpath(paramdir, variants[variant][:directory_name],
+            variants[variant][:infect_fname]), dicttype=Dict{Symbol, Any})
+        v = Infectparams(v)
+        spreadset[variant] = v
     end
-    @assert has_all "required keys: $lacking not in $(infectfilename)"
-
-    Infectparams(sendrisk = infect_inputs["sendrisk"]::Vector{Float64},
-                 recvrisk = infect_inputs["recvrisk"]::Vector{Float64}
-                 )
-    
+    return spreadset
 end
 
 
-function build_socialparams(socialfilename)
+function build_transition_params(variants, paramdir, new=false)
+    transitionset = Dict()
+    if new==true
+        setup_dt = new_setup_dt
+    end
+    for variant in keys(variants)
+        transitionset[variant] = setup_dt(joinpath(paramdir, variants[variant][:directory_name], 
+                variants[variant][:transition_fname]))
+    end
+    return transitionset
+end
 
-    social_inputs = YAML.load_file(socialfilename)
+
+function build_socialparams(socialfilename, paramdir)
+
+    social_inputs = YAML.load_file(joinpath(paramdir, socialfilename))
 
     required_params = ["contactfactors", "touchfactors", "gammashape"]
     has_all = true

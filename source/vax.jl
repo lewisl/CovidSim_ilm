@@ -14,7 +14,7 @@ end
 """
 Method for converting a dict loaded from YAML to this struct
 """
-Vaccineparams(vd) =
+Vaccineparams(vd::Dict) =
     (Vaccineparams(
         name                     = Symbol(vd[:name]),
         shots                    = vd[:shots],
@@ -37,7 +37,6 @@ end
 
 function setupvax(paramdir="../parameters")
     vaccines = YAML.load_file(joinpath(paramdir, "vaccines.yml"); dicttype=Dict{Symbol,Any})
-    vaxkeys = keys(vaccines)
 
     spreadset = build_vax_spread(vaccines, paramdir)
 
@@ -75,9 +74,9 @@ end
 
 function build_vax_spread(vaccines, paramdir="../parameters")
     spreadset = Dict{Symbol, Union{Infectparams, Vaccineparams}}()
-    for vax in vaxkeys
+    for vax in keys(vaccines)
         v = YAML.load_file(joinpath(paramdir,vaccines[vax][:directory_name],
-            vaccines[vax][:spread_fname]), dicttype=Dict{Symbol, Any})
+            vaccines[vax][:infect_fname]), dicttype=Dict{Symbol, Any})
         v = Vaccineparams(v)
         spreadset[vax] = v
     end
@@ -87,7 +86,7 @@ end
 
 function build_vax_transition(vaccines, paramdir="../parameters")
     transitionset = Dict()
-    for vax in vaxkeys
+    for vax in keys(vaccines)
         transitionset[vax] = setup_dt(joinpath("../parameters", vaccines[vax][:directory_name], 
                 vaccines[vax][:transition_fname]))
     end

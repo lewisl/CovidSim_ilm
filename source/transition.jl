@@ -16,12 +16,19 @@ they move to recovered or dead.
 
 locdat must be a population table for a single locale.
 """
-@inline function transition!(locdat, infect_idx, dectree)
-    
+@inline function transition!(locdat, infect_idx, transitionset, dovax, dovariant)
+        
+
     # aliases for person attribute columns--deref the named tuple once
     v_sickday = locdat.sickday
     v_cond = locdat.cond
     v_agegrp = locdat.agegrp
+
+    if dovax == true
+    elseif dovariant == true
+    else
+        dectree = transitionset[:default]
+    end
 
     for p in infect_idx  # p for person    
         p_sickday = v_sickday[p]
@@ -41,6 +48,7 @@ locdat must be a population table for a single locale.
 
     end  
 end
+
 
 
 """
@@ -84,6 +92,48 @@ change, but the number days a person has been sick is incremented.
     locdat.sickday[p] += 1  
 
 end
+
+
+# functions to define condition shifts
+
+# function toimprove(now::condition)
+#     ret =   if now == nil
+#                 recovered
+#             else 
+#                 condition(Int(now) - 1)
+#             end
+#     return ret
+# end
+
+# function toworse(now::condition)
+#     ret =   if now == severe
+#                 dead
+#             else
+#                 condition(Int(now) + 1)
+#             end
+# end
+
+# function toworseplus(now::condition)
+#     ret =   if now == severe
+#                 dead
+#             else
+#                 condition(Int(now) + 2)
+#             end
+# end
+
+# function tosame(now::condition)
+#     now
+# end
+
+# function todie(now::condition)
+#     dead
+# end
+
+# function torecover(now::condition)
+#     recovered
+# end
+
+
 
 
 """

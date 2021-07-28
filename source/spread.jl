@@ -23,6 +23,17 @@ Base.@kwdef struct Infectparams
 end
 
 
+"""
+Method for converting a dict loaded from YAML to this struct
+"""
+Infectparams(id::Dict) = 
+    (Infectparams(
+        sendrisk = id[:sendrisk],
+        recvrisk = id[:recvrisk]
+        )
+    )
+
+
 Base.@kwdef struct Socialparams
     gammashape::Float64
     contactfactors::Dict{Enum, Dict{Enum, Float64}}
@@ -162,21 +173,19 @@ end
 
 Returns true if the spreader infected the contact. 
 """
-@inline function isinfected(infectparams, spreader, contact, locdat)::Bool
-    sendrisk = if isnothing(locdat.vax[spreader])
-                    infectparams.sendrisk[locdat.sickday[spreader]]
-                else
-                    vaxtype = locdat.vax[spreader][end]
-                    vaxset[vaxtype][:vaccine].sendrisk[locdat.sickday[spreader]]
-                end
-
-    recvrisk = if isnothing(locdat.vax[contact])
-                    infectparams.recvrisk[Int(locdat.agegrp[contact])]
-                else
-                    vaxtype = locdat.vax[contact][end]
-                    vaxset[vaxtype][:vaccine].recvrisk[Int(locdat.agegrp[contact])]
-                end
-
+@inline function isinfected(spreadset, spreader, contact, locdat)::Bool
+    if isnothing(locdat.vax[spreader])
+        variant = locdat.variant[spreader]
+        sendrisk  = spreadset[variant].infectparams.sendrisk[locdat.sickday[spreader]]
+        recvrisk  = spreadset[variant].infectparams.recvrisk[Int(locdat.agegrp[contact])]
+    else
+        # sendrisk
+            vaxtype = locdat.vax[spreader][end]
+            sendrisk = vaxset[vaxtype][:vaccine].sendrisk[locdat.sickday[spreader]]
+        # recvrisk
+            vaxtype = locdat.vax[contact][end]
+            recvrisk = vaxset[vaxtype][:vaccine].recvrisk[Int(locdat.agegrp[contact])]
+    end
 
     @inbounds @fastmath prob = sendrisk * recvrisk            # TODO also vaccinated people will have partially unsusceptible
     return @fastmath rand(Binomial(1, prob)) == 1
@@ -189,7 +198,8 @@ end
 Infectious people spread the virus to susceptible people for a single locale. Changes attribute
 columns in the population table. Runs social distancing cases.
 """
-@inline function spread!(locdat, infect_idx, contactable_idx, sdcases, socialparams, infectparams, density_factor)
+@inline function spread!(locdat, infect_idx, contactable_idx, sdcases, socialparams,
+     spreadset, density_factor, dovax, dovariant)
 
     n_newly_infected = 0
 
@@ -221,7 +231,7 @@ columns in the population table. Runs social distancing cases.
 
                 # infection outcome
                 if touched         # TODO some recovered people will become susceptible again
-                    if isinfected(infectparams, spr, contact, locdat)
+                    if isinfected(spreadset, spr, contact, locdat)
                         v_cond[contact] = nil # nil === asymptomatic or pre-symptomatic
                         v_status[contact] = infectious
                         v_sickday[contact] = 1

@@ -6,7 +6,7 @@
 
 age0_19:                            # agegrp::agegrp
   5:                                    # transition day::Int
-    nil:                                 # current condition::condition
+    nil:                                 # current conditioninfect_fname
       probs: [0.4, 0.5, 0.1]                # probabilities::Float64
       outcomes: [nil, mild, sick]     # outcomes:: Union{condition, status}
   9:                                    # another transition day

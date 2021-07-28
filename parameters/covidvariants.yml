@@ -1,0 +1,17 @@
+---
+default:
+  infect_fname:     default_spread.yml
+  transition_fname: default_transition.yml
+  directory_name:   default_covid
+new:
+  directory_name:   default_covid
+  transition_fname: default_transition_array.yml
+  
+# alpha:
+#   infect_fname:     alpha_spread.yml
+#   transition_fname: alpha_transition.yml
+#   directory_name:   alpha_variant
+# delta:
+#   infect_fname:     delta_spread.yml
+#   transition_fname: delta_transition.yml
+#   directory_name:   delta_variant

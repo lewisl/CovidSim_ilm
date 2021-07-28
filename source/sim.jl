@@ -4,26 +4,38 @@
 ####################################################################################
 
 
-function run_a_sim(n_days, locales; runcases=[], showr0 = true, silent=true, dovax=false,
-            geofilename="../data/geo2data.csv", 
-            dectreefilename="../parameters/transition.yml",
-            infectfilename="../parameters/infectparams.yml",
-            socialfilename="../parameters/socialparams.yml")
+function run_a_sim(n_days, locales; 
+            runcases=[], 
+            showr0 = true, 
+            silent=true, 
+            dovax=false, 
+            dovariant=false,
+            paramdir = "../parameters",
+            geofilename = "../data/geo2data.csv", 
+            socialfilename = "socialparams.yml",
+            vaccinefilename = "vaccines.yml",
+            variantsfilename = "variants.yml"
+            )
 
     empty_all_caches!() # from previous runs
 
     # access input data and pre-allocate storage
-    alldat = setup(n_days, locales; geofilename=geofilename, 
-                    dectreefilename=dectreefilename, infectfilename=infectfilename,
-                    socialfilename=socialfilename)
+    alldat = setup(n_days, locales; 
+                    dovax=dovax, 
+                    dovariant=dovariant,
+                    paramdir=paramdir,
+                    geofilename=geofilename, 
+                    socialfilename=socialfilename,
+                    vaccinefilename=vaccinefilename,
+                    variantsfilename=variantsfilename)
 
-                    dectree = alldat.dectree  # decision trees for transition
+                    transitionset = alldat.transitionset  # decision trees for transition
                     popdat = alldat.dat["popdat"]   # first key locale
                     agegrp_idx = alldat.dat["agegrp_idx"]   # first key locale
                     cumhistmx = alldat.dat["cumhistmx"]   # first key locale
                     newhistmx = alldat.dat["newhistmx"]   # first key locale
                     geodf = alldat.geo
-                    infectparams = alldat.infect
+                    spreadset = alldat.spreadset
                     socialparams = alldat.social
 
     # start the day counter at zero
@@ -64,8 +76,9 @@ function run_a_sim(n_days, locales; runcases=[], showr0 = true, silent=true, dov
             end
 
             # two fundamental steps of the simulation: spread! and transition!
-            sprtime += @elapsed spread!(locdat, infect_idx, contactable_idx, sdcases, socialparams, infectparams, density_factor)   
-            trtime += @elapsed transition!(locdat, infect_idx, dectree)                        
+            sprtime += @elapsed spread!(locdat, infect_idx, contactable_idx, sdcases, socialparams, 
+                                        spreadset, density_factor, dovax, dovariant)   
+            trtime += @elapsed transition!(locdat, infect_idx, transitionset, dovax, dovariant)                        
 
             for case in runcases
                 case(loc, popdat, socialparams, infectparams, sdcases, ages; startofday=false)  # TODO extend ages to be any filter for 
