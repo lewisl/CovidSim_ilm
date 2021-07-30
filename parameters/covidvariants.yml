@@ -6,7 +6,7 @@ default:
 new:
   directory_name:   default_covid
   transition_fname: default_transition_array.yml
-  
+  infect_fname:     default_spread.yml
 # alpha:
 #   infect_fname:     alpha_spread.yml
 #   transition_fname: alpha_transition.yml

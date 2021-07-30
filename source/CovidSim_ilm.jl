@@ -371,6 +371,10 @@ const totinfected       = 9
 const travelers         = 10
 const isolated          = 11
 
+# setup condition and shift to use as indices to transition arrays
+Base.to_index(s::condition) = Int(s)
+Base.to_index(s::shift) = Int(s)
+
 # stats series/dataframe columns
 # columns of history series: first 5 cols are agegrps, 6th is total
 const map2series = (unexposed=1:6, infectious=7:12, recovered=13:18, dead=19:24, 

@@ -14,21 +14,22 @@ function new_setup_dt(dtfilename)
                 Dict(Symbol(k3) =>  if k3 == "sickday"
                                         v3
                                     else 
-                                        Dict(symtoshift[Symbol(k4)] => v4 for (k4, v4) in v3)
+                                        Dict(symtocond[Symbol(k4)] => v4 for (k4, v4) in v3)
                                     end
-                
-                for (k3, v3) in v2)
-            for (k2, v2) in v1)
-        for (k1, v1) in arrays)
+                    for (k3, v3) in v2)
+                for (k2, v2) in v1)
+            for (k1, v1) in arrays)
     )
+
+    # println(newdict[age0_19][1][:transition])
 
     # change :transition value to an array
     for (k1, v1) in newdict         # k1 is agegrp
         for (k2, v2) in v1          # k2 is stage in 1:5
             for (k3, v3) in v2      # k3 is :sickday or :transition
                 if k3 == :transition
-                    out = hcat(v3[recover],v3[improve], v3[same], v3[worse], v3[worseplus], v3[die])
-                    newdict[k1][k2][k3] = out
+                    out = vcat(v3[nil]',v3[mild]',v3[sick]',v3[severe]') # stack the vectors
+                    newdict[k1][k2][k3] = OffsetArray(out, 5:8, 1:6)   # index by condition from nil to severe, shift from recover to die
                 end
             end
         end

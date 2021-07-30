@@ -107,6 +107,42 @@ shifter(touchfactors, (.18, .3)...)[age40_59]
 dectree = alldat.transitionset[:default] # the decision trees for all age groups are loaded
 
 # %%
+transarr = alldat.transitionset[:new]
+
+# %%
+transarr[age0_19][5]
+
+# %%
+transarr[age0_19][1][:transition][nil,recover]
+
+# %%
+function has(agetr::Dict, sickday::Int, p_cond::Int)::Tuple{Bool, Union{Vector{Float64}, Nothing}}
+    for (stage, v) in agetr
+        if v[:sickday] == i
+            trvec = collect(v[:transition][p_cond, :])
+            if sum(trvec) > 0.0
+                return (true, trvec)
+            end
+        end
+    end
+    return (false, nothing)
+end
+
+# %%
+tr_age0_19 = transarr[age0_19]
+T = typeof(tr_age0_19[1][:transition])
+supertype(T)
+
+# %%
+p_cond = mild
+p_sickday = 9
+trbool, trvec = has(tr_age0_19, p_sickday, p_cond)
+println(typeof(trvec))
+trvec
+
+
+
+# %%
 typeof(dectree)
 
 # %% tags=[]
@@ -442,5 +478,9 @@ nt = (alpha=1, beta=2, gamma=3, delta=4)
 
 # %%
 @btime getindex(nt, :gamma)
+
+# %%
+now = severe
+sh = worseplus
 
 # %%

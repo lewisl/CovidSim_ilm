@@ -27,113 +27,97 @@ locdat must be a population table for a single locale.
     if dovax == true
     elseif dovariant == true
     else
-        dectree = transitionset[:default]
+        dectree = transitionset[:new]
     end
 
-    for p in infect_idx  # p for person    
+    for p in infect_idx  # p for infected person    
         p_sickday = v_sickday[p]
         p_cond = v_cond[p]
         p_agegrp = v_agegrp[p]  # agegroup of person p = agegrp column of locale data, row p 
 
         # if person's agegrp, sickday, and condition match a transition stage
-        if (haskey(dectree[p_agegrp], p_sickday) && 
-            haskey(dectree[p_agegrp][p_sickday], p_cond))
+        transvec = has(dectree[p_agegrp], p_sickday, p_cond) 
 
-            node = dectree[p_agegrp][p_sickday][p_cond]  # node = dict for transition stage outcome distribution
-        else
-            node = nothing  # dispatch to minimal dotransition! method
-        end
-
-        dotransition!(locdat, p, node) # perform transition logic and update population table
+        dotransition!(locdat, p, p_cond, transvec) # perform transition logic and update population table
 
     end  
 end
 
 
+function has(agetr::Dict, sickday::Int, p_cond::condition)::Union{Vector{Float64}, Nothing}
+    for (stage, v) in agetr
+        if v[:sickday] == sickday
+            trvec = collect(v[:transition][p_cond, :])
+            if sum(trvec) > 0.0
+                return trvec
+            end
+        end
+    end
+    return nothing
+end
+
 
 """
-    dotransition!(locdat, p, node::Dict)
+    dotransition!(locdat, p, p_cond, trvec::Union{Vector{Float64}, Nothing})
 
-Transition an infected person to a new condition or status with the first
-method. Or in the minimal, second method a person's condition or status does not
-change, but the number days a person has been sick is incremented.
+Transition an infected person to a new condition or status if called
+with a transition vector (trvec) or increment
+the number of days the person has been sick.
 """
-@inline function dotransition!(locdat, p, node::Dict)
+@inline function dotransition!(locdat, p, p_cond, trvec::Union{Vector{Float64}, Nothing})
    
-    choice = categorical_sim(node[:probs]) # which outcome...?
-    tocond = node[:outcomes][choice]  # next condition or status
+    if isnothing(trvec)
+        # if locdat.sickday[p] >= 25
+        #     println("$(day_ctr[:day]): agegrp: $(locdat.agegrp[p]) sickday: $(locdat.sickday[p]) from cond: $p_cond")
+        # end
 
-    if tocond == dead  
-        locdat.deadday[p] = day_ctr[:day]
-        locdat.status[p] = dead  # change the status
-        locdat.cond[p] = notsick # change the condition
-    elseif tocond == recovered
-        locdat.recovday[p] = day_ctr[:day]
-        locdat.status[p] = recovered
-        locdat.cond[p] = notsick
-    else   
-        locdat.cond[p] = tocond   # change the condition = degree of sickness
-        locdat.sickday[p] += 1    # advance number of days person has been sick
-    end    
+        locdat.sickday[p] += 1  
+
+    else
+        choice = shift(categorical_sim(trvec)) # which outcome...?
+
+        tocond = conditionshift(p_cond, choice)  # next condition or status
+
+        # if locdat.sickday[p] >= 25
+        #     println("$(day_ctr[:day]): agegrp: $(locdat.agegrp[p]) sickday: $(locdat.sickday[p]) from cond: $p_cond to cond: $tocond")
+        # end
+
+        if tocond == dead  
+            locdat.deadday[p] = day_ctr[:day]
+            locdat.status[p] = dead  # change the status
+            locdat.cond[p] = notsick # change the condition
+        elseif tocond == recovered
+            locdat.recovday[p] = day_ctr[:day]
+            locdat.status[p] = recovered
+            locdat.cond[p] = notsick
+        else   
+            locdat.cond[p] = tocond   # change the condition = degree of sickness
+            locdat.sickday[p] += 1    # advance number of days person has been sick
+        end    
+
+
+    end
 
 end
 
 
-"""
-    dotransition!(locdat, p, node::Nothing)
+function conditionshift(now, sh)
 
-Transition when a person's condition or status does not
-change, but the number days a person has been sick is incremented.
-"""
-@inline function dotransition!(locdat, p, node::Nothing)
-    # only advance number of days person has been sick with same condition
-
-    # @assert locdat.sickday[p] < sickdaylim "Person made it to last day and was not removed:\n     $(locdat[p])\n"
-    locdat.sickday[p] += 1  
-
+    if sh == same
+            now
+    elseif sh == die
+        dead
+    elseif sh == recover
+        recovered
+    elseif sh == improve
+        Int(now) - 1 < Int(typemin(condition)) ? typemin(condition) : condition(Int(now) - 1)
+    elseif sh == worse
+        Int(now) + 1 > Int(typemax(condition)) ? typemax(condition) : condition(Int(now) + 1)
+    elseif sh == worseplus
+        Int(now) + 2 > Int(typemax(condition)) ? typemax(condition) : condition(Int(now) + 2)
+    end
+        
 end
-
-
-# functions to define condition shifts
-
-# function toimprove(now::condition)
-#     ret =   if now == nil
-#                 recovered
-#             else 
-#                 condition(Int(now) - 1)
-#             end
-#     return ret
-# end
-
-# function toworse(now::condition)
-#     ret =   if now == severe
-#                 dead
-#             else
-#                 condition(Int(now) + 1)
-#             end
-# end
-
-# function toworseplus(now::condition)
-#     ret =   if now == severe
-#                 dead
-#             else
-#                 condition(Int(now) + 2)
-#             end
-# end
-
-# function tosame(now::condition)
-#     now
-# end
-
-# function todie(now::condition)
-#     dead
-# end
-
-# function torecover(now::condition)
-#     recovered
-# end
-
-
 
 
 """

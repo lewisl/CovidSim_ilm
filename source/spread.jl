@@ -53,7 +53,7 @@ end
 
 function sd_gen(;startday::Int, comply::Float64, cf::Tuple{Float64, Float64},
     tf::Tuple{Float64, Float64}, name::Symbol, include_ages=[])
-    function runcase(locale, dat, socialparams, infectparams, sdcases, ages; startofday)   
+    function runcase(locale, dat, socialparams, spreadset, sdcases, ages; startofday)   
         s_d_seed!(dat, sdcases, startday, comply, cf, tf, name, include_ages, locale, socialparams, infectparams, ages;
                     startofday=startofday)
     end
@@ -176,8 +176,8 @@ Returns true if the spreader infected the contact.
 @inline function isinfected(spreadset, spreader, contact, locdat)::Bool
     if isnothing(locdat.vax[spreader])
         variant = locdat.variant[spreader]
-        sendrisk  = spreadset[variant].infectparams.sendrisk[locdat.sickday[spreader]]
-        recvrisk  = spreadset[variant].infectparams.recvrisk[Int(locdat.agegrp[contact])]
+        sendrisk  = spreadset[variant].sendrisk[locdat.sickday[spreader]]
+        recvrisk  = spreadset[variant].recvrisk[Int(locdat.agegrp[contact])]
     else
         # sendrisk
             vaxtype = locdat.vax[spreader][end]

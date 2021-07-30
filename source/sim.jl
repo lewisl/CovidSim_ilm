@@ -27,7 +27,8 @@ function run_a_sim(n_days, locales;
                     geofilename=geofilename, 
                     socialfilename=socialfilename,
                     vaccinefilename=vaccinefilename,
-                    variantsfilename=variantsfilename)
+                    variantsfilename=variantsfilename
+                    )
 
                     transitionset = alldat.transitionset  # decision trees for transition
                     popdat = alldat.dat["popdat"]   # first key locale
@@ -67,7 +68,7 @@ function run_a_sim(n_days, locales;
             density_factor = geodf[geodf[!, :fips] .== loc, :density_factor][]  # TODO not a good place for this
             
             for case in runcases
-                case(loc, popdat, socialparams, infectparams, sdcases, ages; startofday=true)  # TODO extend ages to be any filter for 
+                case(loc, popdat, socialparams, spreadset, sdcases, ages; startofday=true)  # TODO extend ages to be any filter for 
             end                                                 # who participates in a given case
 
             idxtime += @elapsed begin
@@ -81,7 +82,7 @@ function run_a_sim(n_days, locales;
             trtime += @elapsed transition!(locdat, infect_idx, transitionset, dovax, dovariant)                        
 
             for case in runcases
-                case(loc, popdat, socialparams, infectparams, sdcases, ages; startofday=false)  # TODO extend ages to be any filter for 
+                case(loc, popdat, socialparams, spreadset, sdcases, ages; startofday=false)  # TODO extend ages to be any filter for 
             end                                                 # who participates in a given case
 
             # r0 displayed every 10 days
@@ -362,8 +363,10 @@ second method runs in less than 50% of the time.
 The second method generates results for n trials. 
 The assert test is done only once if do_assert is true.
 """
-function categorical_sim(prs, do_assert=true)
-    do_assert && @assert isapprox(sum(prs), 1.0)
+function categorical_sim(prs)
+    if !isapprox(sum(prs), 1.0)
+        return 0
+    end
     x = rand()
     cumpr = 0.0
     i = 0

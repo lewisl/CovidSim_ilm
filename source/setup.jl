@@ -132,14 +132,18 @@ function build_spread_params(variants, paramdir)
 end
 
 
-function build_transition_params(variants, paramdir, new=false)
+function build_transition_params(variants, paramdir)
     transitionset = Dict()
-    if new==true
-        setup_dt = new_setup_dt
-    end
+
     for variant in keys(variants)
-        transitionset[variant] = setup_dt(joinpath(paramdir, variants[variant][:directory_name], 
+        if variant == :new
+            transitionset[variant] = new_setup_dt(joinpath(paramdir, variants[variant][:directory_name], 
                 variants[variant][:transition_fname]))
+        else
+            transitionset[variant] = setup_dt(joinpath(paramdir, variants[variant][:directory_name], 
+                variants[variant][:transition_fname]))
+        end
+       
     end
     return transitionset
 end
