@@ -5,7 +5,7 @@
 #############################################################
 
 
-function new_setup_dt(dtfilename)
+function setup_dt(dtfilename)
     arrays = YAML.load_file(dtfilename)
 
     newdict = (
@@ -21,8 +21,6 @@ function new_setup_dt(dtfilename)
             for (k1, v1) in arrays)
     )
 
-    # println(newdict[age0_19][1][:transition])
-
     # change :transition value to an array
     for (k1, v1) in newdict         # k1 is agegrp
         for (k2, v2) in v1          # k2 is stage in 1:5
@@ -34,12 +32,13 @@ function new_setup_dt(dtfilename)
             end
         end
     end
+
     return newdict
 end
 
 
 
-function setup_dt(dtfilename)
+function old_setup_dt(dtfilename)
     trees = YAML.load_file(dtfilename)
 
     newdict = (

@@ -19,7 +19,7 @@ contactfactors:                                        # loads as dict
     {nil: 1.0, mild: 0.9, sick: 0.6, severe: 0.5}
 #
 # touchfactors: probability input to binomial distribution 
-#       determines if recipient "touched"
+#       determines if target is "touched"
 #
 touchfactors:
   age0_19:                                                    

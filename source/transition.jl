@@ -16,9 +16,8 @@ they move to recovered or dead.
 
 locdat must be a population table for a single locale.
 """
-@inline function transition!(locdat, infect_idx, transitionset, dovax, dovariant)
+@inline function transition!(locdat, infect_idx, transitionset, dovax, dovariant; trvec = zeros(6))
         
-
     # aliases for person attribute columns--deref the named tuple once
     v_sickday = locdat.sickday
     v_cond = locdat.cond
@@ -26,8 +25,9 @@ locdat must be a population table for a single locale.
 
     if dovax == true
     elseif dovariant == true
+        transarray = transitionset[:default]  # TODO: REPLACE WITH TRANSITION OF VARIANT OR VARIANT CALCULATION
     else
-        dectree = transitionset[:new]
+        transarray = transitionset[:default]
     end
 
     for p in infect_idx  # p for infected person    
@@ -36,7 +36,7 @@ locdat must be a population table for a single locale.
         p_agegrp = v_agegrp[p]  # agegroup of person p = agegrp column of locale data, row p 
 
         # if person's agegrp, sickday, and condition match a transition stage
-        transvec = has(dectree[p_agegrp], p_sickday, p_cond) 
+        transvec = has(transarray[p_agegrp], p_sickday, p_cond, trvec) 
 
         dotransition!(locdat, p, p_cond, transvec) # perform transition logic and update population table
 
@@ -44,10 +44,10 @@ locdat must be a population table for a single locale.
 end
 
 
-function has(agetr::Dict, sickday::Int, p_cond::condition)::Union{Vector{Float64}, Nothing}
+function has(agetr::Dict, sickday::Int, p_cond::condition, trvec)::Union{Vector{Float64}, Nothing}
     for (stage, v) in agetr
         if v[:sickday] == sickday
-            trvec = collect(v[:transition][p_cond, :])
+            trvec[:] = collect(v[:transition][p_cond, :])
             if sum(trvec) > 0.0
                 return trvec
             end

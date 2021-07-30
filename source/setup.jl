@@ -27,10 +27,10 @@ function setup(n_days, locales;  # must provide following inputs
     # spread parameters
         spreadset = build_spread_params(variants, paramdir)
 
-    # transition decision trees   
-        transitionset = build_transition_params(variants, paramdir)
+    # transition arrays 
+        (transitionset, trvec) = build_transition_params(variants, paramdir)
 
-    # vaccines
+    # vaccines  TODO this is not the right approach
     if dovax
         vaxspread, vaxtransition = setupvax(paramdir)
         spreadset = merge(spreadset, vaxspread)
@@ -38,7 +38,7 @@ function setup(n_days, locales;  # must provide following inputs
     end
 
     return (dat=datadict, transitionset=transitionset, geo=geodata, 
-            spreadset=spreadset, social=socialparams)  
+            spreadset=spreadset, social=socialparams, trvec = trvec)  
 end
 
 
@@ -136,16 +136,15 @@ function build_transition_params(variants, paramdir)
     transitionset = Dict()
 
     for variant in keys(variants)
-        if variant == :new
-            transitionset[variant] = new_setup_dt(joinpath(paramdir, variants[variant][:directory_name], 
-                variants[variant][:transition_fname]))
-        else
-            transitionset[variant] = setup_dt(joinpath(paramdir, variants[variant][:directory_name], 
-                variants[variant][:transition_fname]))
-        end
-       
+        transitionset[variant] = setup_dt(joinpath(paramdir, variants[variant][:directory_name], 
+            variants[variant][:transition_fname])) 
     end
-    return transitionset
+
+    # pre-allocate trvec used in hot loop: no. of columns in transition array
+    sz = size(first(first(transitionset[:default])[end])[end][:transition], 2)
+    trvec = zeros(sz)
+
+    return (transitionset, trvec)
 end
 
 

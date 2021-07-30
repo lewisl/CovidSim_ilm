@@ -376,7 +376,7 @@ end
 
 
 ```julia
-seed_1_6 = seed_case_gen(1, [0,3,3,0,0], 1, nil, agegrps)
+seed_1_6 = seed_case_gen(1, [0,3,3,0,0], 1, nil, :default, agegrps)
 ```
 
 

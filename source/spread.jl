@@ -214,39 +214,46 @@ columns in the population table. Runs social distancing cases.
     v_agegrp   = locdat.agegrp
     v_sickday  = locdat.sickday
     v_sdcomply = locdat.sdcomply
+    dovariant && (v_variant  = locdat.variant)
+    dovax && (begin; v_vax      = locdat.vax; v_vaxday = locdat.vaxday; end)
 
     # assign contacts, do touches, do new infections
     @inbounds for spr in infect_idx      # spr is the person who is the spreader
+        # determine number of outbound contacts
         contact_param = v_sdcomply[spr] == :none ? contactfactors : sdcases[v_sdcomply[spr]]
         nc = numcontacts(density_factor, gammashape, v_agegrp[spr], v_cond[spr], contact_param)  
         
         # TODO we could keep track of contacts for contact tracing
-        @inbounds @fastmath for contact in sample(contactable_idx, nc, replace=false) # people can get contacted more than once
+        # target is the outbound contact reached by the spr (spreader)
+        @inbounds @fastmath for target in sample(contactable_idx, nc, replace=true) # people can get contacted more than once
                       # combine a status or a condition value        
-            contactlookup = v_status[contact] == infectious ?  v_cond[contact] : v_status[contact]  # unexposed or recovered
-                            
-            if v_status[contact] == unexposed  # only condition that can get infected   TODO: handle reinfection of recovered
-                touch_param = v_sdcomply[contact] == :none ? touchfactors : sdcases[v_sdcomply[contact]]
-                touched = istouched(v_agegrp[contact], contactlookup, touch_param)  
+            # contactlookup = v_status[target] == infectious ?  v_cond[target] : v_status[target]  # unexposed or recovered
+            if v_status[target] == infectious
+                continue
+            end          
+            if v_status[target] == unexposed  # only condition that can get infected   TODO: handle reinfection of recovered
+                touch_param = v_sdcomply[target] == :none ? touchfactors : sdcases[v_sdcomply[target]]
+                touched = istouched(v_agegrp[target], unexposed , touch_param)   # contactlookup or v_status[target]
 
                 # infection outcome
                 if touched         # TODO some recovered people will become susceptible again
-                    if isinfected(spreadset, spr, contact, locdat)
-                        v_cond[contact] = nil # nil === asymptomatic or pre-symptomatic
-                        v_status[contact] = infectious
-                        v_sickday[contact] = 1
+                    if isinfected(spreadset, spr, target, locdat)
+                        v_cond[target] = nil # nil === asymptomatic or pre-symptomatic
+                        v_status[target] = infectious
+                        v_sickday[target] = 1
                         n_newly_infected += 1
+                        dovariant && (v_variant[target] = v_variant[spr])
                     end
                 end  # if (touched ...)
             end  # if contactstatus
-        end  # for contact in sample(...)
+        end  # for target in sample(...)
     end  # for p in infect_idx
 
     return n_newly_infected # n_contacts, n_touched, n_newly_infected
 end
 
 
-function make_sick!(dat; cnt, fromage, tocond, tosickday=1)
+function make_sick!(dat; cnt, fromage, tocond, tovariant, tosickday=1)
 
     @assert size(cnt, 1) == size(fromage, 1)
 
@@ -261,6 +268,7 @@ function make_sick!(dat; cnt, fromage, tocond, tosickday=1)
         dat.status[filt_all] .= infectious
         dat.cond[filt_all] .= tocond
         dat.sickday[filt_all] .= tosickday
+        dat.variant[filt_all] .= tovariant
     end
 end
 

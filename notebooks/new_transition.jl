@@ -28,7 +28,7 @@ using Distributions
 # # Grab a population matrix after 80 days
 
 # %%
-seed_1_6 = seed_case_gen(1, [0,3,3,0,0], 1, nil, agegrps)
+seed_1_6 = seed_case_gen(1, [0,3,3,0,0], 1, nil, :default, agegrps)
 
 # %%
 alldat, series = run_a_sim(80, 38015, showr0=false, silent=true, runcases=[seed_1_6]);

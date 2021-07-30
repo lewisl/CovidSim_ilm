@@ -29,7 +29,7 @@ cd(joinpath(homedir(),"Dropbox/Online Coursework/Covid/ilm-src"))
 # # Create a seed case
 
 # %%
-seed_1_6 = seed_case_gen(1, [0,3,3,0,0], 1, nil, agegrps)
+seed_1_6 = seed_case_gen(1, [0,3,3,0,0], 1, nil, :default, agegrps)
 
 # %% [markdown]
 # # Run a simulation for 40 days

@@ -30,7 +30,8 @@ function run_a_sim(n_days, locales;
                     variantsfilename=variantsfilename
                     )
 
-                    transitionset = alldat.transitionset  # decision trees for transition
+                    transitionset = alldat.transitionset  # transition arrays
+                    trvec = alldat.trvec # preallocated small vector
                     popdat = alldat.dat["popdat"]   # first key locale
                     agegrp_idx = alldat.dat["agegrp_idx"]   # first key locale
                     cumhistmx = alldat.dat["cumhistmx"]   # first key locale
@@ -79,7 +80,7 @@ function run_a_sim(n_days, locales;
             # two fundamental steps of the simulation: spread! and transition!
             sprtime += @elapsed spread!(locdat, infect_idx, contactable_idx, sdcases, socialparams, 
                                         spreadset, density_factor, dovax, dovariant)   
-            trtime += @elapsed transition!(locdat, infect_idx, transitionset, dovax, dovariant)                        
+            trtime += @elapsed transition!(locdat, infect_idx, transitionset, dovax, dovariant; trvec=trvec)                        
 
             for case in runcases
                 case(loc, popdat, socialparams, spreadset, sdcases, ages; startofday=false)  # TODO extend ages to be any filter for 
