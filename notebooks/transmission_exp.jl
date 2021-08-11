@@ -22,6 +22,8 @@ using TypedTables
 using BenchmarkTools
 using Distributions
 using YAML
+using PrettyPrint
+using Plots
 
 # %%
 cd(joinpath(homedir(),"Dropbox/Covid Modeling/Covid-ILM/source"))
@@ -32,9 +34,27 @@ cd(joinpath(homedir(),"Dropbox/Covid Modeling/Covid-ILM/source"))
 # %% tags=[]
 # set locale
 locale = 38015
+ndays = 180
 
 # %% tags=[]
-alldat = setup(180, [locale])
+alldat = setup(ndays, [locale]; paramdir="../parameters", 
+    geofilename="../data/geo2data.csv",
+    socialfilename = "socialparams.yml",
+    vaccinefilename = "vaccines.yml",
+    variantsfilename = "variants.yml"
+    );
+
+# %%
+keys(alldat)
+
+# %%
+alldat.spreadset[:default].recvrisk
+
+# %%
+shifter(alldat.spreadset[:default].recvrisk, mult=1.2)
+
+# %%
+alldat.spreadset[:default].sendrisk
 
 # %%
 spreadparams = alldat["sp"]  # the spread parameters are loaded as a dict of float arrays

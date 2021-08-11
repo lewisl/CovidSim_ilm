@@ -32,13 +32,15 @@ function setup(n_days, locales;  # must provide following inputs
 
     # vaccines  TODO this is not the right approach
     if dovax
-        vaxspread, vaxtransition = setupvax(paramdir)
-        spreadset = merge(spreadset, vaxspread)
-        transitionset = merge(transitionset, vaxtransition)
+        vaxset = setupvax(paramdir)
+        # vxschedset = 
+    else
+        vaxset = nothing
+        vxschedset = nothing
     end
 
-    return (dat=datadict, transitionset=transitionset, geo=geodata, 
-            spreadset=spreadset, social=socialparams, trvec = trvec)  
+    return (dat=datadict, transitionset=transitionset, geo=geodata, vaxset=vaxset,
+            vxschedset=vxschedset, spreadset=spreadset, social=socialparams, trvec = trvec)  
 end
 
 
@@ -59,7 +61,7 @@ function build_data(locales, geodata, n_days)
     popdat = Dict(loc => pop_data(geodata[geodata[:, "fips"] .== loc, "pop"][1]) for loc in locales)
 
     # precalculate agegrp indices
-    agegrp_idx = Dict(loc => precalc_agegrp_filt(popdat[loc])[2] for loc in locales)
+    agegrp_idx = Dict(loc => precalc_agegrp_filt(popdat[loc]).idx for loc in locales)
 
     cumhistmx = hist_dict(locales, n_days)
     newhistmx = hist_dict(locales, n_days)
@@ -85,8 +87,10 @@ function pop_data(pop; age_dist=age_dist)
             deadday = zeros(Int, pop),   
             cluster = zeros(Int, pop), 
             sdcomply = fill(:none, pop),  
-            vax = Vector{Union{Nothing, Vector{Symbol}}}(nothing, pop),   
-            vaxday = Vector{Union{Nothing, Vector{Int}}}(nothing, pop), 
+            vaxstatus = fill(:none, pop),  # :none, :full  maybe others later...
+            shots = fill([:none], pop),    # vaccine symbols  :pfizer, :moderna, :jnj
+            vaxday = fill([0], pop), 
+            fullvaxday = zeros(Int, pop),
             test = falses(pop),  
             testday = zeros(Int, pop),  
             quar = falses(pop),
@@ -193,6 +197,17 @@ end
 end
 
 
+@inline function shifter(x::Array; minmult=1.0, maxmult=1.0, mult=1.0)
+    if mult != 1.0
+        maxmult = minmult = mult
+    end
+    oldmin = minimum(x)
+    oldmax = maximum(x)
+    newmin = minmult * oldmin
+    newmax = maxmult * oldmax
+    shifter(x, oldmin, oldmax, newmin, newmax)
+end
+
 """
     limdict(dct::Dict, op::Function)
 
@@ -251,6 +266,6 @@ end
 function precalc_agegrp_filt(dat)  # dat for a single locale
     agegrp_filt_bit = Dict(age => dat.agegrp .== age for age in agegrps)
     agegrp_filt_idx = Dict(age => findall(agegrp_filt_bit[age]) for age in agegrps)
-    return agegrp_filt_bit, agegrp_filt_idx
+    return (boolean=agegrp_filt_bit, idx=agegrp_filt_idx)
 end
 # agegrp_filt_bit, agegrp_filt_idx = precalc_agegrp_filt(ilmat);

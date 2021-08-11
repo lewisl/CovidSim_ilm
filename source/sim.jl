@@ -39,6 +39,7 @@ function run_a_sim(n_days, locales;
                     geodf = alldat.geo
                     spreadset = alldat.spreadset
                     socialparams = alldat.social
+                    vaxset = alldat.vaxset
 
     # start the day counter at zero
     reset!(day_ctr, :day)  # return and reset key to 0 :day leftover from prior runs
@@ -50,6 +51,7 @@ function run_a_sim(n_days, locales;
     ######################
     # simulation loop
     ######################
+    vaxtime = 0
     sprtime = 0
     trtime = 0
     idxtime = 0
@@ -78,6 +80,7 @@ function run_a_sim(n_days, locales;
             end
 
             # two fundamental steps of the simulation: spread! and transition!
+            vaxtime =+ @elapsed vaccinate!(locdat, vxschedset, contactable_idx, spreadset, dovax, dovariant)
             sprtime += @elapsed spread!(locdat, infect_idx, contactable_idx, sdcases, socialparams, 
                                         spreadset, density_factor, dovax, dovariant)   
             trtime += @elapsed transition!(locdat, infect_idx, transitionset, dovax, dovariant; trvec=trvec)                        
@@ -110,7 +113,7 @@ function run_a_sim(n_days, locales;
         add_totinfected_series!(series, loc)
     end
 
-    @show idxtime, sprtime, trtime, histtime
+    @show idxtime, vaxtime, sprtime, trtime, histtime
 
     return alldat, series
 end

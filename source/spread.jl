@@ -54,13 +54,13 @@ end
 function sd_gen(;startday::Int, comply::Float64, cf::Tuple{Float64, Float64},
     tf::Tuple{Float64, Float64}, name::Symbol, include_ages=[])
     function runcase(locale, dat, socialparams, spreadset, sdcases, ages; startofday)   
-        s_d_seed!(dat, sdcases, startday, comply, cf, tf, name, include_ages, locale, socialparams, infectparams, ages;
+        s_d_seed!(dat, sdcases, startday, comply, cf, tf, name, include_ages, locale, socialparams, spreadset, ages;
                     startofday=startofday)
     end
 end
 
 
-@inline function s_d_seed!(dat, sdcases, startday, comply, cf, tf, name, include_ages, locale, socialparams, infectparams, ages; startofday)
+@inline function s_d_seed!(dat, sdcases, startday, comply, cf, tf, name, include_ages, locale, socialparams, spreadset, ages; startofday)
     @assert 0.0 <= comply <= 1.0  "comply must be floating point in 0.0 to 1.0 inclusive"
     
     startofday || return
@@ -206,7 +206,7 @@ columns in the population table. Runs social distancing cases.
     # retrieve params
     contactfactors = socialparams.contactfactors
     touchfactors   = socialparams.touchfactors
-    gammashape      = socialparams.gammashape
+    gammashape     = socialparams.gammashape
 
     # column aliases as vector v_...
     v_cond     = locdat.cond
@@ -233,7 +233,7 @@ columns in the population table. Runs social distancing cases.
             end          
             if v_status[target] == unexposed  # only condition that can get infected   TODO: handle reinfection of recovered
                 touch_param = v_sdcomply[target] == :none ? touchfactors : sdcases[v_sdcomply[target]]
-                touched = istouched(v_agegrp[target], unexposed , touch_param)   # contactlookup or v_status[target]
+                touched = istouched(v_agegrp[target], unexposed, touch_param)   # contactlookup or v_status[target]
 
                 # infection outcome
                 if touched         # TODO some recovered people will become susceptible again

@@ -22,6 +22,8 @@ locdat must be a population table for a single locale.
     v_sickday = locdat.sickday
     v_cond = locdat.cond
     v_agegrp = locdat.agegrp
+    dovax && (begin; v_vax = locdat.vax; v_vaxday = locdat.vaxday; end)
+    dovariant && (begin; v_variant = locdat.variant; end)
 
     if dovax == true
     elseif dovariant == true
@@ -47,7 +49,7 @@ end
 function has(agetr::Dict, sickday::Int, p_cond::condition, trvec)::Union{Vector{Float64}, Nothing}
     for (stage, v) in agetr
         if v[:sickday] == sickday
-            trvec[:] = collect(v[:transition][p_cond, :])
+            trvec[:] = v[:transition][p_cond, :]
             if sum(trvec) > 0.0
                 return trvec
             end
@@ -76,7 +78,7 @@ the number of days the person has been sick.
     else
         choice = shift(categorical_sim(trvec)) # which outcome...?
 
-        tocond = conditionshift(p_cond, choice)  # next condition or status
+        tocond = conditionshift(choice)  # next condition or status
 
         # if locdat.sickday[p] >= 25
         #     println("$(day_ctr[:day]): agegrp: $(locdat.agegrp[p]) sickday: $(locdat.sickday[p]) from cond: $p_cond to cond: $tocond")
@@ -101,20 +103,22 @@ the number of days the person has been sick.
 end
 
 
-function conditionshift(now, sh)
+function conditionshift(sh::shift) # faster than using a Dict because few items
 
-    if sh == same
-            now
-    elseif sh == die
-        dead
-    elseif sh == recover
+    if sh == torecover  # most common
         recovered
-    elseif sh == improve
-        Int(now) - 1 < Int(typemin(condition)) ? typemin(condition) : condition(Int(now) - 1)
-    elseif sh == worse
-        Int(now) + 1 > Int(typemax(condition)) ? typemax(condition) : condition(Int(now) + 1)
-    elseif sh == worseplus
-        Int(now) + 2 > Int(typemax(condition)) ? typemax(condition) : condition(Int(now) + 2)
+    elseif sh == tonil
+        nil
+    elseif sh == tomild
+        mild
+    elseif sh == tosick
+        sick
+    elseif sh == tosevere
+        severe
+    elseif sh == todead   # least common
+        dead
+    else
+        @assert false "invalid condition"
     end
         
 end

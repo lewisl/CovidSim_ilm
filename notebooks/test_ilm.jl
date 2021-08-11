@@ -36,7 +36,15 @@ locale = 38015
 ndays = 180
 
 # %% tags=[]
-alldat = setup(ndays, [locale])
+alldat = setup(ndays, [locale]; paramdir="../parameters", 
+    geofilename="../data/geo2data.csv",
+    socialfilename = "socialparams.yml",
+    vaccinefilename = "vaccines.yml",
+    variantsfilename = "variants.yml"
+    );
+
+# %%
+keys(alldat)
 
 # %%
 alldat.dat
@@ -63,7 +71,7 @@ geodf = alldat.geo   # the date for all locales has been read into a dataframe
 density_factor = geodf[geodf[!, :fips] .== locale, :density_factor][]
 
 # %%
-socialparams = alldat.social  # the spread parameters are loaded as a dict of float arrays
+alldat.social
 
 # %%
 fieldnames(typeof(socialparams))
@@ -72,39 +80,29 @@ fieldnames(typeof(socialparams))
 typeof(socialparams.gammashape)
 
 # %%
-infectparams = alldat.infect
+alldat.social.contactfactors
 
 # %%
-contactfactors = socialparams.contactfactors
+touchfactors = alldat.social.touchfactors
 
 # %%
-typeof(contactfactors)
+alldat.spreadset
 
 # %%
-contactfactors[age80_up]
+alldat.spreadset[:default].recvrisk
 
 # %%
-touchfactors =  socialparams.touchfactors
-
-# %%
-touchfactors[age40_59]
-
-# %%
-limdict = CovidSim_ilm.limdict
-limdict(touchfactors, <)
+alldat.spreadset[:default].sendrisk
 
 # %%
 # is shifter working?
 shifter(touchfactors, (.18, .3)...)[age40_59]
 
 # %%
-dectree = alldat["dectree"] # the decision trees for all age groups are loaded
+alldat.transitionset # the decision trees for all age groups are loaded
 
 # %%
-typeof(dectree)
-
-# %% tags=[] jupyter={"outputs_hidden": true}
-display_tree(dectree)
+dectree = alldat.transitionset[:default]
 
 # %% [markdown]
 # Dict{Int64, OrderedCollections.OrderedDict{Int, Dict{String, Vector{T} where T}
@@ -113,15 +111,7 @@ display_tree(dectree)
 dectree[age80_up]
 
 # %%
-typeof(dectree[age80_up][25][sick][:outcomes])
-
-# %%
-function get_node(dectree, agegrp, sickday, fromcond)
-    dectree[agegrp][sickday][fromcond]
-end
-
-# %%
-@btime get_node(dectree, age80_up, 25, sick)[:probs]
+dectree[age80_up][5]
 
 # %% [markdown]
 # # Create a seed case
@@ -136,10 +126,13 @@ seed_1_6 = seed_case_gen(1, [0,3,3,0,0], 1, nil, :default, agegrps)
 result_dict, series = run_a_sim(ndays, locale, showr0=false, silent=true, runcases=[seed_1_6]);
 
 # %%
-result_dict
+keys(result_dict)
 
 # %%
-popdat = result_dict["dat"]["popdat"][locale]
+result_dict.dat
+
+# %%
+popdat = result_dict.dat["popdat"][locale]
 
 # %%
 countmap(popdat.cond)
@@ -184,7 +177,7 @@ cumplot(series, locale)
 cumplot(series, locale,[:infectious, :dead])
 
 # %%
-outdat = result_dict["dat"]["popdat"][locale]
+outdat = result_dict.dat["popdat"][locale]
 all(outdat.sdcomply .== :none)
 
 # %% [markdown]
@@ -204,7 +197,7 @@ result_dict, series = run_a_sim(ndays, locale, showr0=false, silent=true,
 
 
 # %%
-olderdat = result_dict["dat"]["popdat"][locale]
+olderdat = result_dict.dat["popdat"][locale]
 
 sd = findall(olderdat.sdcomply .!= :none)
 
@@ -228,7 +221,7 @@ result_dict, series = run_a_sim(ndays, locale, showr0=false, silent=true,
     runcases=[seed_1_6, sd1, sdyoung_end]);
 
 # %%
-mixdat = result_dict["dat"]["popdat"][locale]
+mixdat = result_dict.dat["popdat"][locale]
 
 sd = findall(mixdat.sdcomply .!= :none)
 young = findall((mixdat.agegrp .== age0_19) .| (mixdat.agegrp .== age20_39))
@@ -247,7 +240,7 @@ count(oldtab.sdcomply .!= :none)
 typeof(mixdat.agegrp)
 
 # %%
-mixdat = result_dict["dat"]["popdat"][locale]
+mixdat = result_dict.dat["popdat"][locale]
 
 # %%
 cumplot(series, locale, [:infectious, :dead])

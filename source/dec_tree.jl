@@ -37,6 +37,13 @@ function setup_dt(dtfilename)
 end
 
 
+"""
+transitionT is Type alias for type that holds a transition decision tree
+"""
+const transitionT = Dict{agegrp, Dict{Int64, Dict{Symbol, Any}}}
+
+
+
 
 function old_setup_dt(dtfilename)
     trees = YAML.load_file(dtfilename)
