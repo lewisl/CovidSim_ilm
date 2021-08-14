@@ -79,8 +79,9 @@ function run_a_sim(n_days, locales;
                 contactable_idx = findall(locdat.status .!= dead)
             end
 
+            dovax && (vaxtime += @elapsed vaccinate!(locdat, vxschedset, contactable_idx, spreadset, dovax, dovariant))
+
             # two fundamental steps of the simulation: spread! and transition!
-            vaxtime =+ @elapsed vaccinate!(locdat, vxschedset, contactable_idx, spreadset, dovax, dovariant)
             sprtime += @elapsed spread!(locdat, infect_idx, contactable_idx, sdcases, socialparams, 
                                         spreadset, density_factor, dovax, dovariant)   
             trtime += @elapsed transition!(locdat, infect_idx, transitionset, dovax, dovariant; trvec=trvec)                        
@@ -355,7 +356,7 @@ end
 
 
 """
-    categorical_sim(prs::Vector{Float64}, do_assert=true)
+    categorical_sim(prs::Vector{Float64})
     categorical_sim(prs::Vector{Float64}, n::Int, do_assert=true)
 
 Approximates sampling from a categorical distribution.
