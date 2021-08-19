@@ -5,7 +5,7 @@
 
 @Base.kwdef mutable struct Vaccineparams
     name::Symbol 
-    shots::Int
+    reqdshots::Int
     delay2ndshot::Union{Int, Nothing}   # days until 2nd shot (probability less important)
     halflife::Int  # days to 50% decline in effectiveness
     sendrisk::Vector{Float64}
@@ -56,7 +56,7 @@ end
                                 pattern=[0.0, .02, .05, .10, .15, .19, .21, .16, .08, .03, .01], 
                                 shotmode=:all)
 
-            vaxmix = [v.mix for v in values(vax)]
+            vaxmix = [v.mix for v in values(vaxinclude)]
             @assert sum(vaxmix) == 1.0 "Sum of mixes for vaccines does not equal 1: $vaxmix"
 
             Vaxsched(
@@ -85,7 +85,7 @@ end
 function setupvax(paramdir="../parameters")
     vaccinefiles = YAML.load_file(joinpath(paramdir, "vaccines.yml"); dicttype=Dict{Symbol,Any})
 
-    pprint(vaccinefiles)
+    # pprint(vaccinefiles)
 
     vaxset = build_vaxset(vaccinefiles, paramdir)
 
@@ -117,30 +117,39 @@ end
 
 # this works
 function build_vaxset(vaccinefiles, paramdir="../parameters")
-    vaxset = Dict{Symbol, Dict{Symbol, Union{Vaccineparams, transitionT}}}()
+    # vaxset = Dict{Symbol, Dict{Symbol, Union{Vaccineparams, transitionT}}}()
+    vaxset = Dict()
     for vax in keys(vaccinefiles)
         vparams = YAML.load_file(joinpath(paramdir,vaccinefiles[vax][:directory_name],
             vaccinefiles[vax][:infect_fname]), dicttype=Dict{Symbol, Any})
         vparams = Vaccineparams(vparams)
         vtrans = setup_dt(joinpath("../parameters", vaccinefiles[vax][:directory_name], 
                     vaccinefiles[vax][:transition_fname]))
-        vaxset[vax] = Dict()
-        vaxset[vax][:params] = vparams
-        vaxset[vax][:transition] = vtrans
+        vaxset[vax] = Dict(:params => vparams, :transition => vtrans)
     end
     return vaxset
 end
 
 
-function vaccinate!(locdat, vxschedset, contactable_idx, spreadset, dovax, dovariant)
+function build_vaxsched(schedfile; paramdir="../parameters", scheddir="vaxsched")
+    vxsched = YAML.load_file(joinpath(paramdir,scheddir, schedfile), dicttype=Dict{Symbol, Any})
+
+    pprint(vxsched)
+end
+
+
+
+function vaccinate!(locdat, vxschedset, contactable_idx, vaxset)
         
     today = day_ctr[:day]
 
     for vxsched in vxschedset
 
-        # shortcircuit the whole shebang for this vaccine in the schedule
+        vaxinclude = collect(keys(vxsched.vaxinclude))
+
+        # shortcircuit the whole shebang for this schedule
         dayrange = vxsched.dayrange
-        delay2ndshot = Dict(v=>spreadset[v].delay2ndshot for v in vaccines)
+        delay2ndshot = Dict(v=>vaxset[v].delay2ndshot for v in vaxinclude)
         maxstop2ndshot = dayrange.stop + maximum(values(delay2ndshot))
 
         if (today < dayrange.start) | (today > maxstop2ndshot)
@@ -151,11 +160,12 @@ function vaccinate!(locdat, vxschedset, contactable_idx, spreadset, dovax, dovar
         filterfunc = vxsched.filterfunc
         shotmode = vxsched.shotmode # values in :first, :second, :all
         pctfunc = vxsched.pctfunc
-        vaxinclude = collect(keys(vxsched.vaxinclude))
         vaxprops = vxsched.vax
-        reqdshots = Dict(v=>spreadset[v].reqdshots for v in vaccinesinsched)
-        mix = [v.mix for v in values(vxsched.vax)]
-        doses = Dict(k => v.doses for (k,v) in values.vax)  # doses available
+        reqdshots = Dict(v => vaxset[v].reqdshots for v in vaxinclude)
+        # pct2ndshot = Dict(v => vxsched.vaxinclude[v].pct2ndshot for v in vaxinclude)
+        pct2ndshot = Dict(k => v.pct2ndshot for (k,v) in vxsched.vaxinclude)
+        mix = [v.mix for v in values(vxsched.vaxinclude)]
+        doses = Dict(k => v.doses for (k,v) in vxsched.vaxinclude)  # doses available
         
         # columns
         vaxstatuscol = locdat.vaxstatus
@@ -170,7 +180,7 @@ function vaccinate!(locdat, vxschedset, contactable_idx, spreadset, dovax, dovar
 
 
         # TODO we should stop if no more doses in the schedule
-        # TODO we need a way in the vax cases to kill a schedule
+        # TODO we need a way in the vax cases to kill a schedule: reset dayrange to 1:1
 
         while shotsremaining > 0
             for p in contactable_idx  # people who are not dead
@@ -198,20 +208,31 @@ function vaccinate!(locdat, vxschedset, contactable_idx, spreadset, dovax, dovar
                         vaxstatuscol[p] = :first
                     end
 
-                elseif vaxstatuscol[p] == :first  
+                elseif (vaxstatuscol[p] == :first)  | (vaxstatuscol[p] == :multiple)
                     vaxchoice = last(vaxrcvdcol[p]) # assume we don't mix vaccines for multiple shots
                     if doses[vaxchoice] > 0
-                        shotsremaining -= 1
-                        doses[vaxchoice] -= 1
-                        # update person's traits
-                        push!(vaxrcvdcol[p], thisvax)
-                        push!(vaxdaycol[p], day)
-                        if reqdshots[vaxchoice] == length(vaxrcvdcol[p])
-                            vaxstatuscol[p] = :full
+                        # is it time for the next shot?
+                        prev_date = last(vaxdaycol[p])
+                        if (today - prev_date) >= delay2ndshot[vaxchoice]
+                            # will this person get the 2nd shot?
+                            donext = Bool(binomial_one_sample(1,pct2ndshot[vaxchoice]))
+                            if donext
+                                shotsremaining -= 1
+                                doses[vaxchoice] -= 1
+                                # update person's traits
+                                push!(vaxrcvdcol[p], thisvax)
+                                push!(vaxdaycol[p], day)
+                                if length(vaxrcvdcol[p])  >= reqdshots[vaxchoice]
+                                    vaxstatuscol[p] = :full
+                                else
+                                    vaxstatuscol[p] = :multiple
+                                end
+                            end
                         end
                     end
                 else   
                     # more than one shot received, but not :full--not sure how to use
+                    @assert false "vax status conditions failed: no condition satisfied"
                 end
 
             end  # for p

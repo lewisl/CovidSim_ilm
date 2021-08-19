@@ -1,0 +1,20 @@
+vaxinclude:
+  Pfizer:
+    mix:          .55
+    doses:        40000
+    pct2ndshot:   .85
+  Moderna:
+    mix:          .30
+    doses:        25000
+    pct2ndshot:   .85
+  JnJ:
+    mix:          .15
+    doses:        12500
+    pct2ndshot:
+
+dayrange:       [360,700]
+targetpct:      .65
+filterfunc:
+shotmode:       all
+pattern:        [0.0, .02, .05, .10, .15, .19, .21, .16, .08, .03, .01]
+pctfunc:

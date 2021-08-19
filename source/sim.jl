@@ -8,8 +8,9 @@ function run_a_sim(n_days, locales;
             runcases=[], 
             showr0 = true, 
             silent=true, 
-            dovax=false, 
             dovariant=false,
+            dovax=false, 
+            vaxschedset=Dict(),
             paramdir = "../parameters",
             geofilename = "../data/geo2data.csv", 
             socialfilename = "socialparams.yml",
@@ -79,7 +80,7 @@ function run_a_sim(n_days, locales;
                 contactable_idx = findall(locdat.status .!= dead)
             end
 
-            dovax && (vaxtime += @elapsed vaccinate!(locdat, vxschedset, contactable_idx, spreadset, dovax, dovariant))
+            dovax && (vaxtime += @elapsed vaccinate!(locdat, vxschedset, contactable_idx, vaxset))
 
             # two fundamental steps of the simulation: spread! and transition!
             sprtime += @elapsed spread!(locdat, infect_idx, contactable_idx, sdcases, socialparams, 
