@@ -173,18 +173,18 @@ end
 
 Returns true if the spreader infected the contact. 
 """
-@inline function isinfected(spreadset, spreader, contact, locdat)::Bool
-    if isnothing(locdat.vax[spreader])
+@inline function isinfected(spreadset, vaxset, spreader, contact, locdat)::Bool
+    if locdat.vaxrcvd[spreader][end] == :none
         variant = locdat.variant[spreader]
         sendrisk  = spreadset[variant].sendrisk[locdat.sickday[spreader]]
         recvrisk  = spreadset[variant].recvrisk[Int(locdat.agegrp[contact])]
     else
         # sendrisk
-            vaxtype = locdat.vax[spreader][end]
-            sendrisk = vaxset[vaxtype][:vaccine].sendrisk[locdat.sickday[spreader]]
+            vaxtype = locdat.vaxrcvd[spreader][end]  # the most recent or last vaccine received
+            sendrisk = vaxset[vaxtype].sendrisk[locdat.sickday[spreader]]
         # recvrisk
             vaxtype = locdat.vax[contact][end]
-            recvrisk = vaxset[vaxtype][:vaccine].recvrisk[Int(locdat.agegrp[contact])]
+            recvrisk = vaxset[vaxtype].recvrisk[Int(locdat.agegrp[contact])]
     end
 
     @inbounds @fastmath prob = sendrisk * recvrisk            # TODO also vaccinated people will have partially unsusceptible
@@ -199,7 +199,7 @@ Infectious people spread the virus to susceptible people for a single locale. Ch
 columns in the population table. Runs social distancing cases.
 """
 @inline function spread!(locdat, infect_idx, contactable_idx, sdcases, socialparams,
-     spreadset, density_factor, dovax, dovariant)
+     spreadset, vaxset, density_factor, dovax, dovariant)
 
     n_newly_infected = 0
 
@@ -237,7 +237,7 @@ columns in the population table. Runs social distancing cases.
 
                 # infection outcome
                 if touched         # TODO some recovered people will become susceptible again
-                    if isinfected(spreadset, spr, target, locdat)
+                    if isinfected(spreadset, vaxset, spr, target, locdat)
                         v_cond[target] = nil # nil === asymptomatic or pre-symptomatic
                         v_status[target] = infectious
                         v_sickday[target] = 1

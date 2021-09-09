@@ -1,4 +1,4 @@
-vaxinclude:
+vaxesincluded:
   Pfizer:
     mix:          .55
     doses:        40000
@@ -10,7 +10,7 @@ vaxinclude:
   JnJ:
     mix:          .15
     doses:        12500
-    pct2ndshot:
+    pct2ndshot:   0.0
 
 dayrange:       [360,700]
 targetpct:      .65

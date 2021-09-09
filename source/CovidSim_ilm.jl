@@ -274,8 +274,9 @@ export
 export
     Vaccineparams,
     Vaxsched,
+    Vaxinclude,
     makevaxfn,
-    getashot!
+    vaccinate!
 
 # functions for transition
 export

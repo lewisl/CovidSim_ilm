@@ -37,11 +37,13 @@ locale = 38015
 ndays = 180
 
 # %% tags=[]
-alldat = setup(ndays, [locale]; paramdir="../parameters", 
+alldat = setup(ndays, [locale]; 
+    dovax=true,
+    paramdir="../parameters", 
     geofilename="../data/geo2data.csv",
     socialfilename = "socialparams.yml",
     vaccinefilename = "vaccines.yml",
-    variantsfilename = "covidvariants.yml"
+    variantsfilename = "variants.yml"
     );
 
 # %%
@@ -52,6 +54,9 @@ alldat.dat
 
 # %%
 locdat = alldat.dat["popdat"][locale]
+
+# %%
+locdat.vaxrcvd
 
 # %%
 ages = alldat.dat["agegrp_idx"][locale]
@@ -100,6 +105,9 @@ limdict = CovidSim_ilm.limdict
 limdict(touchfactors, <)  # recursive minimum
 
 # %%
+alldat.vaxset
+
+# %%
 # is shifter working?
 shifter(touchfactors, (.18, .3)...)[age40_59]
 
@@ -107,13 +115,16 @@ shifter(touchfactors, (.18, .3)...)[age40_59]
 dectree = alldat.transitionset[:default] # the decision trees for all age groups are loaded
 
 # %%
-transarr = alldat.transitionset[:new]
+transarr = alldat.transitionset[:default]
 
 # %%
 transarr[age0_19][5]
 
 # %%
-transarr[age0_19][1][:transition][nil,recover]
+transarr[age0_19][1][:transition]
+
+# %%
+transarr[age0_19][1][:transition][nil,2]
 
 # %%
 function has(agetr::Dict, sickday::Int, p_cond::Int)::Tuple{Bool, Union{Vector{Float64}, Nothing}}
@@ -186,60 +197,50 @@ vaccines[:Pfizer]
 
 # %%
 vax = :Moderna
-v = YAML.load_file(joinpath("../parameters",vaccines[vax][:directory_name],
+v = YAML.load_file(joinpath("../parameters","vaccine_parameters",vaccines[vax][:directory_name],
         vaccines[vax][:infect_fname]), dicttype=Dict{Symbol, Any})
 
 # %%
-spreadset
-
-# %%
-spreadset[:Moderna].recvrisk_reduction
+vaxset = CovidSim_ilm.build_vaxset("vaccines.yml", paramdir="../parameters")
 
 # %% [markdown]
 # ### Vaccination Schedule
 
 # %%
-dayrange=60:151
-targetpct = 0.75
-vaxschedset = Dict{Symbol, Vaxsched}()
-for vax in keys(vaccines)
-    vaxschedset[vax] = Vaxsched(
-        vaccine   = vax,
-        dayrange  = dayrange,
-        targetpct = targetpct,
-        pctperdayfn = makevaxfn(dayrange, spreadset[vax].pattern, targetpct)
-        ) 
-end
+vxschedset = CovidSim_ilm.build_vaxschedset()
 
 
 # %%
-println(typeof(vaxschedset))
-vaxschedset
+println(typeof(vxschedset))
+pprint(vxschedset)
 
 # %%
-vaxschedset[:Pfizer]
+asched = first(keys(vxschedset))
 
 # %%
-vaxschedset[:Pfizer].pctperdayfn(dayrange.stop)
+vxschedset[asched].dayrange
 
 # %%
-sum([vaxschedset[:Pfizer].pctperdayfn(i) for i in dayrange])
+sum([vxschedset[asched].pctfunc(i) for i in vxschedset[asched].dayrange])
 
 # %%
-plot(dayrange,[vaxschedset[:Pfizer].pctperdayfn(i) for i in dayrange],size=(600,300))
+plot(vxschedset[asched].dayrange, [vxschedset[asched].pctfunc(i) for i in vxschedset[asched].dayrange],size=(600,300))
 
 # %% [markdown] tags=[]
 # # Define a vaccine and give some shots
 
 # %%
 peeps = 30:40
-getashot!(locdat, peeps, 90, :Moderna, vaxkeys)
+day_ctr[:day] = 600  # must be in the range of the schedule
+vaccinate!(locdat, vxschedset, peeps, vaxset)
 
 # %%
-locdat.vax[peeps]
+@Select(vaxstatus, vaxday, vaxrcvd)(locdat)[peeps]
 
 # %%
-locdat.vaxday[peeps]
+locdat.vaxstatus[peeps] = fill(:none, 11)
+locdat.vaxday[peeps] = fill([0], 11)
+locdat.vaxrcvd[peeps] = fill([:none], 11)
 
 # %% [markdown]
 # # Create a seed case
@@ -258,16 +259,22 @@ result_dict, series = run_a_sim(ndays, locale;
     geofilename = "../data/geo2data.csv", 
     socialfilename = "socialparams.yml",
     vaccinefilename = "vaccines.yml",
-    variantsfilename = "covidvariants.yml",
+    variantsfilename = "variants.yml",
     showr0=false, 
     silent=true, 
     runcases=[seed_1_6]);
 
-# %%
+# %% tags=[]
 result_dict
 
 # %%
-popdat = result_dict["dat"]["popdat"][locale]
+keys(result_dict)
+
+# %%
+keys(result_dict[:dat])
+
+# %%
+popdat = result_dict[:dat]["popdat"][locale]
 
 # %%
 countmap(popdat.cond)
@@ -296,7 +303,7 @@ cumplot(series, locale)
 # %%
 sd1 = sd_gen(startday = 55, comply=0.9, cf=(.2,1.0), tf=(.18,.6), name=:mod_80, include_ages=[])    
 
-# %%
+# %% tags=[]
 sd1_end = sd_gen(startday = 90, comply=0.0, cf=(.2,1.5), tf=(.18,.6), name=:mod_80, include_ages=[])
 
 # %%
@@ -312,7 +319,7 @@ cumplot(series, locale)
 cumplot(series, locale,[:infectious, :dead])
 
 # %%
-outdat = result_dict["dat"]["popdat"][locale]
+outdat = result_dict[:dat]["popdat"][locale]
 all(outdat.sdcomply .== :none)
 
 # %% [markdown]
@@ -332,7 +339,7 @@ result_dict, series = run_a_sim(ndays, locale, showr0=false, silent=true,
 
 
 # %%
-olderdat = result_dict["dat"]["popdat"][locale]
+olderdat = result_dict[:dat]["popdat"][locale]
 
 sd = findall(olderdat.sdcomply .!= :none)
 
@@ -356,7 +363,7 @@ result_dict, series = run_a_sim(ndays, locale, showr0=false, silent=true,
     runcases=[seed_1_6, sd1, sdyoung_end]);
 
 # %%
-mixdat = result_dict["dat"]["popdat"][locale]
+mixdat = result_dict[:dat]["popdat"][locale]
 
 sd = findall(mixdat.sdcomply .!= :none)
 young = findall((mixdat.agegrp .== age0_19) .| (mixdat.agegrp .== age20_39))
@@ -375,7 +382,7 @@ count(oldtab.sdcomply .!= :none)
 typeof(mixdat.agegrp)
 
 # %%
-mixdat = result_dict["dat"]["popdat"][locale]
+mixdat = result_dict[:dat]["popdat"][locale]
 
 # %%
 cumplot(series, locale, [:infectious, :dead])
@@ -386,10 +393,10 @@ cumplot(series, locale, [:infectious, :dead])
 # %% [markdown]
 # alldat
 
-# %%
+# %% tags=[]
 alldat
 
-# %%
+# %% tags=[]
 ages = alldat.dat["agegrp_idx"][locale]
 
 # %%
@@ -406,81 +413,5 @@ incase_idx = findall(locdat.sdcomply .== :test)
 
 # %%
 byage_idx = intersect(incase_idx, union((ages[i] for i in include_ages)...))
-
-# %%
-parms = Dict(:one=>1, :two=>2, :v=>[1.2, 2.3])
-
-# %%
-Base.@kwdef struct Parms
-    one::Int
-    two::Int
-    v::Vector{Float64}
-end
-
-# %%
-p1 = Parms(one=1, two=2, v=[1.0, 2.0])
-
-# %%
-p1.v
-
-# %%
-p2=Parms(;parms...)
-
-# %%
-p2.v
-
-# %%
-arr = [:alpha, :beta, :gamma, :delta, nothing]
-
-# %%
-@btime findfirst(isequal(:beta), arr)
-
-# %%
-@btime findfirst(arr .== :beta)
-
-# %%
-@btime findfirst(x->x==:beta, arr)
-
-# %%
-@btime indexin([:beta], arr)[]
-
-# %%
-function findit(item, arr)
-    i = 0
-    found = false
-    for it in arr
-        i+=1
-        if item == it
-            found = true
-            break
-        end
-    end
-    return i
-end
-
-# %%
-@btime begin; i = findit(:delta, arr); arr[i]; end
-
-# %%
-m = Dict("alpha"=>0.98, "beta"=>0.94, "gamma"=>0.9, "delta"=>0.84)
-
-# %%
-m = Dict(zip(Symbol.(keys(m)), values(m)))
-
-# %%
-@btime m[:beta]
-
-# %%
-nt = (alpha=1, beta=2, gamma=3, delta=4)
-
-# %%
-@btime nt.beta
-
-# %%
-@btime getindex(nt, :gamma)
-
-# %%
-now = severe
-sh = worseplus
 
 # %%

@@ -27,7 +27,7 @@ function setup_dt(dtfilename)
             for (k3, v3) in v2      # k3 is :sickday or :transition
                 if k3 == :transition
                     out = vcat(v3[nil]',v3[mild]',v3[sick]',v3[severe]') # stack the vectors
-                    newdict[k1][k2][k3] = OffsetArray(out, 5:8, 1:6)   # index by condition from nil to severe, shift from recover to die
+                    newdict[k1][k2][k3] = OffsetArray(out, 5:8, 1:6)   # index by condition from nil to severe, 1:6
                 end
             end
         end

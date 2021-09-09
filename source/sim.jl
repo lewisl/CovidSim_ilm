@@ -41,6 +41,7 @@ function run_a_sim(n_days, locales;
                     spreadset = alldat.spreadset
                     socialparams = alldat.social
                     vaxset = alldat.vaxset
+                    vxschedset = alldat.vxschedset
 
     # start the day counter at zero
     reset!(day_ctr, :day)  # return and reset key to 0 :day leftover from prior runs
@@ -84,8 +85,8 @@ function run_a_sim(n_days, locales;
 
             # two fundamental steps of the simulation: spread! and transition!
             sprtime += @elapsed spread!(locdat, infect_idx, contactable_idx, sdcases, socialparams, 
-                                        spreadset, density_factor, dovax, dovariant)   
-            trtime += @elapsed transition!(locdat, infect_idx, transitionset, dovax, dovariant; trvec=trvec)                        
+                                        spreadset, vaxset, density_factor, dovax, dovariant)   
+            trtime += @elapsed transition!(locdat, infect_idx, transitionset, vaxset, dovax, dovariant; trvec=trvec)                        
 
             for case in runcases
                 case(loc, popdat, socialparams, spreadset, sdcases, ages; startofday=false)  # TODO extend ages to be any filter for 

@@ -74,10 +74,10 @@ density_factor = geodf[geodf[!, :fips] .== locale, :density_factor][]
 alldat.social
 
 # %%
-fieldnames(typeof(socialparams))
+fieldnames(typeof(alldat.social))
 
 # %%
-typeof(socialparams.gammashape)
+typeof(alldat.social.gammashape)
 
 # %%
 alldat.social.contactfactors
@@ -99,7 +99,7 @@ alldat.spreadset[:default].sendrisk
 shifter(touchfactors, (.18, .3)...)[age40_59]
 
 # %%
-alldat.transitionset # the decision trees for all age groups are loaded
+alldat.transitionset # the decision transition matrices for all age groups are loaded
 
 # %%
 dectree = alldat.transitionset[:default]

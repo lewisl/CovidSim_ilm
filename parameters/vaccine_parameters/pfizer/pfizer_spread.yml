@@ -14,7 +14,7 @@ sendrisk:  [0.00, 0.10, 0.20, 0.15, 0.15, 0.10, 0.05, 0.05, 0.05, 0.05,
 # recvrisk: [0.025, 0.1, 0.11, 0.13, 0.14]
 recvrisk: [0.0015, 0.006, 0.0066, 0.0078, 0.0084]
 #
-halflife:       360
+halflife:       280
 reqdshots:        2
 delay2ndshot:    24
 # we need data for each known variant

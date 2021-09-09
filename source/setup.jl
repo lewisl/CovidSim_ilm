@@ -32,8 +32,8 @@ function setup(n_days, locales;  # must provide following inputs
 
     # vaccines  TODO this is not the right approach
     if dovax
-        vaxset = setupvax(paramdir)
-        # vxschedset = 
+        vaxset = build_vaxset(vaccinefilename, paramdir)
+        vxschedset = build_vaxschedset()
     else
         vaxset = nothing
         vxschedset = nothing
@@ -87,7 +87,7 @@ function pop_data(pop; age_dist=age_dist)
             deadday = zeros(Int, pop),   
             cluster = zeros(Int, pop), 
             sdcomply = fill(:none, pop),  
-            vaxstatus = fill(:none, pop),  # :none, :first, :multiple, :full  maybe others later...
+            vaxstatus = fill(:none, pop),  # :none, :first, :multiple, :full, :booster  maybe others later...
             vaxrcvd = fill([:none], pop),    # vaccine symbols  :pfizer, :moderna, :jnj
             vaxday = fill([0], pop), 
             fullvaxday = zeros(Int, pop),
@@ -127,7 +127,7 @@ end
 function build_spread_params(variants, paramdir)
     spreadset = Dict{Symbol, Union{Infectparams, Vaccineparams}}()
     for variant in keys(variants)
-        v = YAML.load_file(joinpath(paramdir, variants[variant][:directory_name],
+        v = YAML.load_file(joinpath(paramdir, "variant_parameters", variants[variant][:directory_name],
             variants[variant][:infect_fname]), dicttype=Dict{Symbol, Any})
         v = Infectparams(v)
         spreadset[variant] = v
@@ -140,7 +140,7 @@ function build_transition_params(variants, paramdir)
     transitionset = Dict()
 
     for variant in keys(variants)
-        transitionset[variant] = setup_dt(joinpath(paramdir, variants[variant][:directory_name], 
+        transitionset[variant] = setup_dt(joinpath(paramdir, "variant_parameters", variants[variant][:directory_name], 
             variants[variant][:transition_fname])) 
     end
 

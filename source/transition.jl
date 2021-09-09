@@ -16,7 +16,7 @@ they move to recovered or dead.
 
 locdat must be a population table for a single locale.
 """
-@inline function transition!(locdat, infect_idx, transitionset, dovax, dovariant; trvec = zeros(6))
+@inline function transition!(locdat, infect_idx, transitionset, vaxset, dovax, dovariant; trvec = zeros(6))
         
     # aliases for person attribute columns--deref the named tuple once
     v_sickday = locdat.sickday
@@ -69,16 +69,13 @@ the number of days the person has been sick.
 @inline function dotransition!(locdat, p, p_cond, trvec::Union{Vector{Float64}, Nothing})
    
     if isnothing(trvec)
-        # if locdat.sickday[p] >= 25
-        #     println("$(day_ctr[:day]): agegrp: $(locdat.agegrp[p]) sickday: $(locdat.sickday[p]) from cond: $p_cond")
-        # end
 
         locdat.sickday[p] += 1  
 
     else
-        choice = shift(categorical_sim(trvec)) # which outcome...?
+        choice = categorical_sim(trvec) # which outcome based on probability...?
 
-        tocond = conditionshift(choice)  # next condition or status
+        tocond = transitionmap(choice)  # next condition or status
 
         # if locdat.sickday[p] >= 25
         #     println("$(day_ctr[:day]): agegrp: $(locdat.agegrp[p]) sickday: $(locdat.sickday[p]) from cond: $p_cond to cond: $tocond")
@@ -87,11 +84,11 @@ the number of days the person has been sick.
         if tocond == dead  
             locdat.deadday[p] = day_ctr[:day]
             locdat.status[p] = dead  # change the status
-            locdat.cond[p] = notsick # change the condition
+            # locdat.cond[p] = notsick # change the condition
         elseif tocond == recovered
             locdat.recovday[p] = day_ctr[:day]
             locdat.status[p] = recovered
-            locdat.cond[p] = notsick
+            # locdat.cond[p] = notsick
         else   
             locdat.cond[p] = tocond   # change the condition = degree of sickness
             locdat.sickday[p] += 1    # advance number of days person has been sick
@@ -103,19 +100,19 @@ the number of days the person has been sick.
 end
 
 
-function conditionshift(sh::shift) # faster than using a Dict because few items
+function transitionmap(choice) # faster than using a Dict, array, or tuple because few items
 
-    if sh == torecover  # most common
+    if choice == 1  # most common
         recovered
-    elseif sh == tonil
+    elseif choice == 2
         nil
-    elseif sh == tomild
+    elseif choice == 3
         mild
-    elseif sh == tosick
+    elseif choice == 4
         sick
-    elseif sh == tosevere
+    elseif choice == 5
         severe
-    elseif sh == todead   # least common
+    elseif choice == 6   # least common
         dead
     else
         @assert false "invalid condition"
@@ -164,7 +161,7 @@ process the queue of travelers from the end of the previous day.
 Remove groups of travelers by agegrp, sickday, and condition
 from where they departed.  Add them to their destination.
 """
-function travelin!(dat=popdat)
+function travelin!(dat=popdat)   # TODO THIS DOESN'T WORK ANYMORE
     while !isempty(travelq)
         g = dequeue!(travelq)
         cond = eval(Symbol(g.cond))
