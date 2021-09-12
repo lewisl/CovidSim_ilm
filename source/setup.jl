@@ -32,7 +32,7 @@ function setup(n_days, locales;  # must provide following inputs
 
     # vaccines  TODO this is not the right approach
     if dovax
-        vaxset = build_vaxset(vaccinefilename, paramdir)
+        vaxset = build_vaxset(vaccinefilename, paramdir=paramdir)
         vxschedset = build_vaxschedset()
     else
         vaxset = nothing

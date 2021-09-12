@@ -227,20 +227,24 @@ sum([vxschedset[asched].pctfunc(i) for i in vxschedset[asched].dayrange])
 plot(vxschedset[asched].dayrange, [vxschedset[asched].pctfunc(i) for i in vxschedset[asched].dayrange],size=(600,300))
 
 # %% [markdown] tags=[]
-# # Define a vaccine and give some shots
+# # Give some shots
 
 # %%
-peeps = 30:40
-day_ctr[:day] = 600  # must be in the range of the schedule
+peeps = 30:40  
+cnt = length(peeps)
+day_ctr[:day] = 625  # must be in the range of the schedule
 vaccinate!(locdat, vxschedset, peeps, vaxset)
 
 # %%
 @Select(vaxstatus, vaxday, vaxrcvd)(locdat)[peeps]
 
+# %% [markdown]
+# #### Reset the give shots test
+
 # %%
-locdat.vaxstatus[peeps] = fill(:none, 11)
-locdat.vaxday[peeps] = fill([0], 11)
-locdat.vaxrcvd[peeps] = fill([:none], 11)
+locdat.vaxstatus[peeps] = fill(:none, cnt)
+locdat.vaxday[peeps] = fill([0], cnt)
+locdat.vaxrcvd[peeps] = fill([:none], cnt)
 
 # %% [markdown]
 # # Create a seed case
@@ -264,9 +268,6 @@ result_dict, series = run_a_sim(ndays, locale;
     silent=true, 
     runcases=[seed_1_6]);
 
-# %% tags=[]
-result_dict
-
 # %%
 keys(result_dict)
 
@@ -289,13 +290,79 @@ virus_outcome(series, locale, base=:pop)
 series[locale][:cum]
 
 # %% [markdown]
-# # Plotted results
+# # Plot results
 
 # %%
 cumplot(series, locale)
 
 # %% [markdown]
 # Note that the orangle line labeled Infectious that shows the number of infected people is *not* what you see in newspaper accounts. In this plot Infectious shows the net infected people: Some people got sick today. Some people get better: they're not infectious any more--they recovered and are on the blue line. Sadly, some people died--they're not infectious either--they're dead and are on the green line. Newspaper tracking shows the new active infections of each day--who got sick today? The next day, if no one new got sick the line would be at zero--even though the people who got sick aren't better yet. So, the newspaper line goes up and down faster. Yet another approach is to show the cumulative number of infected people: This keeps going up until no one new gets infected--then the line is high but levels off. This is the least common way to show the data.
+
+# %% [markdown]
+# ## Run simulation with full vaccination schedule
+
+# %%
+ndays = 720
+result_dict, series = run_a_sim(ndays, locale; 
+    dovax=true, 
+    dovariant=false,
+    paramdir = "../parameters",
+    geofilename = "../data/geo2data.csv", 
+    socialfilename = "socialparams.yml",
+    vaccinefilename = "vaccines.yml",
+    variantsfilename = "variants.yml",
+    showr0=false, 
+    silent=true, 
+    runcases=[seed_1_6]);
+
+# %%
+locdat = result_dict[:dat]["popdat"][locale]
+vaxcols = @Select(vaxrcvd, vaxstatus)(locdat)
+
+# %%
+pfizer2shots = sum(map(v -> (first(v) == :Pfizer) & (length(v) == 2) ? 2 
+            : 0, vaxcols.vaxrcvd))
+pfizer1shots = sum(map(v -> (first(v) == :Pfizer) & (length(v) == 1) ? 1 
+            : 0, vaxcols.vaxrcvd))
+
+peoplepfizer2 = sum(map(v -> (first(v) == :Pfizer) & (length(v) == 2) ? 1 
+            : 0, vaxcols.vaxrcvd))
+peoplepfizer1 = sum(map(v -> (first(v) == :Pfizer) & (length(v) == 1) ? 1 
+            : 0, vaxcols.vaxrcvd))
+
+moderna2shots = sum(map(v -> (first(v) == :Moderna) & (length(v) == 2) ? 2 
+            : 0, vaxcols.vaxrcvd))
+moderna1shots = sum(map(v -> (first(v) == :Moderna) & (length(v) == 1) ? 1 
+            : 0, vaxcols.vaxrcvd))
+
+peoplemoderna2 = sum(map(v -> (first(v) == :Moderna) & (length(v) == 2) ? 1 
+            : 0, vaxcols.vaxrcvd))
+peoplemoderna1 = sum(map(v -> (first(v) == :Moderna) & (length(v) == 1) ? 1 
+            : 0, vaxcols.vaxrcvd))
+
+peoplejnj = jnjshots = sum(map(v -> (first(v) == :JnJ) & (length(v) == 1) ? 1 
+            : 0, vaxcols.vaxrcvd))
+
+peopleatleast1shot = (peoplepfizer2 + peoplepfizer1 + peoplemoderna2 + peoplemoderna1 +
+                    peoplejnj)
+
+peoplefull = count(vaxcols.vaxstatus .== :full) 
+
+@show pfizer2shots, pfizer1shots
+@show peoplepfizer2, peoplepfizer1
+
+@show moderna2shots, moderna1shots
+@show peoplemoderna2, peoplemoderna1
+
+@show jnjshots
+
+@show peopleatleast1shot, peoplefull
+
+# %%
+count(vaxcols.vaxstatus .== :full)
+
+# %%
+count(vaxcols.vaxstatus .== :first)
 
 # %% [markdown]
 # ## Test a social distancing case

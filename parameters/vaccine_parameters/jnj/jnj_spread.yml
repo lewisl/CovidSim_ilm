@@ -20,7 +20,7 @@ pattern:          [0.0, .02, .05, .10, .15, .19, .21, .16, .08, .03, .01]
 #
 halflife:       240
 reqdshots:        1
-delay2ndshot:         # encodes as nothing
+delay2ndshot:     0    # encodes as nothing
 # we need data for each known variant
 recvrisk_reduction:   
   alpha: 0.88 

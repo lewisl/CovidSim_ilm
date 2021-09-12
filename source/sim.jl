@@ -82,6 +82,7 @@ function run_a_sim(n_days, locales;
             end
 
             dovax && (vaxtime += @elapsed vaccinate!(locdat, vxschedset, contactable_idx, vaxset))
+            # @show size(contactable_idx), vaxset
 
             # two fundamental steps of the simulation: spread! and transition!
             sprtime += @elapsed spread!(locdat, infect_idx, contactable_idx, sdcases, socialparams, 

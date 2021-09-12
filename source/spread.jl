@@ -215,7 +215,7 @@ columns in the population table. Runs social distancing cases.
     v_sickday  = locdat.sickday
     v_sdcomply = locdat.sdcomply
     dovariant && (v_variant  = locdat.variant)
-    dovax && (begin; v_vax      = locdat.vax; v_vaxday = locdat.vaxday; end)
+    dovax && (begin; v_vax      = locdat.vaxrcvd; v_vaxday = locdat.vaxday; end)
 
     # assign contacts, do touches, do new infections
     @inbounds for spr in infect_idx      # spr is the person who is the spreader

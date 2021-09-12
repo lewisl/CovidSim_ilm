@@ -1,20 +1,26 @@
 vaxesincluded:
   Pfizer:
-    mix:          .55
-    doses:        40000
-    pct2ndshot:   .85
+    mix:          0.55
+    doses:        500000
+    pct2ndshot:   0.85
+    alternate:    [Moderna, JnJ]  # one of none, any, other shot
+    booster:      false
   Moderna:
-    mix:          .30
-    doses:        25000
-    pct2ndshot:   .85
+    mix:          0.30
+    doses:        450000
+    pct2ndshot:   0.85
+    alternate:    [Pfizer, JnJ]
+    booster:      false
   JnJ:
-    mix:          .15
-    doses:        12500
+    mix:          0.15
+    doses:        125000
     pct2ndshot:   0.0
+    alternate:    [Pfizer, Moderna]
+    booster:      false
 
 dayrange:       [360,700]
-targetpct:      .65
+targetpct:      0.65
 filterfunc:
 shotmode:       all
-pattern:        [0.0, .02, .05, .10, .15, .19, .21, .16, .08, .03, .01]
+pattern:        [0.0, .02, .05, .10, .15, .19, .21, .16, .08, .03, .01, 0.0]
 pctfunc:

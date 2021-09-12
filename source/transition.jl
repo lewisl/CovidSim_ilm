@@ -22,15 +22,17 @@ locdat must be a population table for a single locale.
     v_sickday = locdat.sickday
     v_cond = locdat.cond
     v_agegrp = locdat.agegrp
-    dovax && (begin; v_vax = locdat.vax; v_vaxday = locdat.vaxday; end)
+    dovax && (begin; v_vax = locdat.vaxrcvd; v_vaxday = locdat.vaxday; end)
     dovariant && (begin; v_variant = locdat.variant; end)
 
-    if dovax == true
-    elseif dovariant == true
-        transarray = transitionset[:default]  # TODO: REPLACE WITH TRANSITION OF VARIANT OR VARIANT CALCULATION
-    else
-        transarray = transitionset[:default]
-    end
+    # if dovax == true
+    # elseif dovariant == true
+    #     transarray = transitionset[:default]  # TODO: REPLACE WITH TRANSITION OF VARIANT OR VARIANT CALCULATION
+    # else
+    #     transarray = transitionset[:default]
+    # end
+
+    transarray = transitionset[:default]   # TODO test variant of each person
 
     for p in infect_idx  # p for infected person    
         p_sickday = v_sickday[p]

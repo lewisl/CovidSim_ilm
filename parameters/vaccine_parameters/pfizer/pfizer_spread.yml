@@ -16,7 +16,7 @@ recvrisk: [0.0015, 0.006, 0.0066, 0.0078, 0.0084]
 #
 halflife:       280
 reqdshots:        2
-delay2ndshot:    24
+delay2ndshot:    21
 # we need data for each known variant
 recvrisk_reduction:   
   alpha: 0.94
