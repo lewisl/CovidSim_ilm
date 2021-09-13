@@ -118,26 +118,13 @@ dectree = alldat.transitionset[:default] # the decision trees for all age groups
 transarr = alldat.transitionset[:default]
 
 # %%
-transarr[age0_19][5]
+transarr[age0_19]
+
+# %%
+transarr[age0_19][1]
 
 # %%
 transarr[age0_19][1][:transition]
-
-# %%
-transarr[age0_19][1][:transition][nil,2]
-
-# %%
-function has(agetr::Dict, sickday::Int, p_cond::Int)::Tuple{Bool, Union{Vector{Float64}, Nothing}}
-    for (stage, v) in agetr
-        if v[:sickday] == i
-            trvec = collect(v[:transition][p_cond, :])
-            if sum(trvec) > 0.0
-                return (true, trvec)
-            end
-        end
-    end
-    return (false, nothing)
-end
 
 # %%
 tr_age0_19 = transarr[age0_19]
@@ -145,9 +132,10 @@ T = typeof(tr_age0_19[1][:transition])
 supertype(T)
 
 # %%
+trvec = zeros(6)
 p_cond = mild
 p_sickday = 9
-trbool, trvec = has(tr_age0_19, p_sickday, p_cond)
+trvec = CovidSim_ilm.has(tr_age0_19, p_sickday, p_cond, trvec)
 println(typeof(trvec))
 trvec
 
@@ -156,9 +144,6 @@ trvec
 # %%
 typeof(dectree)
 
-# %% tags=[]
-display_tree(dectree)
-
 # %% [markdown]
 # Dict{Int64, OrderedCollections.OrderedDict{Int, Dict{String, Vector{T} where T}
 
@@ -166,15 +151,7 @@ display_tree(dectree)
 dectree[age80_up]
 
 # %%
-typeof(dectree[age80_up][25][sick][:outcomes])
-
-# %%
-function get_node(dectree, agegrp, sickday, fromcond)
-    dectree[agegrp][sickday][fromcond]
-end
-
-# %% tags=[]
-@btime get_node(dectree, age80_up, 25, sick)[:probs]
+typeof(dectree[age80_up][5][:transition])
 
 # %% [markdown]
 # # Load vaccine parameters
@@ -480,5 +457,22 @@ incase_idx = findall(locdat.sdcomply .== :test)
 
 # %%
 byage_idx = intersect(incase_idx, union((ages[i] for i in include_ages)...))
+
+# %%
+@btime locdat.status;
+
+# %%
+statuscol = locdat.status
+@btime statuscol;
+
+# %%
+nt = (one=1, two=2, three=3)
+
+# %%
+@btime nt.one;
+
+# %%
+thisone = nt.one
+@btime thisone;
 
 # %%

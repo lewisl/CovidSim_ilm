@@ -1,5 +1,5 @@
 # TODO
-#   add agegrps to Vaxschedule (or more general filter)
+#   add a way to filter who gets vaccinated in the vaxschedule (or a case or in the call to vaccinate?)
 
 
 ###################################################
@@ -70,32 +70,7 @@ end
         # pattern defines 11 point on a piecewise linear "curve" of the pace of vaccination as the
         # percentage of a given population that receives vaccination-> must sum to 1.0
     pctfunc::Function
-
-        # # method to verify mix, use defaults for filterfunc, pattern, shotmode and pctfunc
-        # function Vaxsched(;
-        #     vaxesincluded::Dict{Symbol, Vaxinclude},
-        #     dayrange, 
-        #     targetpct, 
-        #     filterfunc=basevaxfilterfunc,
-        #     pattern=[0.0, .02, .05, .10, .15, .19, .21, .16, .08, .03, .01], 
-        #     shotmode=:all,
-        #     pctfunc=makevaxpctperdayfn(dayrange, targetpct, pattern; shotmode=:all)
-        #     )
-
-        #     vaxmix = [v.mix for v in values(vaxesincluded)]
-        #     @assert sum(vaxmix) == 1.0 "Sum of mixes for vaccines does not equal 1: $vaxmix"
-
-        #     new(vaxesincluded,
-        #         dayrange,
-        #         targetpct,
-        #         filterfunc,
-        #         shotmode,
-        #         pattern,
-        #         pctfunc
-        #         )
-        # end
 end
-
 
         # external method to accept inputs from a dict
         function Vaxsched(vs::Dict) 
@@ -122,18 +97,11 @@ end
         end
 
 
-
-
 ###########################################################
 # setup code for vaccination
 ###########################################################
 
 
-# TODO: a container for multiple concurrent vax schedules
-# TODO: setup to build both vaccines and vax schedules
-
-
-# this works
 function build_vaxset(vaccinefilename; paramdir="../parameters")
 
     vaccinefiles = YAML.load_file(joinpath(paramdir, vaccinefilename); dicttype=Dict{Symbol,Any})
@@ -164,7 +132,6 @@ function build_vaxschedset(schedfiles; paramdir="../parameters", scheddir="vacci
 
     return vaxschedset
 end
-
 
 
 function build_vaxschedset(; paramdir="../parameters", scheddir="vaccine_schedule")
@@ -199,7 +166,10 @@ function makevaxpctperdayfn(dayrange, targetpct, pattern; shotmode=:all)
 end
 
 
-function vaccinate!(locdat, vxschedset, contactable_idx, vaxset)
+"""
+Give people shots!
+"""
+@inline function vaccinate!(locdat, vxschedset, contactable_idx, vaxset)
         
     today = day_ctr[:day]
 
@@ -220,105 +190,104 @@ function vaccinate!(locdat, vxschedset, contactable_idx, vaxset)
         end
 
         # schedule or vaccine parameters
-        filterfunc = vxsched.filterfunc
+        filterfunc = vxsched.filterfunc  # NOT USING YET
         shotmode = vxsched.shotmode # values in :first, :second, :all, :booster   TODO we are not using this yet
         pctfunc = vxsched.pctfunc
         reqdshots = Dict(v => vaxset[v][:params].reqdshots for v in vaxesincluded)
         pct2ndshot = Dict(k => v.pct2ndshot for (k,v) in vaxprops)
         mix = [v.mix for v in values(vaxprops)]
 
-        
         # people columns
         vaxstatuscol = locdat.vaxstatus
         vaxdaycol = locdat.vaxday
         fullvaxdaycol = locdat.fullvaxday
         vaxrcvdcol = locdat.vaxrcvd
-        statuscol = locdat.status
-        condcol = locdat.cond
         agegrpcol = locdat.agegrp
 
-        # how many shots to give today?
-        people_today = floor(Int, pctfunc(today) * length(contactable_idx))   # pct times population
+        # how people get shots (up to fully vaccinated) today?
+        people_today = floor(Int, pctfunc(today) * length(contactable_idx))   # pct times accessible population
 
-        for p in contactable_idx  # loop across people who are not dead
+        doshots!(vaxrcvdcol, vaxdaycol, vaxstatuscol, fullvaxdaycol,  
+                  vaxprops, vaxesincluded, reqdshots, pct2ndshot, mix, delay2ndshot,    
+                  contactable_idx, people_today, today)
 
-            # break out if all the people in this schedule to be fully vaccinated today have been
-            people_today < 1 && break  
+    end  
+end
 
-            # break out if no more doses left of any vaccine 
-            mapreduce(vi->vi.doses, +, values(vaxprops)) <= 0 && break  # sum doses of all included vaccines w/ no allocations
+
+@inline function doshots!(vaxrcvdcol, vaxdaycol, vaxstatuscol, fullvaxdaycol,         # arrays to update
+                  vaxprops, vaxesincluded, reqdshots, pct2ndshot, mix, delay2ndshot,  # vaccine characteristics
+                  contactable_idx, people_today, today)                               # people and simulation today
+
+    for p in contactable_idx  # loop across people who are not dead
+
+        # break out if all the people in this schedule today have been fully vaccinated
+        people_today < 1 && break  
+
+        # break out if no more doses left of any vaccine 
+        mapreduce(vi->vi.doses, +, values(vaxprops)) <= 0 && break  # sum doses of all included vaccines w/ no allocations
+        
+        if vaxstatuscol[p] == :none  # maybe give the first shot
+
+            # which vaccine to give?
+            vxnum = categorical_sim(mix)  # our first choice, if available
             
-            if vaxstatuscol[p] == :full      
-                # DO NOTHING: this person gets no more shots
-                #TODO this is where we would add booster shots
-                
-            elseif vaxstatuscol[p] == :none  # maybe give the first shot
-
-                # which vaccine to give?
-                vxnum = categorical_sim(mix)  # our first choice, if available
-                
-                vaxchoice = vaxesincluded[vxnum]
-                if vaxprops[vaxchoice].doses < 1  # out of first choice!
-                    for alt in vaxprops[vaxchoice].alternate
-                        alt = Symbol(alt)
-                        if vaxprops[alt].doses > 0
-                            vaxchoice = alt
-                            break
-                        else
-                            vaxchoice=:none
-                        end
-                    end
-                end
-
-                if vaxchoice != :none   # we found doses to give
-                    vaxprops[vaxchoice].doses -= 1
-
-                    # update person's traits
-                    vaxrcvdcol[p] = [vaxchoice]
-                    vaxdaycol[p] = [today]    
-                    if reqdshots[vaxchoice] > 1
-                        vaxstatuscol[p] = :first
+            vaxchoice = vaxesincluded[vxnum]
+            if vaxprops[vaxchoice].doses < 1  # out of first choice!
+                for alt in vaxprops[vaxchoice].alternate
+                    alt = Symbol(alt)
+                    if vaxprops[alt].doses > 0
+                        vaxchoice = alt
+                        break
                     else
-                        vaxstatuscol[p] = :full
-                        fullvaxdaycol[p] = today
-                        people_today -= 1
+                        vaxchoice=:none
                     end
                 end
-
-            elseif (vaxstatuscol[p] == :first) | (vaxstatuscol[p] == :multiple)
-                vaxchoice = last(vaxrcvdcol[p]) # assume we don't mix vaccines for multiple shots
-
-                if vaxprops[vaxchoice].doses > 0
-                    # is it time for the next shot?
-                    prev_date = last(vaxdaycol[p])
-                    if (today - prev_date) >= delay2ndshot[vaxchoice]
-                        # will this person get the 2nd shot?
-                        dotwo = Bool(binomial_one_sample(1, pct2ndshot[vaxchoice]))
-                        if dotwo
-                            vaxprops[vaxchoice].doses -= 1
-
-                            # update person's traits
-                            push!(vaxrcvdcol[p], vaxchoice)
-                            push!(vaxdaycol[p], today)
-                            if length(vaxrcvdcol[p])  >= reqdshots[vaxchoice]
-                                vaxstatuscol[p] = :full
-                                fullvaxdaycol[p] = today
-                                people_today -= 1
-                            else
-                                vaxstatuscol[p] = :multiple
-                            end
-                        end
-                    end
-                end
-            else   
-                # more than one shot received, but not :full--not sure how to use
-                @assert false "vax status conditions failed: no condition satisfied"
             end
 
-        end  # for p
+            if vaxchoice != :none   # we found doses to give
+                vaxprops[vaxchoice].doses -= 1
 
-    end  # for vxsched
+                # update person's traits
+                vaxrcvdcol[p] = [vaxchoice]
+                vaxdaycol[p] = [today]    
+                if reqdshots[vaxchoice] > 1
+                    vaxstatuscol[p] = :first
+                else
+                    vaxstatuscol[p] = :full
+                    fullvaxdaycol[p] = today
+                    people_today -= 1
+                end
+            end
 
+        elseif (vaxstatuscol[p] == :first) | (vaxstatuscol[p] == :multiple)
+            vaxchoice = last(vaxrcvdcol[p]) # assume we don't mix vaccines for multiple shots
+
+            if vaxprops[vaxchoice].doses > 0
+                # is it time for the next shot?
+                prev_date = last(vaxdaycol[p])
+                if (today - prev_date) >= delay2ndshot[vaxchoice]
+                    # will this person get the 2nd shot?
+                    dotwo = Bool(binomial_one_sample(1, pct2ndshot[vaxchoice]))
+                    if dotwo
+                        vaxprops[vaxchoice].doses -= 1
+
+                        # update person's traits
+                        push!(vaxrcvdcol[p], vaxchoice)
+                        push!(vaxdaycol[p], today)
+                        if length(vaxrcvdcol[p])  >= reqdshots[vaxchoice]
+                            vaxstatuscol[p] = :full
+                            fullvaxdaycol[p] = today
+                            people_today -= 1
+                        else
+                            vaxstatuscol[p] = :multiple
+                        end
+                    end
+                end
+            end
+        end  # if vaxstatuscol
+
+    end  # for p
 end
 
 
