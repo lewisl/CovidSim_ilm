@@ -24,6 +24,7 @@ using Distributions
 using YAML
 using PrettyPrint
 using Plots
+Plots.pyrcparams["backend"]="Qt5Agg"
 
 # %%
 cd(joinpath(homedir(),"Dropbox/Covid Modeling/Covid-ILM/source"))

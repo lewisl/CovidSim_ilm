@@ -290,6 +290,73 @@ end
     end  # for p
 end
 
+#####################################################################################
+#
+#  Vaccine effectiveness and varying effectiveness over time
+#
+#####################################################################################
+
+
+"""
+    Vaccine effectiveness ramps up after receiving a shot.
+    This returns a value between 0.0 and 1.0 which 
+    must be multiplied times the vaccine specific effectiveness 
+    because this function only represents the time-based change.
+"""
+function riseup(t, days, lower, upper)
+    clamp(t * (1 / days), lower, upper)
+end
+
+riseup14(t) = riseup(t, 14, 0.1, 1.0)  # curried to only input the day as time t
+
+
+
+# gradual decay of vaccine effectiveness based on assumed half-life
+
+function lindecay(t, h, lower)
+    f1 = -t / (2.0 * h) + 1.0
+    ifelse(f1 > lower, f1, lower)
+end
+
+expdecay(t,h) = exp(-(log(2)/h) * t)  
+
+sigdecay(t, h; csig=5.0) = 1.0 / (1.0 + exp.((t - h)/(t / csig + (h / csig))))    
+
+tbrk(h, lower) = 2.0 * h - (2.0 * h * lower)
+
+intercept(t, h, lower) = (-3.0 * t) / (10.0 * h) + 1.0
+
+function lindecay2(t, h, lower1, lower2)
+    f1 = -t / (2.0 * h) + 1.0
+    if  f1 >= lower1
+        f1
+    else
+        clamp(-t/(5.0*h) + intercept(tbrk(h, lower1), h, lower1), lower2, 1.0)
+    end
+end
+
+function lindecayarr(t::AbstractVector{T} where T, h, lower1, lower2)
+    arr = zeros(size(t,1))
+    icept = intercept(tbrk(h, lower1), h, lower1)
+    for i = eachindex(arr)
+        f1 = -t[i] / (2.0 * h) + 1.0
+        if  f1 >= lower1
+            arr[i] = f1
+        else
+            arr[i] = clamp(-t[i]/(5.0*h) + icept, lower2, 1.0)
+        end
+    end
+    return arr
+end
+
+function vaccine_effect()
+end
+
+function make_vax_decline_func()
+end
+
+function vax_decline()
+end
 
 function basevaxfilterfunc(p, agegrpcol)
     (agegrpcol[p] != age0_19)
