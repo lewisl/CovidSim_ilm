@@ -1,5 +1,12 @@
 ---
-age0_19:   # recover, improve, same, worse, worseplus, die
+# agegrp
+  # checkpoint
+    # sickday of checkpoint (no. of days sick)
+    # transition matrix (row vectors)
+      # rows are fromcond
+      # columns are to status or condition
+          #   recover, tonil, tomild, tosick, tosevere, todead
+age0_19:   
   1:
     sickday: 5
     transition:

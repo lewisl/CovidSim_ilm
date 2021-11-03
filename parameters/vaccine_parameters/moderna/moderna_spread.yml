@@ -1,25 +1,10 @@
 ---
 name:       Moderna  # will convert to symbol at load time
 
-# sendrisk must be as long as the number of sickdays--default 25
-# there is more research on vaccinated people getting sick--receiving
-# there is less research on how vaccinated people who might be sick
-#    transmit the disease to others--sending
-# as sick vaccinated person gets better that person is less likely to transmit 
-sendrisk:  [0.00, 0.10, 0.20, 0.15, 0.15, 0.10, 0.05, 0.05, 0.05, 0.05, 
-             0.05, 0.02, 0.01, 0.01, 0.01, 0.01, 0.01, 0.00, 0.00, 0.00, 
-             0.00, 0.00, 0.00, 0.00, 0.00]
-
-# recvrisk must have 5 entries between 0.0 and 1.0 for each agegrp
-# recvrisk: [0.025, 0.1, 0.11, 0.13, 0.14]
-recvrisk: [0.0015, 0.006, 0.0066, 0.0078, 0.0084]
-
-# shape parameter of gamma distribution used to calculate contacts
-gammashape: 1.0
-#
 halflife:       280
 reqdshots:        2
 delay2ndshot:    21
+effective_days:  14
 # we need data for each known variant
 recvrisk_reduction:   
   alpha: 0.94

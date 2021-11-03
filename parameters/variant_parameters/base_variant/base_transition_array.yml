@@ -1,7 +1,11 @@
 ---
-    # from cond
-    # to status or condition
-    #         recover, tonil, tomild, tosick, tosevere, todead
+# agegrp
+  # checkpoint
+    # sickday of checkpoint (no. of days sick)
+    # transition matrix (row vectors)
+      # rows are fromcond
+      # columns are to status or condition
+          #   recover, tonil, tomild, tosick, tosevere, todead
 age0_19:       
   1:
     sickday: 5

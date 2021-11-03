@@ -125,12 +125,12 @@ end
 
 
 function build_spread_params(variants, paramdir)
-    spreadset = Dict{Symbol, Union{Infectparams, Vaccineparams}}()
+    spreadset = Dict{Symbol, Infectparams}()
     for variant in keys(variants)
         v = YAML.load_file(joinpath(paramdir, "variant_parameters", variants[variant][:directory_name],
             variants[variant][:infect_fname]), dicttype=Dict{Symbol, Any})
         v = Infectparams(v)
-        spreadset[variant] = v
+        spreadset[variant] = v  # access a param as spreadset[:alpha].recvrisk
     end
     return spreadset
 end

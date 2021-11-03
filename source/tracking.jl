@@ -2,7 +2,7 @@
 # tracking.jl
 #########################################################################################
 
-pyplot()   # initialize plotting backend for Plots
+gr()   # initialize plotting backend for Plots
 
 
 # for debugging simulations: daily outcome entries as named tuples
@@ -100,7 +100,7 @@ end
 function cumplot(series, locale, plcols=[:unexposed, :infectious, :recovered, :dead]; 
     days="all", geo=[], thm=:wong2)
 
-    pyplot()
+    gr()
     # theme(:ggplot2, foreground_color_border =:black, reuse = false)
     theme(thm, foreground_color_border=:black, 
           tickfontsize=9, gridlinewidth=1)
@@ -202,7 +202,7 @@ end
 
 function dayplot(spreadseries::DataFrame, plseries=[])
     
-    pyplot()
+    gr()
     theme(:ggplot2, foreground_color_border =:black)
     
     pl = bar(   spreadseries[!,:day], spreadseries[!,:infected],label="Infected", 
