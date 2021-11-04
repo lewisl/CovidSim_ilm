@@ -101,6 +101,21 @@ function display_tree(tree)
     end   # for agegrp     
 end
 
+function display_tree_array(tree)
+    for agegrp in keys(tree)
+        agetree = tree[agegrp]
+        println("agegrp: ", agegrp, " =>")
+        for brkday_idx in keys(agetree)
+            sickdaytree = agetree[brkday_idx]
+            println("    sickday: ", sickdaytree[:sickday])
+            println("    transitions: ")
+            for r in eachrow(sickdaytree[:transition])
+                print("      "); println(r)
+            end
+        end  # for sickday
+    end   # for agegrp     
+end
+
 
 function sanitycheck(dectree)
     for age in agegrps
@@ -115,24 +130,36 @@ function sanitycheck(dectree)
 end
 
 
+function sanitycheck_array(dectree)
+    for age in agegrps
+        seqs = getseqs_array(dectree[age])
+        probs, allpr = verifyprobs(seqs)
+        println("for agegroup ", age)
+        for p in pairs(probs)
+            println("    ",p)
+        end
+        println("    Prob total: ",allpr)
+    end
+end
+
 """
-Find all sequences of conditions by transition date and current condition through to new conditions
+Use for Dict representation of trees. Find all sequences of conditions by transition date and current condition through to new conditions
 for a single agegrp.
 """
-function getseqs(dt_by_age)
+function getseqs(dt_this_age)
     # find the top nodes
-    dt_by_age = sort(dt_by_age)
-    breakdays = collect(keys(dt_by_age))
+    dt_this_age = sort(dt_this_age)
+    breakdays = collect(keys(dt_this_age))
     k1 = first(breakdays)
     todo = [] # array of node sequences 
     done = [] # ditto
 
     # gather the outcomes at the first breakday for the starting conditions
     # no transition has happened yet: these are initial conditions: the first sequence(s) to be extended
-    for fromcond in keys(dt_by_age[k1])
-        for i in 1:length(dt_by_age[k1][fromcond][:outcomes])
-            outcome = dt_by_age[k1][fromcond][:outcomes][i]
-            prob = dt_by_age[k1][fromcond][:probs][i]
+    for fromcond in keys(dt_this_age[k1])
+        for i in 1:length(dt_this_age[k1][fromcond][:outcomes])
+            outcome = dt_this_age[k1][fromcond][:outcomes][i]
+            prob = dt_this_age[k1][fromcond][:probs][i]
             push!(todo, [(sickday=k1, fromcond=fromcond, tocond=outcome, prob=prob)])
         end
     end
@@ -145,16 +172,91 @@ function getseqs(dt_by_age)
         breakday, fromcond, tocond = lastnode
         nxtidx = findfirst(isequal(breakday), breakdays) + 1
         for brk in breakdays[nxtidx:end]
-            if tocond in keys(dt_by_age[brk])   # keys are the fromcond at the next break day so previous tocond == current fromcond
-                for i in 1:length(dt_by_age[brk][tocond][:outcomes])
-                    outcome = dt_by_age[brk][tocond][:outcomes][i]
-                    prob = dt_by_age[brk][tocond][:probs][i]
+            if tocond in keys(dt_this_age[brk])   # keys are the fromcond at the next break day so previous tocond == current fromcond
+                for i in 1:length(dt_this_age[brk][tocond][:outcomes])
+                    outcome = dt_this_age[brk][tocond][:outcomes][i]
+                    prob = dt_this_age[brk][tocond][:probs][i]
                     newseq = vcat(seq, (sickday=brk, fromcond=tocond, tocond=outcome, prob=prob))
                     if (outcome == dead) | (outcome == recovered)  # terminal node reached--no more nodes to add
                         push!(done, newseq)
                     else  # not at a terminal outcome: still more nodes to add
                         push!(todo, newseq)
                     end
+                end
+                break # we found the tocond as a matching fromcond
+            end
+        end
+    end
+
+    return done
+end
+
+
+
+"""
+Use for Array representation of trees. Find all sequences of conditions by transition date and current condition through to new conditions
+for a single agegrp.
+"""
+function getseqs_array(dt_this_age)
+    # find the top nodes (node is a condition/status transition)
+    dt_this_age = sort(dt_this_age)  # in order by breaks
+    brk_idx = collect(keys(dt_this_age))
+    brk1 = first(brk_idx)   # a breakday is a day on which disease transitions occur to people
+    breakdays = [dt_this_age[i][:sickday] for i in brk_idx]
+    todo = [] # array of node sequences 
+    done = [] # ditto
+
+    # gather the outcomes at the first breakday for the starting conditions
+    # no transition has happened yet: these are initial conditions: the first sequence(s) to be extended
+
+    breakday = breakdays[brk1]                      # dt_this_age[brk1][:sickday]
+    transitions = dt_this_age[brk1][:transition]  # from-to matrix of probabilities
+
+    for fromcond in eachindex(transitions[:,1])     # fromcond in keys(dt_this_age[brk1])
+        for i in 1:size(transitions,2)          # length(dt_this_age[brk1][fromcond][:outcomes])
+            if transitions[fromcond, i] != 0.0       # dt_this_age[brk1][fromcond][:outcomes][i]
+                outcome = transition_cases[i]
+                prob = transitions[fromcond, i]           # dt_this_age[brk1][fromcond][:probs][i]
+                push!(todo, [(sickday=breakday, fromcond=condition(fromcond), tocond=outcome, prob=prob)])
+            end
+        end
+    end
+
+    # @show todo  # got this right
+
+    # build sequences from top to terminal states: recovered or dead
+    while !isempty(todo)
+        seq = popfirst!(todo)  # got this right
+        lastnode = seq[end]
+        breakday, fromcond, tocond = lastnode    # breakday = day of transition; fromcond = row index; tocond = column index
+
+        # @show breakday, breakdays
+
+        nxtidx = findfirst(isequal(breakday), breakdays) + 1
+        for brk in brk_idx[nxtidx:end]
+            next_transition = dt_this_age[brk][:transition]
+            breakday = breakdays[brk]
+
+            # @show next_transition
+
+            next_steps = [ i for i in eachindex(next_transition[:,1]) if any(next_transition[i,:] .!= 0.0) ] 
+
+
+            # @show next_steps, tocond, Int(tocond) in next_steps
+
+            if Int(tocond) in next_steps # in keys(dt_this_age[brk])   # keys are the fromcond at the next break day so previous tocond == current fromcond
+                outcomes_idx = findall(next_transition[tocond,:] .!= 0.0)  
+                for i in 1:length(outcomes_idx)                      # 1:length(dt_this_age[brk][tocond][:outcomes])
+                    outcome = outcomes_idx[i]  # dt_this_age[brk][tocond][:outcomes][i]
+                    prob = next_transition[tocond, outcome]    # prob = dt_this_age[brk][tocond][:probs][i]   
+                                        newseq = vcat(seq, (sickday=breakday, fromcond=tocond, tocond=transition_cases[outcome], prob=prob))
+                    outcome = transition_cases[outcome]
+                    if (outcome == dead) | (outcome == recovered)  # terminal node reached--no more nodes to add
+                        push!(done, newseq)
+                    else  # not at a terminal outcome: still more nodes to add
+                        push!(todo, newseq)
+                    end
+
                 end
                 break # we found the tocond as a matching fromcond
             end
@@ -178,7 +280,165 @@ function verifyprobs(seqs)
     return ret, allpr
 end
 
+# what a tree looks like using from->to array for transitions
+#=
+agegrp: age0_19 =>
+    sickday: 25
+    transitions: 
+      [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+      [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+      [0.976, 0.0, 0.0, 0.0, 0.0, 0.024]
+      [0.91, 0.0, 0.0, 0.0, 0.0, 0.09]
+    sickday: 19
+    transitions: 
+      [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+      [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+      [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+      [0.891, 0.0, 0.0, 0.0, 0.106, 0.003]
+    sickday: 9
+    transitions: 
+      [0.9, 0.0, 0.0, 0.1, 0.0, 0.0]
+      [0.0, 0.0, 1.0, 0.0, 0.0, 0.0]
+      [0.0, 0.0, 0.0, 0.95, 0.05, 0.0]
+      [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+    sickday: 14
+    transitions: 
+      [1.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+      [1.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+      [0.85, 0.0, 0.0, 0.12, 0.03, 0.0]
+      [0.692, 0.0, 0.0, 0.0, 0.302, 0.006]
+    sickday: 5
+    transitions: 
+      [0.0, 0.4, 0.5, 0.1, 0.0, 0.0]
+      [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+      [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+      [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+agegrp: age40_59 =>
+    sickday: 25
+    transitions: 
+      [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+      [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+      [0.958, 0.0, 0.0, 0.0, 0.0, 0.042]
+      [0.958, 0.0, 0.0, 0.0, 0.0, 0.042]
+    sickday: 19
+    transitions: 
+      [1.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+      [1.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+      [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+      [0.856, 0.0, 0.0, 0.0, 0.126, 0.018]
+    sickday: 9
+    transitions: 
+      [0.9, 0.0, 0.0, 0.1, 0.0, 0.0]
+      [0.85, 0.0, 0.05, 0.1, 0.0, 0.0]
+      [0.0, 0.0, 0.0, 0.9, 0.1, 0.0]
+      [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+    sickday: 14
+    transitions: 
+      [1.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+      [0.9, 0.0, 0.0, 0.1, 0.0, 0.0]
+      [0.85, 0.0, 0.0, 0.14, 0.01, 0.0]
+      [0.776, 0.0, 0.0, 0.0, 0.206, 0.018]
+    sickday: 5
+    transitions: 
+      [0.0, 0.2, 0.7, 0.1, 0.0, 0.0]
+      [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+      [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+      [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+agegrp: age20_39 =>
+    sickday: 25
+    transitions: 
+      [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+      [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+      [0.964, 0.0, 0.0, 0.0, 0.0, 0.036]
+      [0.964, 0.0, 0.0, 0.0, 0.0, 0.036]
+    sickday: 19
+    transitions: 
+      [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+      [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+      [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+      [0.922, 0.0, 0.0, 0.0, 0.072, 0.006]
+    sickday: 9
+    transitions: 
+      [0.9, 0.0, 0.0, 0.1, 0.0, 0.0]
+      [0.85, 0.0, 0.0, 0.15, 0.0, 0.0]
+      [0.0, 0.0, 0.0, 0.9, 0.1, 0.0]
+      [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+    sickday: 14
+    transitions: 
+      [1.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+      [1.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+      [0.83, 0.0, 0.0, 0.1, 0.07, 0.0]
+      [0.474, 0.0, 0.0, 0.0, 0.514, 0.012]
+    sickday: 5
+    transitions: 
+      [0.0, 0.2, 0.7, 0.1, 0.0, 0.0]
+      [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+      [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+      [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+agegrp: age60_79 =>
+    sickday: 25
+    transitions: 
+      [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+      [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+      [0.76, 0.0, 0.0, 0.0, 0.0, 0.24]
+      [0.688, 0.0, 0.0, 0.0, 0.0, 0.312]
+    sickday: 19
+    transitions: 
+      [1.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+      [1.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+      [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+      [0.81, 0.0, 0.0, 0.0, 0.13, 0.06]
+    sickday: 9
+    transitions: 
+      [0.62, 0.0, 0.0, 0.38, 0.0, 0.0]
+      [0.5, 0.0, 0.25, 0.25, 0.0, 0.0]
+      [0.0, 0.0, 0.0, 0.78, 0.22, 0.0]
+      [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+    sickday: 14
+    transitions: 
+      [0.8, 0.1, 0.1, 0.0, 0.0, 0.0]
+      [0.8, 0.0, 0.15, 0.05, 0.0, 0.0]
+      [0.8, 0.0, 0.0, 0.1, 0.1, 0.0]
+      [0.165, 0.0, 0.0, 0.0, 0.715, 0.12]
+    sickday: 5
+    transitions: 
+      [0.0, 0.15, 0.6, 0.25, 0.0, 0.0]
+      [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+      [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+      [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+agegrp: age80_up =>
+    sickday: 25
+    transitions: 
+      [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+      [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+      [0.682, 0.0, 0.0, 0.0, 0.0, 0.318]
+      [0.676, 0.0, 0.0, 0.0, 0.0, 0.324]
+    sickday: 19
+    transitions: 
+      [1.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+      [1.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+      [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+      [0.49, 0.0, 0.0, 0.0, 0.24, 0.27]
+    sickday: 9
+    transitions: 
+      [0.5, 0.0, 0.0, 0.5, 0.0, 0.0]
+      [0.0, 0.0, 0.4, 0.6, 0.0, 0.0]
+      [0.0, 0.0, 0.0, 0.6, 0.4, 0.0]
+      [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+    sickday: 14
+    transitions: 
+      [0.7, 0.0, 0.3, 0.0, 0.0, 0.0]
+      [0.7, 0.0, 0.0, 0.3, 0.0, 0.0]
+      [0.7, 0.0, 0.0, 0.1, 0.2, 0.0]
+      [0.12, 0.0, 0.0, 0.0, 0.67, 0.21]
+    sickday: 5
+    transitions: 
+      [0.0, 0.1, 0.5, 0.4, 0.0, 0.0]
+      [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+      [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+      [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
 
+=#
 
 
 

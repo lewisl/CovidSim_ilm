@@ -24,7 +24,7 @@ using Distributions
 using YAML
 using PrettyPrint
 using Plots
-Plots.pyrcparams["backend"]="Qt5Agg"
+# Plots.pyrcparams["backend"]="Qt5Agg" pyrcparams not found--YET ANOTHER PATHETIC PLOTS BUG
 
 # %%
 cd(joinpath(homedir(),"Dropbox/Covid Modeling/Covid-ILM/source"))
@@ -119,7 +119,31 @@ dectree = alldat.transitionset[:default] # the decision trees for all age groups
 transarr = alldat.transitionset[:default]
 
 # %%
+CovidSim_ilm.display_tree_array(transarr)
+
+# %%
 transarr[age0_19]
+
+# %%
+transarr[age0_19][1]
+
+# %%
+transarr[age0_19][1][:transition]
+
+# %%
+sequences = CovidSim_ilm.getseqs_array(transarr[age0_19]);
+
+# %%
+CovidSim_ilm.verifyprobs(sequences)
+
+# %%
+CovidSim_ilm.sanitycheck_array(transarr)
+
+# %%
+next_transition = [0.9 0.0 0.0 0.1 0.0 0.0; 0.0 0.0 1.0 0.0 0.0 0.0; 0.0 0.0 0.0 0.95 0.05 0.0; 0.0 0.0 0.0 0.0 0.0 0.0]
+
+# %%
+next_steps = [ i for i in eachindex(next_transition[:,1]) if any(next_transition[i,:] .!= 0.0) ] 
 
 # %%
 transarr[age0_19][1]
@@ -150,6 +174,37 @@ typeof(dectree)
 
 # %% tags=[]
 dectree[age80_up]
+
+# %%
+dectree[age80_up][5]
+
+# %%
+transitions = dectree[age80_up][5][:transition]
+
+# %%
+breakdays = [dectree[age80_up][i][:sickday] for i in sort(collect(keys(dectree[age80_up])))]
+
+# %%
+next_steps = [i for i in eachindex(transitions[:,1]) if any(transitions[i,:] .!= 0.0)]  # if any(transitions[i,:] .!= 0.0) 
+
+# %%
+breakday = 5
+findfirst(isequal(breakday), breakdays)
+
+# %%
+findall(transitions[7,:] .!= 0.0)
+
+# %%
+collect(eachindex(transitions[5,:]))
+
+# %%
+typeof(dectree[age80_up][5][:transition])
+
+# %%
+typeof(dectree[age80_up][5][:transition]) <: AbstractArray
+
+# %%
+dectree[age80_up][1][:transition]
 
 # %%
 typeof(dectree[age80_up][5][:transition])
