@@ -12,7 +12,7 @@ recvrisk:   [0.1, 0.39, 0.44, 0.54, 0.56]
 #
 
 # partial immunity strength after recovery: one means total immunity from infection
-immunestrength: 0.95
+immunestrength: 0.6
 
 # half-life of immunity after recovering
 immunehalflife: 180

@@ -11,7 +11,9 @@
     reqdshots::Int
     delay2ndshot::Union{Int, Nothing}   # days until 2nd shot (probability less important)
     halflife::Int  # days to 50% decline in effectiveness
-    recvrisk_reduction::Dict{Symbol, Float64}
+    effectiveness::Dict{Symbol, Dict{Symbol, Float64}}
+    full_effect_days::Int
+    day1_effect::Float64
 end
 
         """
@@ -23,7 +25,9 @@ end
                 reqdshots                = vd[:reqdshots],
                 delay2ndshot             = vd[:delay2ndshot],
                 halflife                 = vd[:halflife],
-                recvrisk_reduction       = vd[:recvrisk_reduction], 
+                effectiveness            = vd[:effectiveness], 
+                full_effect_days         = vd[:full_effect_days],
+                day1_effect              = vd[:day1_effect],
                 )
         )
 
@@ -187,6 +191,8 @@ Give people shots!
             continue
         end
 
+        # @show "we got here"
+
         # schedule or vaccine parameters
         filterfunc = vxsched.filterfunc  # NOT USING YET
         shotmode = vxsched.shotmode # values in :first, :second, :all, :booster   TODO we are not using this yet
@@ -204,6 +210,10 @@ Give people shots!
 
         # how people get shots (up to fully vaccinated) today?
         people_today = floor(Int, pctfunc(today) * length(contactable_idx))   # pct times accessible population
+
+
+        @show people_today, pctfunc(today), length(contactable_idx)
+
 
         doshots!(vaxrcvdcol, vaxdaycol, vaxstatuscol, fullvaxdaycol,  
                   vaxprops, vaxesincluded, reqdshots, pct2ndshot, mix, delay2ndshot,    

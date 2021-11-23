@@ -222,28 +222,16 @@ function getseqs_array(dt_this_age)
         end
     end
 
-    # @show todo  # got this right
-
     # build sequences from top to terminal states: recovered or dead
     while !isempty(todo)
         seq = popfirst!(todo)  # got this right
         lastnode = seq[end]
         breakday, fromcond, tocond = lastnode    # breakday = day of transition; fromcond = row index; tocond = column index
-
-        # @show breakday, breakdays
-
         nxtidx = findfirst(isequal(breakday), breakdays) + 1
         for brk in brk_idx[nxtidx:end]
             next_transition = dt_this_age[brk][:transition]
             breakday = breakdays[brk]
-
-            # @show next_transition
-
             next_steps = [ i for i in eachindex(next_transition[:,1]) if any(next_transition[i,:] .!= 0.0) ] 
-
-
-            # @show next_steps, tocond, Int(tocond) in next_steps
-
             if Int(tocond) in next_steps # in keys(dt_this_age[brk])   # keys are the fromcond at the next break day so previous tocond == current fromcond
                 outcomes_idx = findall(next_transition[tocond,:] .!= 0.0)  
                 for i in 1:length(outcomes_idx)                      # 1:length(dt_this_age[brk][tocond][:outcomes])

@@ -31,6 +31,7 @@ function run_a_sim(n_days, locales;
                     variantsfilename=variantsfilename
                     )
 
+                    # split up some members of alldat
                     transitionset = alldat.transitionset  # transition arrays
                     trvec = alldat.trvec # preallocated small vector
                     popdat = alldat.dat["popdat"]   # first key locale
@@ -43,22 +44,25 @@ function run_a_sim(n_days, locales;
                     vaxset = alldat.vaxset
                     vxschedset = alldat.vxschedset
 
-    # start the day counter at zero
+    # restart the day counter to zero
     reset!(day_ctr, :day)  # return and reset key to 0 :day leftover from prior runs
 
     locales = locales   # force local scope to be visible in the loop
 
     sdcases = Dict{Symbol, Spreadcase}()  # hold definitions of spreadcases
 
-    ######################
-    # simulation loop
-    ######################
+
+    # execution timing
     vaxtime = 0
     sprtime = 0
     trtime = 0
     idxtime = 0
     histtime = 0
 
+
+    ######################
+    # simulation loop
+    ######################
     for i = 1:n_days
         inc!(day_ctr, :day)  # increment the simulation day counter
         silent || println("simulation day: ", day_ctr[:day])
@@ -76,11 +80,13 @@ function run_a_sim(n_days, locales;
                 case(loc, popdat, socialparams, spreadset, sdcases, ages; startofday=true)  # TODO extend ages to be any filter for 
             end                                                 # who participates in a given case
 
+            # filter for key people
             idxtime += @elapsed begin
                 infect_idx = findall(locdat.status .== infectious)
                 contactable_idx = findall(locdat.status .!= dead)
             end
 
+            # if dovax give shots
             dovax && (vaxtime += @elapsed vaccinate!(locdat, vxschedset, contactable_idx, vaxset))
             # @show size(contactable_idx), vaxset
 
@@ -101,7 +107,9 @@ function run_a_sim(n_days, locales;
 
         end
 
+        # accumulate simulation statistics
         histtime += @elapsed do_history!(locales, popdat, cumhistmx, newhistmx, agegrp_idx)
+
         silent || println("Simulation completed for $(day_ctr[:day]) days.")
     end
 
@@ -179,41 +187,6 @@ end
 end # function
 
 
-"""
-    countsarr(arr, compare_vals)
-
-Count how many times each value of input array, arr, is found in an array
-of comparison values, compare_vals.
-Faster than StatsBase: counts (2x) or countmap (10x).
-
-**Limitation:** compare_vals must be integer values in a continuous range.
-"""
-function countsarr(arr, compare_vals)
-    vals_range = minimum(Int.(compare_vals)):maximum(Int.(compare_vals))
-    ret = zeros(Int, length(vals_range))
-    ret = OffsetVector(ret, vals_range)  # enables indexing 5:8, etc.
-    @inbounds for i in Int.(arr)
-        ret[i] += 1
-    end
-    return ret
-end
-
-
-function countmapper(arr, compare_vals)
-    # ret = zeros(Int, length(compare_vals))
-    # compare_dict = Dict(compare_vals[i] => i for i in 1:length(compare_vals))
-    ret = Dict{eltype(arr), Int}()
-    for k in compare_vals
-        ret[k] = 0
-    end
-
-    for i in 1:length(arr)
-        # ret[compare_dict[i]] += 1
-        ret[arr[i]] += 1
-    end
-    return ret
-end
-
 function hist_total_agegrps!(series, locales)
     for loc in locales
         for kind in [:cum, :new]
@@ -259,6 +232,42 @@ end
 #####################################################################################
 #  other functions used in simulation
 #####################################################################################
+
+"""
+    countsarr(arr, compare_vals)
+
+Count how many times each value of input array, arr, is found in an array
+of comparison values, compare_vals.
+Faster than StatsBase: counts (2x) or countmap (10x).
+
+**Limitation:** compare_vals must be integer values in a continuous range.
+"""
+function countsarr(arr, compare_vals)
+    vals_range = minimum(Int.(compare_vals)):maximum(Int.(compare_vals))
+    ret = zeros(Int, length(vals_range))
+    ret = OffsetVector(ret, vals_range)  # enables indexing 5:8, etc.
+    @inbounds for i in Int.(arr)
+        ret[i] += 1
+    end
+    return ret
+end
+
+
+function countmapper(arr, compare_vals)
+    # ret = zeros(Int, length(compare_vals))
+    # compare_dict = Dict(compare_vals[i] => i for i in 1:length(compare_vals))
+    ret = Dict{eltype(arr), Int}()
+    for k in compare_vals
+        ret[k] = 0
+    end
+
+    for i in 1:length(arr)
+        # ret[compare_dict[i]] += 1
+        ret[arr[i]] += 1
+    end
+    return ret
+end
+
 
 function cleanup_stash(stash)
     for k in keys(stash)

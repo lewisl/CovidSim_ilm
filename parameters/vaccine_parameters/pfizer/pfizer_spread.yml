@@ -1,11 +1,25 @@
 ---
 name:       Pfizer  # will convert to symbol at load time
 
-halflife:       280
-reqdshots:        2
-delay2ndshot:    21
-effective_days:  14
+halflife:         280
+reqdshots:          2
+delay2ndshot:      21
+full_effect_days:  14
+day1_effect:      0.5
+
+# effectiveness in reducing infection or illness risk
+# shots: first, second, booster
 # we need data for each known variant
-recvrisk_reduction:   
-  alpha: 0.94
-  delta: 0.84
+effectiveness:
+  first:
+    base:  0.90
+    alpha: 0.90
+    delta: 0.84
+  second:
+    base:  0.94
+    alpha: 0.94
+    delta: 0.88
+  booster:
+    base:  0.94
+    alpha: 0.94
+    delta: 0.88

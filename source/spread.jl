@@ -176,22 +176,8 @@ end
 
 Returns true if the spreader infected the contact. 
 """
-@inline function isinfected(spreadset, vaxset, locdat, spreader, contact, riskfactor=1.0)::Bool
-    if locdat.vaxrcvd[spreader][end] == :none
-        variant = locdat.variant[spreader]
-        sendrisk  = spreadset[variant].sendrisk[locdat.sickday[spreader]]
-        recvrisk  = spreadset[variant].recvrisk[Int(locdat.agegrp[contact])]
-    else
-        # sendrisk
-            vaxtype = locdat.vaxrcvd[spreader][end]  # the most recent or last vaccine received
-            sendrisk = vaxset[vaxtype].sendrisk[locdat.sickday[spreader]]
-        # recvrisk
-            vaxtype = locdat.vax[contact][end]
-            recvrisk = vaxset[vaxtype].recvrisk[Int(locdat.agegrp[contact])]
-    end
-
-    @inbounds @fastmath prob = sendrisk * recvrisk * riskfactor          # TODO also vaccinated people will have partially unsusceptible
-    return @fastmath rand(Binomial(1, prob)) == 1
+@inline function isinfected(risk)::Bool
+    return @fastmath rand(Binomial(1, risk)) == 1
 end
 
 #############################################################################
@@ -211,19 +197,19 @@ end
     must be multiplied times the vaccine specific effectiveness 
     because this function only represents the time-based change.
 """
-function riseup(t, days, lower, upper)
-    clamp(t * (1 / days), lower, upper)
+function riseup(days_since_shot, delay_days, lower, upper)
+    clamp(days_since_shot * (1.0 / delay_days), lower, upper)
 end
 
-riseup14(t) = riseup(t, 14, 0.1, 1.0)  # curried to only input the day as time t
+riseup14(t) = riseup(t, 14, 0.0, 1.0)  # curried to only input the day as time t
 
 
 
 # gradual decay of vaccine effectiveness based on assumed half-life
 
 function lindecay(t, h, lower)
-    f1 = -t / (2.0 * h) + 1.0
-    ifelse(f1 > lower, f1, lower)
+    y = 0.5 ./ -h * t  + 1.0
+    y = y < lower ? lower : y
 end
 
 expdecay(t,h) = exp(-(log(2)/h) * t)  
@@ -232,31 +218,44 @@ sigdecay(t, h; csig=5.0) = 1.0 / (1.0 + exp.((t - h)/(t / csig + (h / csig))))
 
 tbrk(h, lower) = 2.0 * h - (2.0 * h * lower)
 
-intercept(t, h, lower) = (-3.0 * t) / (10.0 * h) + 1.0
+intercept(t, hl, lower) = -0.3 * t / hl + 1.0
 
-function lindecay2(t, h, lower1, lower2)
-    f1 = -t / (2.0 * h) + 1.0
+function lindecay2(t,hl,lower1, lower2)
+    f1 = -t * 0.5 / hl + 1.0
     if  f1 >= lower1
         f1
     else
-        clamp(-t/(5.0*h) + intercept(tbrk(h, lower1), h, lower1), lower2, 1.0)
+        clamp(-t * 0.2 / hl + intercept(tbrk(hl, lower1), hl, lower1), lower2, 1.0)
     end
 end
 
-function lindecayarr(t::AbstractVector{T} where T, h, lower1, lower2)
+
+function lindecayarr(t::AbstractVector{T} where T, hl, lower1, lower2)
     arr = zeros(size(t,1))
-    icept = intercept(tbrk(h, lower1), h, lower1)
+    icept = intercept(tbrk(hl, lower1), hl, lower1)
     for i = eachindex(arr)
-        f1 = -t[i] / (2.0 * h) + 1.0
+        f1 = -t[i] * 0.5 / hl + 1.0
         if  f1 >= lower1
             arr[i] = f1
         else
-            arr[i] = clamp(-t[i]/(5.0*h) + icept, lower2, 1.0)
+            arr[i] = clamp(-t[i] * 0.2 / hl + icept, lower2, 1.0)
         end
     end
     return arr
 end
 
+
+function vaxmodifier(full_effect_days, today, lastshotday, halflife; rise_lower=0.5, decay_lower=0.05)
+    # combines the effect of the rise to full effectiveness post shot with
+        # the decay in effectiveness over time: based on current date
+    @assert today >= lastshotday "today's date must be >= to day of most recent shot"
+
+    rise = riseup(today - lastshotday, full_effect_days, rise_lower, 1.0)
+
+    days_after_full_effect = clamp(today - (lastshotday + full_effect_days), 0, Int)
+    decay = lindecay(days_after_full_effect, halflife, decay_lower)
+    return rise * decay
+end
 # applies for both recovery and vaccines
 # function risk_factor(spreadset, vaxset, spr, target, locdat)
 #     #=
@@ -268,44 +267,99 @@ end
 
 # end
 
+function sigmoidshift(x; risk_discount=0.2)
+    sigmoid(
+            shifter(
+                    clamp(x, 0.0, 1.0 + risk_discount),
+                    0.0, 1.0, -4.0, 4.0
+                    )
+            )
+end
 
-# method for decline of immunity after recovery
-function risk_factor(spreadset, vaxset, locdat, spreader, target)
+function simpleclamp(x)
+    clamp(x, 0.0, 1.0)
+end
+
+squashfunc = simpleclamp
+
+
+function risk(spreadset, vaxset, locdat, spreader, target)
     # calculate based on recovery date and variant half-life of partial immunity and immunity strength
     # initially using exponential decay   TODO add parameter for exponential or sigmoid decay
 
-    currdate = day_ctr[:day]
-    recovfactor = 0.0
-    variantfactor = 0.0
-    vaxfactor = 0.0
+    today = day_ctr[:day]
+    oneshotfactor = 0.85   # TODO yet another parameter to put somewhere...!
+
+    # spreader person characteristics
+    variant = locdat.variant[spreader]
+    spr_sickday = locdat.sickday[spreader]
+    sendrisk = spreadset[variant].sendrisk[spr_sickday]
+
 
     # target person characteristics
-    variant = locdat.variant[target]
-    days_post_recov = 0
+    vaxstatus = locdat.vaxstatus[target]
+    status = locdat.status[target]
+    target_agegrp = locdat.agegrp[target]
+    recvrisk = spreadset[variant].recvrisk[Int(target_agegrp)]
+
+    # spread risks
+        
+        
 
     # recovery effect (affected by variant?)
-    if locdat.status[target] == recovered
+    if status == recovered
 
-        days_post_recov = currdate - locdat.recovday[target]
+        days_post_recov = today - locdat.recovday[target]
 
-        if days_post_recov > 0
-
+        if days_post_recov > 0   # TODO should be an assert: does this run day of or day after recovery?
             # get the max immunity
             immstrength = spreadset[variant].immunestrength
 
             # get the declined value
             immhalflife = spreadset[variant].immunehalflife
-            recovfactor = expdecay(days_post_recov, immhalflife) * immstrength
-
+            immdecline = lindecay(days_post_recov, immhalflife, 0.05)
+            recovfactor = 1.0 - (immdecline * immstrength)
         end
+    else
+        recovfactor = 1.0  # no immunity effect from recovery
     end
 
     # vaccine effect (rise time and decay)
+    if vaxstatus != :none
+        # person's vaccine conditions
+        vaxrcvd = locdat.vaxrcvd[target]
+        vaxday = locdat.vaxday[target]
+        @assert size(vaxrcvd, 1) == size(vaxday, 1) "Ahhh, no: lengths of vaxrcvd and vaxday not equal"
+        days_post_vax = today - last(vaxday)
+
+        # vaccine characteristics
+        lastvax = last(vaxrcvd)
+        halflife = vaxset[lastvax][:params].halflife
+        full_effective_days = vaxset[lastvax][:params].full_effect_days
+        shotnum = if vaxstatus == :first 
+                            :first
+                  elseif vaxstatus == :booster
+                            :booster
+                  else
+                            :second
+                  end
+
+        vaxeffect = vaxset[lastvax][:params].effectiveness[shotnum][variant]
+
+        # rise & decay
+        vaxmod = vaxmodifier(full_effect_days, today, days_post_vax, halflife; rise_lower=0.5, decay_lower=0.05)
+        vaxfactor = 1.0 - (vaxmod * vaxeffect)
+    else
+        vaxfactor = 1.0   # no immunity effect from vaccination
+    end
 
     # variant effect (sender's variant affects infectiousness up or down)
+    variantfactor = 1.0   # replace with actual calculation...
 
     # combined effect
-    riskfactor = 1.0 - recovfactor
+    # @show recvrisk, sendrisk, variantfactor, recovfactor, vaxfactor
+    combinedfactor = recvrisk * sendrisk * variantfactor * recovfactor * vaxfactor
+    riskfactor = squashfunc(combinedfactor)
 
     return riskfactor  
 end
@@ -315,7 +369,7 @@ end
 spreadin(risk) = 8.0 * risk - 4.0  # rescale risk to -4.0, 4.0
 sigmoid(x) = 1.0 / (1.0 + exp(-x))  # smoosh input to 0.0, 1.0
 
-risk(risk) = sigmoid(spreadin(risk))
+altrisk(risk) = sigmoid(spreadin(risk))
 
 
 """
@@ -334,42 +388,40 @@ columns in the population table. Runs social distancing cases.
     touchfactors   = socialparams.touchfactors
     gammashape     = socialparams.gammashape
 
-    # column aliases as vector v_...
-    v_cond     = locdat.cond
-    v_status   = locdat.status
-    v_agegrp   = locdat.agegrp
-    v_sickday  = locdat.sickday
-    v_sdcomply = locdat.sdcomply
-    dovariant && (v_variant  = locdat.variant)
-    dovax && (begin; v_vax      = locdat.vaxrcvd; v_vaxday = locdat.vaxday; end)
+    # column aliases as vector col_...
+    col_cond     = locdat.cond
+    col_status   = locdat.status
+    col_agegrp   = locdat.agegrp
+    col_sickday  = locdat.sickday
+    col_sdcomply = locdat.sdcomply
+    dovariant && (col_variant  = locdat.variant)
+    dovax && (begin; col_vax      = locdat.vaxrcvd; col_vaxday = locdat.vaxday; end)
 
     # assign contacts, do touches, do new infections
     @inbounds for spr in infect_idx      # spr is the person who is the spreader
         # determine number of outbound contacts
-        contact_param = v_sdcomply[spr] == :none ? contactfactors : sdcases[v_sdcomply[spr]]
-        nc = numcontacts(density_factor, gammashape, v_agegrp[spr], v_cond[spr], contact_param)  
+        contact_param = col_sdcomply[spr] == :none ? contactfactors : sdcases[col_sdcomply[spr]]
+        nc = numcontacts(density_factor, gammashape, col_agegrp[spr], col_cond[spr], contact_param)  
         
         # TODO we could keep track of contacts for contact tracing
         # target is the outbound contact reached by the spr (spreader)
         @inbounds @fastmath for target in sample(contactable_idx, nc, replace=true) # people can get contacted more than once
                       # combine a status or a condition value        
-            # contactlookup = v_status[target] == infectious ?  v_cond[target] : v_status[target]  # unexposed or recovered
+            # contactlookup = col_status[target] == infectious ?  col_cond[target] : col_status[target]  # unexposed or recovered
 
-            if in(v_status[target], (unexposed, recovered))  # only condition that can get infected   TODO: handle reinfection of recovered
-                touch_param = v_sdcomply[target] == :none ? touchfactors : sdcases[v_sdcomply[target]]
-                touched = istouched(v_agegrp[target], unexposed, touch_param)   # contactlookup or v_status[target]
+            if in(col_status[target], (unexposed, recovered))  # only condition that can get infected   TODO: handle reinfection of recovered
+                touch_param = col_sdcomply[target] == :none ? touchfactors : sdcases[col_sdcomply[target]]
+                touched = istouched(col_agegrp[target], unexposed, touch_param)   # contactlookup or col_status[target]
 
                 # infection outcome
                 if touched         
-
-                    riskfactor = risk_factor(spreadset, vaxset, locdat, spr, target)
-
-                    if isinfected(spreadset, vaxset, locdat, spr, target, riskfactor)
-                        v_cond[target] = nil # nil === asymptomatic or pre-symptomatic
-                        v_status[target] = infectious
-                        v_sickday[target] = 1
+                    riskfactor = risk(spreadset, vaxset, locdat, spr, target)
+                    if isinfected(riskfactor)
+                        col_cond[target] = nil # nil === asymptomatic or pre-symptomatic
+                        col_status[target] = infectious
+                        col_sickday[target] = 1
                         n_newly_infected += 1
-                        dovariant && (v_variant[target] = v_variant[spr])
+                        dovariant && (col_variant[target] = col_variant[spr])
                     end
                 end  # if (touched ...)
             end  # if contactstatus

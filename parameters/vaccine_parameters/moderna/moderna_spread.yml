@@ -1,13 +1,26 @@
 ---
 name:       Moderna  # will convert to symbol at load time
 
-halflife:       280
-reqdshots:        2
-delay2ndshot:    21
-effective_days:  14
-# we need data for each known variant
-recvrisk_reduction:   
-  alpha: 0.94
-  delta: 0.84
+halflife:         280
+reqdshots:          2
+delay2ndshot:      21
+full_effect_days:  14
+day1_effect:      0.5
 
+# effectiveness in reducing infection or illness risk
+# shots: first, second, booster
+# we need data for each known variant
+effectiveness:
+  first:
+    base:  0.92
+    alpha: 0.92
+    delta: 0.85
+  second:
+    base:  0.95
+    alpha: 0.95
+    delta: 0.88
+  booster:
+    base:  0.95
+    alpha: 0.95
+    delta: 0.88
 
