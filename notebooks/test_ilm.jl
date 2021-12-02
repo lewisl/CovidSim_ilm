@@ -8,9 +8,9 @@
 #       format_version: '1.3'
 #       jupytext_version: 1.13.1
 #   kernelspec:
-#     display_name: Julia 1.6.3
+#     display_name: Julia17 (4 threads) 1.7.0
 #     language: julia
-#     name: julia-1.6
+#     name: julia17-(4-threads)-1.7
 # ---
 
 # %%
@@ -89,10 +89,10 @@ touchfactors = alldat.social.touchfactors
 alldat.spreadset
 
 # %%
-alldat.spreadset[:default].recvrisk
+alldat.spreadset[:base].recvrisk
 
 # %%
-alldat.spreadset[:default].sendrisk
+alldat.spreadset[:base].sendrisk
 
 # %%
 # is shifter working?
@@ -102,7 +102,7 @@ shifter(touchfactors, (.18, .3)...)[age40_59]
 alldat.transitionset # the decision transition matrices for all age groups are loaded
 
 # %%
-dectree = alldat.transitionset[:default]
+dectree = alldat.transitionset[:base]
 
 # %% [markdown]
 # Dict{Int64, OrderedCollections.OrderedDict{Int, Dict{String, Vector{T} where T}
@@ -117,12 +117,14 @@ dectree[age80_up][5]
 # # Create a seed case
 
 # %%
-seed_1_6 = seed_case_gen(1, [0,3,3,0,0], 1, nil, :default, agegrps)
+seed_1_6 = seed_case_gen(1, [0,3,3,0,0], 1, nil, :base, agegrps)
 
 # %% [markdown]
 # # Run a simulation
 
 # %%
+ndays=180
+locale = 38015
 result_dict, series = run_a_sim(ndays, locale, showr0=false, silent=true, runcases=[seed_1_6]);
 
 # %%

@@ -108,11 +108,11 @@ const rural = 6
 #######################################################################
 
 @enum condition begin
-    notsick=0 
+    uninfected=0 
     nil=5 
-    mild 
-    sick 
-    severe
+    mild   # 6
+    sick   # 7
+    severe # 8
 end
 
 @enum status begin
@@ -142,7 +142,7 @@ end
 const statuses = collect(instances(status))
 const infectious_cases = [nil, mild, sick, severe]
 const transition_cases = [recovered, nil, mild, sick, severe, dead]
-const allconds = vcat(infectious_cases, statuses) # note excludes notsick::condition=0
+const allconds = vcat(infectious_cases, statuses) # note excludes uninfected::condition=0
 const agegrps = instances(agegrp) # tuple of enums
 const n_agegrps = length(instances(agegrp))
 
@@ -222,13 +222,9 @@ Base.to_index(s::condition) = Int(s)
 Base.to_index(s::shift) = Int(s)
 
 
-
-# stats series/dataframe columns
-# columns of history series: first 5 cols are agegrps, 6th is total
-const map2series = (unexposed=1:6, infectious=7:12, recovered=13:18, dead=19:24, 
-                    nil=25:30, mild=31:36, sick=37:42, severe=43:48, totinfected=49:54)
 const condnames  = Dict(:unexposed=>"unexposed", :infectious=>"infectious", :recovered=>"recovered", :dead=>"dead",
                     :nil=>"nil", :mild=>"mild", :sick=>"sick", :severe=>"severe", 9=>"totinfected")
+        # slightly faster than string(:unexposed) because the string is created when the Dict is created
 const totalcol = 6
 
 
@@ -359,7 +355,7 @@ export
     infectious,
     recovered,
     dead,
-    notsick,
+    uninfected,
     condition,
     nil,
     mild,

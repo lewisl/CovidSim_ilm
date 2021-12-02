@@ -39,7 +39,7 @@ function setup(n_days, locales;  # must provide following inputs
         vxschedset = nothing
     end
 
-    return (dat=datadict, transitionset=transitionset, geo=geodata, vaxset=vaxset,
+    return (dat=datadict, transitionset=transitionset, geo=geodata, vaxset=vaxset, variants=variants,
             vxschedset=vxschedset, spreadset=spreadset, social=socialparams, trvec = trvec)  
 end
 
@@ -80,9 +80,9 @@ function pop_data(pop; age_dist=age_dist)
             pid = collect(1:pop),  # ordinal persistent id for persons in matrix
             status = fill(unexposed, pop),    
             agegrp = reduce(vcat,[fill(age, parts[Int(age)]) for age in agegrps]), 
-            cond = fill(notsick, pop),
+            cond = fill(uninfected, pop),
             sickday = zeros(Int, pop),   
-            variant = fill(:default, pop),
+            variant = fill(:base, pop),
             recovday = zeros(Int, pop),  
             deadday = zeros(Int, pop),   
             cluster = zeros(Int, pop), 
@@ -100,10 +100,17 @@ function pop_data(pop; age_dist=age_dist)
 end
 
 
+# columns of history series: first 5 cols are agegrps, 6th is total
+const map2series = (unexposed=1:6, infectious=7:12, recovered=13:18, dead=19:24,          # status
+                                                                                          # vaccines
+                                                                                          # variants
+                    nil=25:30, mild=31:36, sick=37:42, severe=43:48, totinfected=49:54)   # conditions
+
+
 function hist_dict(locales, n_days; conds=allconds, agegrps=n_agegrps)
     dat = Dict{Int64, Array{Int}}()
     for loc in locales
-        dat[loc] = zeros(Int, n_days, last(last(map2series))) # (conds, agegrps + 1, n_days) => (8, 6, 150)
+        dat[loc] = zeros(Int, n_days, last(last(map2series))) 
     end
     return dat       
 end
@@ -145,7 +152,7 @@ function build_transition_params(variants, paramdir)
     end
 
     # pre-allocate trvec used in hot loop: no. of columns in transition array
-    sz = size(first(first(transitionset[:default])[end])[end][:transition], 2)
+    sz = size(first(first(transitionset[:base])[end])[end][:transition], 2)
     trvec = zeros(sz)
 
     return (transitionset, trvec)

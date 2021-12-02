@@ -1,5 +1,5 @@
 ---
-default:
+base:
   infect_fname:     base_spread.yml
   transition_fname: base_transition_array.yml
   directory_name:   base_variant

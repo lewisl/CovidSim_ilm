@@ -81,7 +81,7 @@ geodf = alldat.geo   # the date for all locales has been read into a dataframe
 density_factor = geodf[geodf[!, :fips] .== locale, :density_factor][]
 
 # %% jupyter={"outputs_hidden": true}
-pprintln(alldat.spreadset[:default])  # the spread parameters are loaded as a dict of float arrays
+pprintln(alldat.spreadset[:base])  # the spread parameters are loaded as a dict of float arrays
 
 # %% jupyter={"outputs_hidden": true}
 alldat.social
@@ -116,10 +116,10 @@ alldat.vaxset
 shifter(touchfactors, (.18, .3)...)[age40_59]
 
 # %% jupyter={"outputs_hidden": true}
-dectree = alldat.transitionset[:default] # the decision trees for all age groups are loaded
+dectree = alldat.transitionset[:base] # the decision trees for all age groups are loaded
 
 # %% jupyter={"outputs_hidden": true}
-transarr = alldat.transitionset[:default]
+transarr = alldat.transitionset[:base]
 
 # %% jupyter={"outputs_hidden": true}
 transarr[age0_19]
@@ -238,7 +238,7 @@ locdat.vaxrcvd[peeps] = fill([:none], cnt)
 # # Create a seed case
 
 # %% jupyter={"outputs_hidden": true}
-seed_1_6 = seed_case_gen(1, [0,3,3,0,0], 1, nil, :default, agegrps)
+seed_1_6 = seed_case_gen(1, [0,3,3,0,0], 1, nil, :base, agegrps)
 
 # %% [markdown]
 # # Run a simulation

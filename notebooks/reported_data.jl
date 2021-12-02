@@ -57,7 +57,7 @@ dt = CovidSim.setup_dt("../parameters/dec_tree_all.csv");
 # ## Run a simulation for King County (Seattle)
 
 # %%
-seed_1_6 = seed_case_gen(1, [0,3,3,0,0], 1, nil, :default, agegrps)
+seed_1_6 = seed_case_gen(1, [0,3,3,0,0], 1, nil, :base, agegrps)
 
 # %%
 alldat, series = run_a_sim(n, seattle.fips, showr0=true, silent=true,

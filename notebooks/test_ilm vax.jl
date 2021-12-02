@@ -79,7 +79,7 @@ geodf = alldat.geo   # the date for all locales has been read into a dataframe
 density_factor = geodf[geodf[!, :fips] .== locale, :density_factor][]
 
 # %%
-alldat.spreadset[:default]  # the spread parameters are loaded as a dict of float arrays
+alldat.spreadset[:base]  # the spread parameters are loaded as a dict of float arrays
 
 # %%
 alldat.social
@@ -120,10 +120,10 @@ shifter(touchfactors, (.18, .3)...)[age40_59]
 # ### Testing/checking decision trees (new type as transition matrices)
 
 # %%
-dectree = alldat.transitionset[:default] # the decision trees for all age groups are loaded
+dectree = alldat.transitionset[:base] # the decision trees for all age groups are loaded
 
 # %%
-transarr = alldat.transitionset[:default]
+transarr = alldat.transitionset[:base]
 
 # %% tags=[]
 CovidSim_ilm.display_tree_array(transarr)
@@ -294,7 +294,7 @@ locdat.vaxrcvd[peeps] = fill([:none], cnt)
 # # Create a seed case
 
 # %%
-seed_1_6 = seed_case_gen(1, [0,3,3,0,0], 1, nil, :default, agegrps)
+seed_1_6 = seed_case_gen(1, [0,3,3,0,0], 1, nil, :base, agegrps)
 
 # %% [markdown]
 # # Run a simulation

@@ -23,7 +23,7 @@ using Printf
 pyplot()
 
 # %%
-seed_1_6 = seed_case_gen(1, [0,3,3,0,0], 1, nil, :default, agegrps)
+seed_1_6 = seed_case_gen(1, [0,3,3,0,0], 1, nil, :base, agegrps)
 
 # %%
 str_50 = sd_gen(start=50, comply=.8, cf=(.2,1.2), tf=(.18,.41))

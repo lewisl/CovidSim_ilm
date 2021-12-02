@@ -190,7 +190,7 @@ end # function
 function hist_total_agegrps!(series, locales)
     for loc in locales
         for kind in [:cum, :new]
-            for cond in Int.(allconds)
+            for cond in Int.(allconds)  # infectious cases and statuses
                 series[loc][kind][:,map2series[cond][totalcol]] = sum(series[loc][kind][:,map2series[cond][collect(Int.(agegrps))]],dims=2)
             end
         end

@@ -27,12 +27,12 @@ locdat must be a population table for a single locale.
 
     # if dovax == true
     # elseif dovariant == true
-    #     transarray = transitionset[:default]  # TODO: REPLACE WITH TRANSITION OF VARIANT OR VARIANT CALCULATION
+    #     transarray = transitionset[:base]  # TODO: REPLACE WITH TRANSITION OF VARIANT OR VARIANT CALCULATION
     # else
-    #     transarray = transitionset[:default]
+    #     transarray = transitionset[:base]
     # end
 
-    transarray = transitionset[:default]   # TODO test variant of each person
+    transarray = transitionset[:base]   # TODO test variant of each person
 
     for p in infect_idx  # p for infected person    
         p_sickday = v_sickday[p]
@@ -86,11 +86,11 @@ the number of days the person has been sick.
         if tocond == dead  
             locdat.deadday[p] = day_ctr[:day]
             locdat.status[p] = dead  # change the status
-            # locdat.cond[p] = notsick # change the condition
+            # locdat.cond[p] = uninfected # change the condition--> kept to know what cause of death was
         elseif tocond == recovered
             locdat.recovday[p] = day_ctr[:day]
             locdat.status[p] = recovered
-            # locdat.cond[p] = notsick
+            # locdat.cond[p] = uninfected
         else   
             locdat.cond[p] = tocond   # change the condition = degree of sickness
             locdat.sickday[p] += 1    # advance number of days person has been sick

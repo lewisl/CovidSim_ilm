@@ -45,8 +45,8 @@ end
 
 
 # some generated seed! cases-->these are global (in code)
-# seed_6_12 = seed_case_gen(8, [0,6,6,0,0], 5, nil, :default, agegrps)
-# seed_1_6 = seed_case_gen(1, [0,3,3,0,0], 5, nil, :default, agegrps)
+# seed_6_12 = seed_case_gen(8, [0,6,6,0,0], 5, nil, :base, agegrps)
+# seed_1_6 = seed_case_gen(1, [0,3,3,0,0], 5, nil, :base, agegrps)
 
 
 ####################################################################
