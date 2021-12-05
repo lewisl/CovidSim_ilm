@@ -30,17 +30,17 @@ function setup(n_days, locales;  # must provide following inputs
     # transition arrays 
         (transitionset, trvec) = build_transition_params(variants, paramdir)
 
-    # vaccines  TODO this is not the right approach
+    # vaccines  TODO this is not the right approach: test if we have vax inputs instead
     if dovax
         vaxset = build_vaxset(vaccinefilename, paramdir=paramdir)
-        vxschedset = build_vaxschedset()
+        vaxschedset = build_vaxschedset()
     else
         vaxset = nothing
-        vxschedset = nothing
+        vaxschedset = nothing
     end
 
     return (dat=datadict, transitionset=transitionset, geo=geodata, vaxset=vaxset, variants=variants,
-            vxschedset=vxschedset, spreadset=spreadset, social=socialparams, trvec = trvec)  
+            vaxschedset=vaxschedset, spreadset=spreadset, social=socialparams, trvec = trvec)  
 end
 
 
@@ -100,11 +100,11 @@ function pop_data(pop; age_dist=age_dist)
 end
 
 
-# columns of history series: first 5 cols are agegrps, 6th is total
+# columns of history series: traits by agegrp and total:  first 5 cols are agegrps, 6th is total
 const map2series = (unexposed=1:6, infectious=7:12, recovered=13:18, dead=19:24,          # status
-                                                                                          # vaccines
-                                                                                          # variants
-                    nil=25:30, mild=31:36, sick=37:42, severe=43:48, totinfected=49:54)   # conditions
+                    nil=25:30, mild=31:36, sick=37:42, severe=43:48, totinfected=49:54,   # conditions
+                    Pfizer=55:60, Moderna=61:66, JnJ=67:72, totvaccinated=73:78,          # vaccines
+                    base=79:84, alpha=85:90, delta=91:96, omicron=97:102)                 # variants
 
 
 function hist_dict(locales, n_days; conds=allconds, agegrps=n_agegrps)
@@ -182,6 +182,45 @@ function build_socialparams(socialfilename, paramdir)
                                 Dict(symtoallconds[Symbol(k2)] => Float64(v2) for (k2, v2) in v1)  for (k1, v1) in social_inputs["touchfactors"])
         )
     
+end
+
+
+
+#####################################################################################
+# helper functions for setup
+#####################################################################################
+
+
+function make_an_enum!(name, strarr; pr=false)
+    eval(:(@enum $(Symbol(name)) $(Symbol.(strarr)...)))  
+    if pr
+        
+        display("text/markdown",  """**Created this enum** \n
+        """)
+        eval(Symbol(name)) 
+        
+    end
+end
+
+function make_an_enum!(name, strarr, start; pr=false)  # method with start value
+    eval(:(@enum $(Symbol(name)) ($(Symbol(strarr[1])) = $(start)) $(Symbol.(strarr[2:end])...)  ))   
+
+    if pr
+        
+        display("text/markdown",  """**Created this enum** \n
+        """)
+        eval(Symbol(name)) 
+        
+    end
+end
+
+function makemaptup(keys, values)
+    NamedTuple{keys}(values)
+end
+
+
+function map2vec(maptup, vals)
+    [getfield(maptup, x) for x in vals]
 end
 
 

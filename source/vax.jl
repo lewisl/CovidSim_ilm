@@ -117,6 +117,19 @@ function build_vaxset(vaccinefilename; paramdir="../parameters")
         # can also get rid of extra layer of the dict--LATER if not needed for any use
         vaxset[vax] = Dict(:params => vparams)  # :transition => vtrans
     end
+
+    # clean vaxlist
+    l = length(vaxlist)
+    if l > 0
+        deleteat!(vaxlist, collect(1:l))
+    end
+
+    for k in keys(vaxset)
+        push!(vaxlist, k)   # this is a module global variable. Forgive me for I have sinned--except it makes sense...
+    end
+
+    @show vaxlist
+
     return vaxset
 end
 
@@ -171,11 +184,11 @@ end
 """
 Give people shots!
 """
-@inline function vaccinate!(locdat, vxschedset, contactable_idx, vaxset)
+@inline function vaccinate!(locdat, vaxschedset, contactable_idx, vaxset)
         
     today = day_ctr[:day]
 
-    for vxsched in values(vxschedset)
+    for vxsched in values(vaxschedset)
 
         # setup this schedule
         vaxprops = vxsched.vaxesincluded  # this is an alias to a mutable object
@@ -212,7 +225,7 @@ Give people shots!
         people_today = floor(Int, pctfunc(today) * length(contactable_idx))   # pct times accessible population
 
 
-        @show people_today, pctfunc(today), length(contactable_idx)
+        # @show people_today, pctfunc(today), length(contactable_idx)
 
 
         doshots!(vaxrcvdcol, vaxdaycol, vaxstatuscol, fullvaxdaycol,  
@@ -283,12 +296,12 @@ end
                         # update person's traits
                         push!(vaxrcvdcol[p], vaxchoice)
                         push!(vaxdaycol[p], today)
-                        if length(vaxrcvdcol[p])  >= reqdshots[vaxchoice]
+                        if length(vaxrcvdcol[p])  == reqdshots[vaxchoice]
                             vaxstatuscol[p] = :full
-                            fullvaxdaycol[p] = today
+                            fullvaxdaycol[p] = today       # TODO do we ever use this?
                             people_today -= 1
-                        else
-                            vaxstatuscol[p] = :multiple
+                        elseif length(vaxrcvdcol[p])  >= reqdshots[vaxchoice]
+                            vaxstatuscol[p] = :booster     # TODO do we really need to handle multiple, but not :booster?
                         end
                     end
                 end

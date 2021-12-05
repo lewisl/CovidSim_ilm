@@ -4,45 +4,53 @@
 ####################################################################################
 
 
-function run_a_sim(n_days, locales; 
+function buildsim(n_days, locales;
+    dovax = false,
+    paramdir = "../parameters",
+    geofilename = "../data/geo2data.csv", 
+    socialfilename = "socialparams.yml",
+    vaccinefilename = "vaccines.yml",
+    variantsfilename = "variants.yml")
+
+    locales = locales isa Int ? [locales] : locales
+
+    model = setup(n_days, locales; 
+        dovax=dovax, 
+        paramdir=paramdir,
+        geofilename=geofilename, 
+        socialfilename=socialfilename,
+        vaccinefilename=vaccinefilename,
+        variantsfilename=variantsfilename
+        )
+
+    return model
+end
+
+
+function runsim(model, n_days, locales; 
             runcases=[], 
-            showr0 = true, 
+            showr0 = false, 
             silent=true, 
             dovariant=false,
-            dovax=false, 
-            vaxschedset=Dict(),
-            paramdir = "../parameters",
-            geofilename = "../data/geo2data.csv", 
-            socialfilename = "socialparams.yml",
-            vaccinefilename = "vaccines.yml",
-            variantsfilename = "variants.yml"
+            dovax=false
             )
+
+    locales = locales isa Int ? [locales] : locales
 
     empty_all_caches!() # from previous runs
 
-    # access input data and pre-allocate storage
-    alldat = setup(n_days, locales; 
-                    dovax=dovax, 
-                    dovariant=dovariant,
-                    paramdir=paramdir,
-                    geofilename=geofilename, 
-                    socialfilename=socialfilename,
-                    vaccinefilename=vaccinefilename,
-                    variantsfilename=variantsfilename
-                    )
-
-                    # split up some members of alldat
-                    transitionset = alldat.transitionset  # transition arrays
-                    trvec = alldat.trvec # preallocated small vector
-                    popdat = alldat.dat["popdat"]   # first key locale
-                    agegrp_idx = alldat.dat["agegrp_idx"]   # first key locale
-                    cumhistmx = alldat.dat["cumhistmx"]   # first key locale
-                    newhistmx = alldat.dat["newhistmx"]   # first key locale
-                    geodf = alldat.geo
-                    spreadset = alldat.spreadset
-                    socialparams = alldat.social
-                    vaxset = alldat.vaxset
-                    vxschedset = alldat.vxschedset
+    # split up some members of model
+    transitionset = model.transitionset  # transition arrays
+    trvec = model.trvec # preallocated small vector
+    popdat = model.dat["popdat"]   # first key locale
+    agegrp_idx = model.dat["agegrp_idx"]   # first key locale
+    cumhistmx = model.dat["cumhistmx"]   # first key locale
+    newhistmx = model.dat["newhistmx"]   # first key locale
+    geodf = model.geo
+    spreadset = model.spreadset
+    socialparams = model.social
+    vaxset = model.vaxset
+    vaxschedset = model.vaxschedset
 
     # restart the day counter to zero
     reset!(day_ctr, :day)  # return and reset key to 0 :day leftover from prior runs
@@ -82,12 +90,13 @@ function run_a_sim(n_days, locales;
 
             # filter for key people
             idxtime += @elapsed begin
+                # @bp
                 infect_idx = findall(locdat.status .== infectious)
                 contactable_idx = findall(locdat.status .!= dead)
             end
 
             # if dovax give shots
-            dovax && (vaxtime += @elapsed vaccinate!(locdat, vxschedset, contactable_idx, vaxset))
+            dovax && (vaxtime += @elapsed vaccinate!(locdat, vaxschedset, contactable_idx, vaxset))
             # @show size(contactable_idx), vaxset
 
             # two fundamental steps of the simulation: spread! and transition!
@@ -118,22 +127,23 @@ function run_a_sim(n_days, locales;
     # simulation history series for plotting: arrays NOT dataframes
     series = Dict(loc=>Dict(:cum=>cumhistmx[loc], :new=>newhistmx[loc]) for loc in locales)
 
-    # sum agegrps to total for all conditions
+    # sum agegrps to total for all series groups (by agegrp)
     hist_total_agegrps!(series, locales)
 
     for loc in locales
         add_totinfected_series!(series, loc)
+        # we might need a totvaccinated series
     end
 
     @show idxtime, vaxtime, sprtime, trtime, histtime
 
-    return alldat, series
+    return series
 end
 
 
 
 ################################################################################
-#  Build and update daily history series
+#  Update daily history series
 ################################################################################
 
 @views function do_history!(locales, popdat, cumhist, newhist, agegrp_idx)
@@ -148,38 +158,68 @@ end
         #
         @inbounds for age in instances(agegrp)
             int_age = Int(age)
+
             # get the source data: status
             dat_age = dat[agegrp_idx[loc][age]]
-            status_today = countsarr(dat_age.status, statuses)    # cumulative position for thisday
+            status_today = countmap(dat_age.status)    # cumulative position for thisday, keys are Enum status
 
             # get the source data: conditions in (nil, mild, sick, severe)
             filt_infectious = findall(dat_age.status .== infectious)
             if length(filt_infectious) > 0
-                sick_today = countsarr(dat_age.cond[filt_infectious], infectious_cases)  # ditto
+                sick_today = countmap(dat_age.cond[filt_infectious])  # keys are enum condition
             else   # there can be days when no one is infected
                 sick_today = Dict()
             end
 
-            # insert into sink: cum
-            for i in Int.(inst_s)  # 1:4
-                cumdat[thisday, map2series[i][int_age]] = get(status_today, i, 0)
+            # get the source data: vaccination
+            filt_vaccinated = findall(last.(dat_age.vaxrcvd) .!= :none)
+            if length(filt_vaccinated) > 0
+                vax_today = countmap(last.(dat_age.vaxrcvd[filt_vaccinated]))  # keys are symbol
+            else
+                vax_today = Dict()
             end
 
-            for i in Int.(infectious_cases) # 5:8
-                cumdat[thisday, map2series[i][int_age]] = get(sick_today, i, 0)
+
+            # insert status into sink: cum
+            for st in inst_status 
+                cumdat[thisday, getindex(map2series, Symbol(st))[int_age]] = get(status_today, st, 0)
             end
+
+            # insert condition into sink: cum
+            for co in infectious_cases # 5:8
+                cumdat[thisday, getindex(map2series, Symbol(co))[int_age]] = get(sick_today, co, 0)
+            end
+
+            # insert vaccination into sink: cum
+            for vax in vaxlist
+                cumdat[thisday, getindex(map2series, vax)[int_age]] = get(vax_today, vax, 0)
+            end
+
+
 
             # insert into sink: new
-            for i in Int.(allconds)
+            for ac in allconds   # status and conds
                 if thisday == 1
-                    newdat[thisday, map2series[i][int_age]] = get(status_today, i, 0)
+                    newdat[thisday, getindex(map2series, Symbol(ac))[int_age]] = get(status_today, Int(ac), 0)
                 else  # on all other days
-                    newdat[thisday, map2series[i][int_age]] = (
-                        cumdat[thisday, map2series[i][int_age]] 
-                        - cumdat[thisday - 1, map2series[i][int_age]]
+                    newdat[thisday, getindex(map2series, Symbol(ac))[int_age]] = (
+                        cumdat[thisday, getindex(map2series,Symbol(ac))[int_age]] 
+                        - cumdat[thisday - 1, getindex(map2series, Symbol(ac))[int_age]]
                         )         
                 end
             end
+
+            for vax in vaxlist
+                if thisday == 1
+                    newdat[thisday, getindex(map2series, vax)[int_age]] = get(vax_today, vax, 0)
+                else  # on all other days
+                    newdat[thisday, getindex(map2series, vax)[int_age]] = (
+                        cumdat[thisday, getindex(map2series, vax)[int_age]] 
+                        - cumdat[thisday - 1, getindex(map2series, vax)[int_age]]
+                        )         
+                end
+            end                
+
         end # for age in agegrps
 
     end # for loc in locales
@@ -192,6 +232,9 @@ function hist_total_agegrps!(series, locales)
         for kind in [:cum, :new]
             for cond in Int.(allconds)  # infectious cases and statuses
                 series[loc][kind][:,map2series[cond][totalcol]] = sum(series[loc][kind][:,map2series[cond][collect(Int.(agegrps))]],dims=2)
+            end
+            for vax in vaxlist
+                series[loc][kind][:,map2series[vax][totalcol]] = sum(series[loc][kind][:,map2series[vax][collect(Int.(agegrps))]],dims=2)
             end
         end
     end
@@ -232,41 +275,6 @@ end
 #####################################################################################
 #  other functions used in simulation
 #####################################################################################
-
-"""
-    countsarr(arr, compare_vals)
-
-Count how many times each value of input array, arr, is found in an array
-of comparison values, compare_vals.
-Faster than StatsBase: counts (2x) or countmap (10x).
-
-**Limitation:** compare_vals must be integer values in a continuous range.
-"""
-function countsarr(arr, compare_vals)
-    vals_range = minimum(Int.(compare_vals)):maximum(Int.(compare_vals))
-    ret = zeros(Int, length(vals_range))
-    ret = OffsetVector(ret, vals_range)  # enables indexing 5:8, etc.
-    @inbounds for i in Int.(arr)
-        ret[i] += 1
-    end
-    return ret
-end
-
-
-function countmapper(arr, compare_vals)
-    # ret = zeros(Int, length(compare_vals))
-    # compare_dict = Dict(compare_vals[i] => i for i in 1:length(compare_vals))
-    ret = Dict{eltype(arr), Int}()
-    for k in compare_vals
-        ret[k] = 0
-    end
-
-    for i in 1:length(arr)
-        # ret[compare_dict[i]] += 1
-        ret[arr[i]] += 1
-    end
-    return ret
-end
 
 
 function cleanup_stash(stash)

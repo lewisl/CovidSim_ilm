@@ -57,6 +57,8 @@ using SplitApplyCombine
 using Interpolations
 
 
+using Debugger
+
 ######################################################################
 # Define module constants and new Base methods
 ######################################################################
@@ -145,6 +147,7 @@ const transition_cases = [recovered, nil, mild, sick, severe, dead]
 const allconds = vcat(infectious_cases, statuses) # note excludes uninfected::condition=0
 const agegrps = instances(agegrp) # tuple of enums
 const n_agegrps = length(instances(agegrp))
+const vaxlist = Symbol[]  # filled by vax.jl
 
 #= 
 lookup tables for enum values: 
@@ -155,7 +158,7 @@ lookup tables for enum values:
 
 
 
-inst_c = instances(condition)
+const inst_cond = instances(condition)
 """
     symtocond[cond::Symbol]
 Dict used as lookup table to convert symbol or string to enum value for a condition.
@@ -165,10 +168,10 @@ Examples:
 - for string use symtocond[Symbol("nil")] => nil::condition = 5
     
 """
-const symtocond = freeze(Dict(zip(Symbol.(inst_c), inst_c)))
+const symtocond = freeze(Dict(zip(Symbol.(inst_cond), inst_cond)))
 
 # lookup table for status enum values
-inst_s = instances(status)
+inst_status = instances(status)
 """
     symtostat[stat::Symbol]
 Dict used as lookup table to convert symbol or string to enum value for a status.
@@ -178,7 +181,7 @@ Examples:
 - for string use symtostat[Symbol("infectious")] => infectious::status = 2
     
 """
-const symtostat = freeze(Dict(zip(Symbol.(inst_s), inst_s)))
+const symtostat = freeze(Dict(zip(Symbol.(inst_status), inst_status)))
 
 # lookup table for agegrp
 inst_a = instances(agegrp)
@@ -245,8 +248,9 @@ include("johns_hopkins_data.jl")
 
 # functions for simulation
 export    
+    buildsim,
+    runsim,
     setup,              
-    run_a_sim,
     day_ctr,
     isolate!,
     unisolate!,
@@ -272,7 +276,8 @@ export
     Vaxsched,
     Vaxinclude,
     makevaxfn,
-    vaccinate!
+    vaccinate!,
+    vaxlist
 
 # functions for transition
 export

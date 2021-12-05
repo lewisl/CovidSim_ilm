@@ -6,9 +6,26 @@ condition:
   - sick
   - severe
 status:
+  - unexposed
+  - infectious 
+  - recovered 
+  - dead
+  - reinfected
+  - breakout
 agegrp:
+  - age0_19
+  - age20_39
+  - age40_59
+  - age60_79
+  - age80_up
+age_dist: [0.251, 0.271, 0.255, 0.184, 0.039]
 variant:
-sickday:
+  - base
+  - alpha
+  - delta
+  - omicron
+sickdays: 
+  maxsickday: 25
 vaccine:
   Pfizer:
     infect_fname:     pfizer_spread.yml

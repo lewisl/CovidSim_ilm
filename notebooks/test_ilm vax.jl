@@ -6,15 +6,14 @@
 #       extension: .jl
 #       format_name: percent
 #       format_version: '1.3'
-#       jupytext_version: 1.13.1
+#       jupytext_version: 1.13.2
 #   kernelspec:
-#     display_name: Julia 1.6.3
+#     display_name: Julia17 (4 threads) 1.7.0
 #     language: julia
-#     name: julia-1.6
+#     name: julia17-(4-threads)-1.7
 # ---
 
 # %%
-push!(LOAD_PATH, joinpath(homedir(), "Dropbox/Covid Modeling/Covid-ILM/source"))
 using CovidSim_ilm
 
 # %%
@@ -29,9 +28,6 @@ using SplitApplyCombine
 
 # %%
 cd(joinpath(homedir(),"Dropbox/Covid Modeling/Covid-ILM/source"))
-
-# %% [markdown]
-# # Test setup and population matrix
 
 # %% tags=[]
 # set locale and number of days
@@ -217,6 +213,9 @@ vaxkeys = keys(vaccines)
 # %%
 vaccines[:Pfizer]
 
+# %%
+vaxlist
+
 # %% [markdown]
 # ### Other vaccine parameters
 
@@ -280,7 +279,16 @@ day_ctr[:day] = 555  # must be in the range of the schedule
 vaccinate!(locdat, vxschedset, peeps, vaxset)
 
 # %%
+vaxlist
+
+# %%
 @Select(vaxstatus, vaxday, vaxrcvd)(locdat)[peeps]
+
+# %%
+filt_vaccinated = findall(last.(locdat.vaxrcvd) .!= :none)
+
+# %%
+@Select(vaxstatus, vaxday, vaxrcvd)(locdat)[filt_vaccinated]
 
 # %% [markdown]
 # #### Reset the give shots test
@@ -300,6 +308,8 @@ seed_1_6 = seed_case_gen(1, [0,3,3,0,0], 1, nil, :base, agegrps)
 # # Run a simulation
 
 # %%
+ndays = 180
+locale = 38015
 result_dict, series = run_a_sim(ndays, locale; 
     dovax=false, 
     dovariant=false,
@@ -346,7 +356,11 @@ cumplot(series, locale)
 # ## Run simulation with full vaccination schedule
 
 # %%
+seed_1_6 = seed_case_gen(1, [0,3,3,0,0], 1, nil, :base, agegrps)
+
+# %%
 ndays = 720
+locale = 38015
 result_dict, series = run_a_sim(ndays, locale; 
     dovax=true, 
     dovariant=false,

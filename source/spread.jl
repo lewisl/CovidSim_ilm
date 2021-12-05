@@ -252,7 +252,7 @@ function vaxmodifier(full_effect_days, today, lastshotday, halflife; rise_lower=
 
     rise = riseup(today - lastshotday, full_effect_days, rise_lower, 1.0)
 
-    days_after_full_effect = clamp(today - (lastshotday + full_effect_days), 0, Int)
+    days_after_full_effect = today - (lastshotday + full_effect_days)     #clamp(today - (lastshotday + full_effect_days), 0, Int)
     decay = lindecay(days_after_full_effect, halflife, decay_lower)
     return rise * decay
 end
@@ -286,6 +286,8 @@ squashfunc = simpleclamp
 function risk(spreadset, vaxset, locdat, spreader, target)
     # calculate based on recovery date and variant half-life of partial immunity and immunity strength
     # initially using exponential decay   TODO add parameter for exponential or sigmoid decay
+
+    # @bp
 
     today = day_ctr[:day]
     oneshotfactor = 0.85   # TODO yet another parameter to put somewhere...!
@@ -335,16 +337,9 @@ function risk(spreadset, vaxset, locdat, spreader, target)
         # vaccine characteristics
         lastvax = last(vaxrcvd)
         halflife = vaxset[lastvax][:params].halflife
-        full_effective_days = vaxset[lastvax][:params].full_effect_days
-        shotnum = if vaxstatus == :first 
-                            :first
-                  elseif vaxstatus == :booster
-                            :booster
-                  else
-                            :second
-                  end
-
-        vaxeffect = vaxset[lastvax][:params].effectiveness[shotnum][variant]
+        full_effect_days = vaxset[lastvax][:params].full_effect_days
+     
+        vaxeffect = vaxset[lastvax][:params].effectiveness[vaxstatus][variant]
 
         # rise & decay
         vaxmod = vaxmodifier(full_effect_days, today, days_post_vax, halflife; rise_lower=0.5, decay_lower=0.05)

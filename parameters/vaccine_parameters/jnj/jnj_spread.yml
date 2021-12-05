@@ -12,7 +12,16 @@ day1_effect:      0.5
 # shots: first, second, booster
 # we need data for each known variant
 effectiveness:
+  infectfactor: .75
   first:
+    base:  0.88
+    alpha: 0.88
+    delta: 0.80
+  full:
+    base:  0.88
+    alpha: 0.88
+    delta: 0.80
+  booster:
     base:  0.88
     alpha: 0.88
     delta: 0.80
