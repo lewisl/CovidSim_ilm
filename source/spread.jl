@@ -256,16 +256,7 @@ function vaxmodifier(full_effect_days, today, lastshotday, halflife; rise_lower=
     decay = lindecay(days_after_full_effect, halflife, decay_lower)
     return rise * decay
 end
-# applies for both recovery and vaccines
-# function risk_factor(spreadset, vaxset, spr, target, locdat)
-#     #=
-#     inputs: vaxdate, vaccine_recd, recov_date, variant, agegrp
 
-#     don't need to call for infectious, unexposed AND unvaccinated, dead
-#     do call for recovered, vaccinated
-#     =#
-
-# end
 
 function sigmoidshift(x; risk_discount=0.2)
     sigmoid(
@@ -304,10 +295,10 @@ function risk(spreadset, vaxset, locdat, spreader, target)
     target_agegrp = locdat.agegrp[target]
     recvrisk = spreadset[variant].recvrisk[Int(target_agegrp)]
 
+    ######################
     # spread risks
-        
-        
-
+    ######################    
+    
     # recovery effect (affected by variant?)
     if status == recovered
 
@@ -338,12 +329,13 @@ function risk(spreadset, vaxset, locdat, spreader, target)
         lastvax = last(vaxrcvd)
         halflife = vaxset[lastvax][:params].halflife
         full_effect_days = vaxset[lastvax][:params].full_effect_days
+        infectfactor = vaxset[lastvax][:params].infectfactor
      
         vaxeffect = vaxset[lastvax][:params].effectiveness[vaxstatus][variant]
 
         # rise & decay
         vaxmod = vaxmodifier(full_effect_days, today, days_post_vax, halflife; rise_lower=0.5, decay_lower=0.05)
-        vaxfactor = 1.0 - (vaxmod * vaxeffect)
+        vaxfactor = 1.0 - (vaxmod * vaxeffect * infectfactor)
     else
         vaxfactor = 1.0   # no immunity effect from vaccination
     end

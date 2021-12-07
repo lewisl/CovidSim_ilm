@@ -14,6 +14,7 @@
     effectiveness::Dict{Symbol, Dict{Symbol, Float64}}
     full_effect_days::Int
     day1_effect::Float64
+    infectfactor::Float64
 end
 
         """
@@ -28,6 +29,7 @@ end
                 effectiveness            = vd[:effectiveness], 
                 full_effect_days         = vd[:full_effect_days],
                 day1_effect              = vd[:day1_effect],
+                infectfactor             = vd[:infectfactor]
                 )
         )
 
@@ -127,8 +129,6 @@ function build_vaxset(vaccinefilename; paramdir="../parameters")
     for k in keys(vaxset)
         push!(vaxlist, k)   # this is a module global variable. Forgive me for I have sinned--except it makes sense...
     end
-
-    @show vaxlist
 
     return vaxset
 end

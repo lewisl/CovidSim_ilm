@@ -4,7 +4,7 @@
 ####################################################################################
 
 
-function buildsim(n_days, locales;
+function buildsim(ndays, locales;
     dovax = false,
     paramdir = "../parameters",
     geofilename = "../data/geo2data.csv", 
@@ -14,7 +14,7 @@ function buildsim(n_days, locales;
 
     locales = locales isa Int ? [locales] : locales
 
-    model = setup(n_days, locales; 
+    model = setup(ndays, locales; 
         dovax=dovax, 
         paramdir=paramdir,
         geofilename=geofilename, 
@@ -27,7 +27,7 @@ function buildsim(n_days, locales;
 end
 
 
-function runsim(model, n_days, locales; 
+function runsim(model; 
             runcases=[], 
             showr0 = false, 
             silent=true, 
@@ -35,17 +35,17 @@ function runsim(model, n_days, locales;
             dovax=false
             )
 
-    locales = locales isa Int ? [locales] : locales
-
     empty_all_caches!() # from previous runs
 
     # split up some members of model
+    ndays = model.ndays
+    locales = model.locales
     transitionset = model.transitionset  # transition arrays
     trvec = model.trvec # preallocated small vector
-    popdat = model.dat["popdat"]   # first key locale
-    agegrp_idx = model.dat["agegrp_idx"]   # first key locale
-    cumhistmx = model.dat["cumhistmx"]   # first key locale
-    newhistmx = model.dat["newhistmx"]   # first key locale
+    popdat = deepcopy(model.dat["popdat"])   # first key is locale
+    agegrp_idx = model.dat["agegrp_idx"]   # first key is locale
+    cumhistmx = deepcopy(model.dat["cumhistmx"])   # first key is locale
+    newhistmx = deepcopy(model.dat["newhistmx"])   # first key is locale
     geodf = model.geo
     spreadset = model.spreadset
     socialparams = model.social
@@ -71,7 +71,7 @@ function runsim(model, n_days, locales;
     ######################
     # simulation loop
     ######################
-    for i = 1:n_days
+    for i = 1:ndays
         inc!(day_ctr, :day)  # increment the simulation day counter
         silent || println("simulation day: ", day_ctr[:day])
 
@@ -137,7 +137,7 @@ function runsim(model, n_days, locales;
 
     @show idxtime, vaxtime, sprtime, trtime, histtime
 
-    return series
+    return popdat, series
 end
 
 

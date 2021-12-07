@@ -6,13 +6,12 @@ reqdshots:          1
 delay2ndshot:       0    
 full_effect_days:  14
 day1_effect:      0.5
-
+infectfactor:     0.75
 
 # effectiveness in reducing infection or illness risk
 # shots: first, second, booster
 # we need data for each known variant
 effectiveness:
-  infectfactor: .75
   first:
     base:  0.88
     alpha: 0.88

@@ -3,7 +3,7 @@
 ######################################################################################
 
 
-function setup(n_days, locales;  # must provide following inputs
+function setup(ndays, locales;  # must provide following inputs
     dovax=false,
     dovariant=false,
     paramdir,
@@ -16,7 +16,7 @@ function setup(n_days, locales;  # must provide following inputs
         geodata = buildgeodata(geofilename)
 
     # simulation data matrix
-        datadict = build_data(locales, geodata, n_days)
+        datadict = build_data(locales, geodata, ndays)
 
     # social parameters
         socialparams = build_socialparams(socialfilename, paramdir)
@@ -39,7 +39,7 @@ function setup(n_days, locales;  # must provide following inputs
         vaxschedset = nothing
     end
 
-    return (dat=datadict, transitionset=transitionset, geo=geodata, vaxset=vaxset, variants=variants,
+    return (ndays = ndays, locales=locales, dat=datadict, transitionset=transitionset, geo=geodata, vaxset=vaxset, variants=variants,
             vaxschedset=vaxschedset, spreadset=spreadset, social=socialparams, trvec = trvec)  
 end
 
@@ -65,7 +65,7 @@ function build_data(locales, geodata, n_days)
 
     cumhistmx = hist_dict(locales, n_days)
     newhistmx = hist_dict(locales, n_days)
-    # return Dict("popdat"=>popdat, "isolatedmx"=>isolatedmx, "testmx"=>testmx, "cumhistmx"=>cumhistmx, "newhistmx"=>newhistmx)
+    
     return Dict("popdat"=>popdat, "agegrp_idx"=>agegrp_idx, "cumhistmx"=>cumhistmx, "newhistmx"=>newhistmx)
 end
 
