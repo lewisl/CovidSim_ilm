@@ -268,7 +268,8 @@ export
     seed!,
     numcontacts,
     istouched,
-    isinfected
+    isinfected,
+    riskadjust
 
 # functions for vaccines
 export

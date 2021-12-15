@@ -76,20 +76,22 @@ Pre-allocate and initialize population data for one locale in the simulation.
 function pop_data(pop; age_dist=age_dist)
 
         parts = apportion(pop, age_dist)
+
+        # must use comprehension to initialize vector of vector NOT fill--fill creates identical vectors
         dat = Table(
             pid = collect(1:pop),  # ordinal persistent id for persons in matrix
             status = fill(unexposed, pop),    
             agegrp = reduce(vcat,[fill(age, parts[Int(age)]) for age in agegrps]), 
             cond = fill(uninfected, pop),
             sickday = zeros(Int, pop),   
-            variant = fill(:base, pop),
-            recovday = zeros(Int, pop),  
+            variant = [[:none] for _ in 1:pop],
+            recovday = [[0] for _ in 1:pop],  
             deadday = zeros(Int, pop),   
             cluster = zeros(Int, pop), 
             sdcomply = fill(:none, pop),  
             vaxstatus = fill(:none, pop),  # :none, :first, :multiple, :full, :booster  maybe others later...
-            vaxrcvd = fill([:none], pop),    # vaccine symbols  :pfizer, :moderna, :jnj
-            vaxday = fill([0], pop), 
+            vaxrcvd = [[:none] for _ in 1:pop],    # vaccine symbols  :pfizer, :moderna, :jnj
+            vaxday = [[0] for _ in 1:pop], 
             fullvaxday = zeros(Int, pop),
             tested = falses(pop),  
             testday = zeros(Int, pop),  
@@ -110,7 +112,7 @@ const map2series = (unexposed=1:6, infectious=7:12, recovered=13:18, dead=19:24,
 function hist_dict(locales, n_days; conds=allconds, agegrps=n_agegrps)
     dat = Dict{Int64, Array{Int}}()
     for loc in locales
-        dat[loc] = zeros(Int, n_days, last(last(map2series))) 
+        dat[loc] = zeros(Int, n_days, map2series[end][end]) 
     end
     return dat       
 end
@@ -140,6 +142,13 @@ function build_spread_params(variants, paramdir)
         spreadset[variant] = v  # access a param as spreadset[:alpha].recvrisk
     end
     return spreadset
+end
+
+
+function build_infect_params(variantfilename, paramdir)
+    infectdict = YAML.load_file(joinpath(paramdir, variantfilename), dicttype=Dict{Symbol, Any})
+
+    
 end
 
 
@@ -189,6 +198,8 @@ end
 #####################################################################################
 # helper functions for setup
 #####################################################################################
+
+noop(args...; kwargs...) = nothing
 
 
 function make_an_enum!(name, strarr; pr=false)

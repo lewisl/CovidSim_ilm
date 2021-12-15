@@ -102,7 +102,7 @@ function runsim(model;
             # two fundamental steps of the simulation: spread! and transition!
             sprtime += @elapsed spread!(locdat, infect_idx, contactable_idx, sdcases, socialparams, 
                                         spreadset, vaxset, density_factor, dovax, dovariant)   
-            trtime += @elapsed transition!(locdat, infect_idx, transitionset, vaxset, dovax, dovariant; trvec=trvec)                        
+            trtime += @elapsed transition!(locdat, infect_idx, spreadset, transitionset, vaxset, dovax, dovariant; trvec=trvec)                        
 
             for case in runcases
                 case(loc, popdat, socialparams, spreadset, sdcases, ages; startofday=false)  # TODO extend ages to be any filter for 

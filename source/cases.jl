@@ -39,7 +39,7 @@ function seed!(day, cnt, sickday, conds, variants, agegrps, locale, dat; startof
     if day == day_ctr[:day]
         println("*** seed day $(day_ctr[:day]): $(sum(cnt)) $conds to $locale")
         # @assert (cond in [nil, mild, sick, severe]) "Seed cases must have conditions of nil, mild, sick, or severe" 
-        make_sick!(dat[locale]; cnt=cnt, fromage=agegrps, tocond=conds, tovariant=variants, tosickday=sickday)
+        make_sick!(dat[locale]; cnt=cnt, ages=agegrps, tocond=conds, tovariant=variants, tosickday=sickday)
     end
 end
 

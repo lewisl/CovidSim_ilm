@@ -16,3 +16,6 @@ immunestrength: 0.6
 
 # half-life of immunity after recovering
 immunehalflife: 180
+
+# muliplier for infectiousness over base
+infectmultiplier: 1.0

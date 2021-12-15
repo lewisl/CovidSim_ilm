@@ -22,6 +22,7 @@ Base.@kwdef struct Infectparams
     recvrisk::Vector{Float64}
     immunestrength::Float64
     immunehalflife::Int64
+    infectmultiplier::Float64
 end
 
         """
@@ -32,7 +33,8 @@ end
                 sendrisk = id[:sendrisk],
                 recvrisk = id[:recvrisk],
                 immunestrength = id[:immunestrength],
-                immunehalflife = id[:immunehalflife]
+                immunehalflife = id[:immunehalflife],
+                infectmultiplier = id[:infectmultiplier]
                 )
             )
 
@@ -273,8 +275,15 @@ end
 
 squashfunc = simpleclamp
 
+"""
+    riskadjust(spreadset, vaxset, locdat, target) 
 
-function risk(spreadset, vaxset, locdat, spreader, target)
+Adjust the risk of getting infected and the effect on transitioning through stages of the infection based
+on vaccination, recovery from previous infection and the variant of the infection contracted by an individual.
+
+Returns (variant=variantfactor, recov=recovfactor, vax=vaxfactor)
+"""
+function riskadjust(spreadset, vaxset, locdat, target; spr=0)
     # calculate based on recovery date and variant half-life of partial immunity and immunity strength
     # initially using exponential decay   TODO add parameter for exponential or sigmoid decay
 
@@ -283,26 +292,15 @@ function risk(spreadset, vaxset, locdat, spreader, target)
     today = day_ctr[:day]
     oneshotfactor = 0.85   # TODO yet another parameter to put somewhere...!
 
-    # spreader person characteristics
-    variant = locdat.variant[spreader]
-    spr_sickday = locdat.sickday[spreader]
-    sendrisk = spreadset[variant].sendrisk[spr_sickday]
-
-
     # target person characteristics
     vaxstatus = locdat.vaxstatus[target]
     status = locdat.status[target]
-    target_agegrp = locdat.agegrp[target]
-    recvrisk = spreadset[variant].recvrisk[Int(target_agegrp)]
-
-    ######################
-    # spread risks
-    ######################    
     
-    # recovery effect (affected by variant?)
+    # recovery effect, based on variant of person's infection
     if status == recovered
 
-        days_post_recov = today - locdat.recovday[target]
+        variant = locdat.variant[target][end]
+        days_post_recov = today - locdat.recovday[target][end] #recovday is a vector of days--get the last one
 
         if days_post_recov > 0   # TODO should be an assert: does this run day of or day after recovery?
             # get the max immunity
@@ -322,7 +320,7 @@ function risk(spreadset, vaxset, locdat, spreader, target)
         # person's vaccine conditions
         vaxrcvd = locdat.vaxrcvd[target]
         vaxday = locdat.vaxday[target]
-        @assert size(vaxrcvd, 1) == size(vaxday, 1) "Ahhh, no: lengths of vaxrcvd and vaxday not equal"
+        @assert size(vaxrcvd, 1) == size(vaxday, 1) "Oh, no: lengths of vaxrcvd and vaxday not equal"
         days_post_vax = today - last(vaxday)
 
         # vaccine characteristics
@@ -331,6 +329,8 @@ function risk(spreadset, vaxset, locdat, spreader, target)
         full_effect_days = vaxset[lastvax][:params].full_effect_days
         infectfactor = vaxset[lastvax][:params].infectfactor
      
+        # based on variant: for transition--own variant; for spreading: spreader's variant
+        variant = spr == 0 ? locdat.variant[target][end] : locdat.variant[spr][end]
         vaxeffect = vaxset[lastvax][:params].effectiveness[vaxstatus][variant]
 
         # rise & decay
@@ -343,12 +343,25 @@ function risk(spreadset, vaxset, locdat, spreader, target)
     # variant effect (sender's variant affects infectiousness up or down)
     variantfactor = 1.0   # replace with actual calculation...
 
-    # combined effect
-    # @show recvrisk, sendrisk, variantfactor, recovfactor, vaxfactor
-    combinedfactor = recvrisk * sendrisk * variantfactor * recovfactor * vaxfactor
-    riskfactor = squashfunc(combinedfactor)
 
-    return riskfactor  
+    return (variant=variantfactor, recov=recovfactor, vax=vaxfactor)
+
+end
+
+
+function infectrisk(spreadset, vaxset, locdat, spreader, target, adjustfactor)
+
+    # spreader person characteristics
+    variant = locdat.variant[spreader][end]
+    spr_sickday = locdat.sickday[spreader]
+    sendrisk = spreadset[variant].sendrisk[spr_sickday]
+
+    # target person characteristics
+    target_agegrp = locdat.agegrp[target]
+    recvrisk = spreadset[variant].recvrisk[Int(target_agegrp)]
+
+    combinedfactor = recvrisk * sendrisk * adjustfactor.variant * min(adjustfactor.recov, adjustfactor.vax)
+    riskfactor = squashfunc(combinedfactor)  
 end
 
 
@@ -381,7 +394,8 @@ columns in the population table. Runs social distancing cases.
     col_agegrp   = locdat.agegrp
     col_sickday  = locdat.sickday
     col_sdcomply = locdat.sdcomply
-    dovariant && (col_variant  = locdat.variant)
+    col_variant = locdat.variant
+
     dovax && (begin; col_vax      = locdat.vaxrcvd; col_vaxday = locdat.vaxday; end)
 
     # assign contacts, do touches, do new infections
@@ -401,14 +415,19 @@ columns in the population table. Runs social distancing cases.
                 touched = istouched(col_agegrp[target], unexposed, touch_param)   # contactlookup or col_status[target]
 
                 # infection outcome
-                if touched         
-                    riskfactor = risk(spreadset, vaxset, locdat, spr, target)
-                    if isinfected(riskfactor)
+                if touched       
+                    adjustfactor = riskadjust(spreadset, vaxset, locdat, target; spr=spr)
+                    risk = infectrisk(spreadset, vaxset, locdat, spr, target, adjustfactor)
+                    if isinfected(risk)
                         col_cond[target] = nil # nil === asymptomatic or pre-symptomatic
                         col_status[target] = infectious
                         col_sickday[target] = 1
                         n_newly_infected += 1
-                        dovariant && (col_variant[target] = col_variant[spr])
+                        if dovariant
+                            push!(col_variant[target], col_variant[spr][end])
+                        else
+                            push!(col_variant[target], :base)
+                        end
                     end
                 end  # if (touched ...)
             end  # if contactstatus
@@ -418,23 +437,28 @@ columns in the population table. Runs social distancing cases.
     return n_newly_infected # n_contacts, n_touched, n_newly_infected
 end
 
+    # seed_case_gen(1, [0,3,3,0,0], 1, nil, :base, agegrps)
+function make_sick!(dat; cnt, ages, tocond, tovariant, tosickday=1)
 
-function make_sick!(dat; cnt, fromage, tocond, tovariant, tosickday=1)
-
-    @assert size(cnt, 1) == size(fromage, 1)
+    @assert size(cnt, 1) == size(ages, 1) "size(cnt, 1) = $(size(cnt,1)) not equal size(ages, 1) = $(size(ages,1))"
 
     filt_unexp = optfindall(==(unexposed), dat.status, 1) # must be unexposed
 
-    for i in 1:size(fromage, 1)  # by target age groups
+    for i in 1:size(ages, 1)  # by target age groups
 
-        filt_age = dat.agegrp[filt_unexp] .== fromage[i] # age of the unexposed
+        filt_age = dat.agegrp[filt_unexp] .== ages[i] # age of the unexposed
         rowrange = 1:cnt[i]
-        filt_all = filt_unexp[filt_age][rowrange]
+        do_filt = filt_unexp[filt_age][rowrange]
 
-        dat.status[filt_all] .= infectious
-        dat.cond[filt_all] .= tocond
-        dat.sickday[filt_all] .= tosickday
-        dat.variant[filt_all] .= tovariant
+        if size(do_filt, 1) == 0
+            continue
+        end
+
+        dat.status[do_filt] .= infectious
+        dat.cond[do_filt] .= tocond
+        dat.sickday[do_filt] .= tosickday
+        push!.(dat.variant[do_filt], tovariant)
+
     end
 end
 

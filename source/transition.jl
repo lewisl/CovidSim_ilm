@@ -16,21 +16,17 @@ they move to recovered or dead.
 
 locdat must be a population table for a single locale.
 """
-@inline function transition!(locdat, infect_idx, transitionset, vaxset, dovax, dovariant; trvec = zeros(6))
+@inline function transition!(locdat, infect_idx, spreadset, transitionset, vaxset, dovax, dovariant; vaxfn! = noop, trvec = zeros(6))
         
     # aliases for person attribute columns--deref the named tuple once
     v_sickday = locdat.sickday
     v_cond = locdat.cond
     v_agegrp = locdat.agegrp
-    dovax && (begin; v_vax = locdat.vaxrcvd; v_vaxday = locdat.vaxday; end)
-    dovariant && (begin; v_variant = locdat.variant; end)
 
-    # if dovax == true
-    # elseif dovariant == true
-    #     transarray = transitionset[:base]  # TODO: REPLACE WITH TRANSITION OF VARIANT OR VARIANT CALCULATION
-    # else
-    #     transarray = transitionset[:base]
-    # end
+    if dovax
+        vaxfn! = vaxfn! == noop ? vaxtransitioneffect! : vaxfn!  # last branch new vaxfn! was passed in
+    end
+
 
     transarray = transitionset[:base]   # TODO test variant of each person
 
@@ -42,6 +38,10 @@ locdat must be a population table for a single locale.
         # if person's agegrp, sickday, and condition match a transition stage
         transvec = has(transarray[p_agegrp], p_sickday, p_cond, trvec) 
 
+        riskadjustments = riskadjust(spreadset, vaxset, locdat, p)
+
+        vaxfn!(transvec, riskadjustments) #vaxfn! will be function noop or function vaxtransitioneffect
+
         dotransition!(locdat, p, p_cond, transvec) # perform transition logic and update population table
 
     end  
@@ -51,7 +51,7 @@ end
 function has(agetr::Dict, sickday::Int, p_cond::condition, trvec)::Union{Vector{Float64}, Nothing}
     for (stage, v) in agetr
         if v[:sickday] == sickday
-            trvec[:] = v[:transition][p_cond, :]
+            trvec[:] = v[:transition][map2cond(p_cond), :]
             if sum(trvec) > 0.0
                 return trvec
             end
@@ -60,6 +60,24 @@ function has(agetr::Dict, sickday::Int, p_cond::condition, trvec)::Union{Vector{
     return nothing
 end
 
+
+# this will be set to the variable vaxfn!
+function vaxtransitioneffect!(transvec, adjustments)
+    if transvec === nothing
+        return
+    end
+
+    combinedfactor = adjustments.variant * min(adjustments.recov, adjustments.vax)
+    riskfactor = squashfunc(combinedfactor)  
+
+    for c in (sick, severe, dead)
+        transvec[map2outcome(c)] *= riskfactor
+    end
+
+    correction = 1.0 / sum(transvec)
+    transvec[:] .*= correction
+
+end
 
 """
     dotransition!(locdat, p, p_cond, trvec::Union{Vector{Float64}, Nothing})
@@ -77,7 +95,14 @@ the number of days the person has been sick.
     else
         choice = categorical_sim(trvec) # which outcome based on probability...?
 
-        tocond = transitionmap(choice)  # next condition or status
+        # debugging
+        if choice == 0
+            println("debugging function dotransition!")
+            println(trvec)
+            @assert false
+        end
+
+        tocond = map2outcome(choice)  # next condition or status
 
         # if locdat.sickday[p] >= 25
         #     println("$(day_ctr[:day]): agegrp: $(locdat.agegrp[p]) sickday: $(locdat.sickday[p]) from cond: $p_cond to cond: $tocond")
@@ -88,7 +113,7 @@ the number of days the person has been sick.
             locdat.status[p] = dead  # change the status
             # locdat.cond[p] = uninfected # change the condition--> kept to know what cause of death was
         elseif tocond == recovered
-            locdat.recovday[p] = day_ctr[:day]
+            push!(locdat.recovday[p], day_ctr[:day])
             locdat.status[p] = recovered
             # locdat.cond[p] = uninfected
         else   
@@ -102,7 +127,7 @@ the number of days the person has been sick.
 end
 
 
-function transitionmap(choice) # faster than using a Dict, array, or tuple because few items
+function map2outcome(choice::Int) # faster than using a Dict, array, or tuple because few items
 
     if choice == 1  # most common
         recovered
@@ -117,9 +142,44 @@ function transitionmap(choice) # faster than using a Dict, array, or tuple becau
     elseif choice == 6   # least common
         dead
     else
-        @assert false "invalid condition"
+        @assert false "invalid condition or status integer value $choice"
     end
         
+end
+
+function map2outcome(choice::Enum) # faster than using a Dict, array, or tuple because few items
+
+    if choice == recovered  # most common
+        1
+    elseif choice == nil
+        2
+    elseif choice == mild
+        3
+    elseif choice == sick
+        4
+    elseif choice == severe
+        5
+    elseif choice == dead   # least common
+        6
+    else
+        @assert false "invalid condition or status enum value $choice"
+    end
+        
+end
+
+
+function map2cond(x::Enum)
+    if x==nil
+        1
+    elseif x==mild
+        2
+    elseif x==sick
+        3
+    elseif x==severe
+        4
+    else
+        @assert false "invalid condition Enum $x"
+    end
 end
 
 

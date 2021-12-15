@@ -6,6 +6,7 @@ reqdshots:          1
 delay2ndshot:       0    
 full_effect_days:  14
 day1_effect:      0.5
+# reduction of effectiveness for recipient becoming infected
 infectfactor:     0.75
 
 # effectiveness in reducing infection or illness risk
