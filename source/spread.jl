@@ -28,15 +28,15 @@ end
         """
         Method for converting a dict loaded from YAML to this struct
         """
-        Infectparams(id::Dict{Symbol, Any}) = 
-            (Infectparams(
+        function Infectparams(id::Dict{Symbol, Any})
+            Infectparams(
                 sendrisk = id[:sendrisk],
                 recvrisk = id[:recvrisk],
                 immunestrength = id[:immunestrength],
                 immunehalflife = id[:immunehalflife],
                 infectmultiplier = id[:infectmultiplier]
                 )
-            )
+        end
 
 
 Base.@kwdef struct Socialparams

@@ -42,7 +42,7 @@ function runsim(model;
     locales = model.locales
     transitionset = model.transitionset  # transition arrays
     trvec = model.trvec # preallocated small vector
-    popdat = deepcopy(model.dat["popdat"])   # first key is locale
+    popdat = deepcopy(model.dat["popdat"])   # Copy the population data so model can be reused!!!
     agegrp_idx = model.dat["agegrp_idx"]   # first key is locale
     cumhistmx = deepcopy(model.dat["cumhistmx"])   # first key is locale
     newhistmx = deepcopy(model.dat["newhistmx"])   # first key is locale

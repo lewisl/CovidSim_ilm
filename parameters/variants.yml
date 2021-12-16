@@ -270,7 +270,6 @@ alpha:
     factors:   # risk adjustment to base
               #   recov, nil, mild, sick,  severe,  dead
       riskadjust: [1.0,  1.0, 1.0,  1.1,    1.1,    1.1 ]
-      halflife: 180
     # UNUSED: these are unused from an earlier version of the parameters file format
     # infect_fname:     alpha_spread.yml
     # transition_fname: alpha_transition_array.yml
@@ -311,7 +310,6 @@ delta:
     factors:   # risk adjustment to base
               #   recov, nil, mild, sick,  severe,  dead
       riskadjust: [1.0,  1.0, 1.0,  1.1,    1.1,    1.1 ]
-      halflife: 180
 
   # UNUSED:  from an earlier version of the parameters file format
   # infect_fname:     delta_spread.yml
@@ -353,7 +351,6 @@ omicron:
     factors:   # risk adjustment to base
               #   recov, nil, mild, sick,  severe,  dead
       riskadjust: [1.0,  1.0, 1.0,  1.1,    1.1,    1.1 ]
-      halflife: 180
   # these are unused from an earlier version of the parameters file format
   # infect_fname:     omicron_spread.yml
   # transition_fname: omicron_transition_array.yml

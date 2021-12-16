@@ -5,6 +5,25 @@
 #           travel
 ####################################################
 
+Base.@kwdef struct Transitiondef
+    sickday::Int64
+    trarr::Matrix{Float64}
+end
+
+Base.@kwdef struct Agetree
+    age0_19::Vector{Transitiondef}
+    age20_39::Vector{Transitiondef}
+    age40_59::Vector{Transitiondef}
+    age60_79::Vector{Transitiondef}
+    age80_up::Vector{Transitiondef}
+end
+
+Base.@kwdef struct Transitionparams
+    tree::Union{Agetree, Nothing}
+    riskadjust::Vector{Float64}   # use [] for nothing
+end
+
+
     
 """
     transition!(locdat, infect_idx, dectree)
@@ -71,7 +90,7 @@ function vaxtransitioneffect!(transvec, adjustments)
     riskfactor = squashfunc(combinedfactor)  
 
     for c in (sick, severe, dead)
-        transvec[map2outcome(c)] *= riskfactor
+        transvec[map2transition(c)] *= riskfactor
     end
 
     correction = 1.0 / sum(transvec)
@@ -102,7 +121,7 @@ the number of days the person has been sick.
             @assert false
         end
 
-        tocond = map2outcome(choice)  # next condition or status
+        tocond = map2transition(choice)  # next condition or status
 
         # if locdat.sickday[p] >= 25
         #     println("$(day_ctr[:day]): agegrp: $(locdat.agegrp[p]) sickday: $(locdat.sickday[p]) from cond: $p_cond to cond: $tocond")
@@ -127,7 +146,7 @@ the number of days the person has been sick.
 end
 
 
-function map2outcome(choice::Int) # faster than using a Dict, array, or tuple because few items
+function map2transition(choice::Int) # faster than using a Dict, array, or tuple because few items
 
     if choice == 1  # most common
         recovered
@@ -147,7 +166,7 @@ function map2outcome(choice::Int) # faster than using a Dict, array, or tuple be
         
 end
 
-function map2outcome(choice::Enum) # faster than using a Dict, array, or tuple because few items
+function map2transition(choice::Enum) # faster than using a Dict, array, or tuple because few items
 
     if choice == recovered  # most common
         1

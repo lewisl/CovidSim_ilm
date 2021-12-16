@@ -21,14 +21,9 @@ function setup(ndays, locales;  # must provide following inputs
     # social parameters
         socialparams = build_socialparams(socialfilename, paramdir)
 
-    # variants for spread parameters and transition decision trees
-        variants = YAML.load_file(joinpath(paramdir, variantsfilename); dicttype=Dict{Symbol,Any})
+    # variants, spread parameters, transition arrays
+        spreadset, transitionset, trvec = build_infect_params(variantsfilename, paramdir)
 
-    # spread parameters
-        spreadset = build_spread_params(variants, paramdir)
-
-    # transition arrays 
-        (transitionset, trvec) = build_transition_params(variants, paramdir)
 
     # vaccines  TODO this is not the right approach: test if we have vax inputs instead
     if dovax
@@ -39,7 +34,7 @@ function setup(ndays, locales;  # must provide following inputs
         vaxschedset = nothing
     end
 
-    return (ndays = ndays, locales=locales, dat=datadict, transitionset=transitionset, geo=geodata, vaxset=vaxset, variants=variants,
+    return (ndays = ndays, locales=locales, dat=datadict, transitionset=transitionset, geo=geodata, vaxset=vaxset,
             vaxschedset=vaxschedset, spreadset=spreadset, social=socialparams, trvec = trvec)  
 end
 
@@ -133,6 +128,26 @@ function buildgeodata(filename)
 end
 
 
+function build_infect_params(variantfilename, paramdir)
+    infectdict = YAML.load_file(joinpath(paramdir, variantfilename))
+    loadvariants = infectdict["loadvariants"]
+    usevariants = infectdict["usevariants"]
+
+    (transitionset, trvec) = build_transition_params(infectdict)
+    spreadset = build_spread_params(infectdict)
+
+    return spreadset, transitionset, trvec
+end
+
+
+"""
+    function build_spread_params(variants, paramdir)
+
+Build parameters for the spread of infection and the immunity conferred by recovering
+from infection for each variant.
+
+Method to build spread params from a separate file for each variant.
+"""
 function build_spread_params(variants, paramdir)
     spreadset = Dict{Symbol, Infectparams}()
     for variant in keys(variants)
@@ -145,13 +160,34 @@ function build_spread_params(variants, paramdir)
 end
 
 
-function build_infect_params(variantfilename, paramdir)
-    infectdict = YAML.load_file(joinpath(paramdir, variantfilename), dicttype=Dict{Symbol, Any})
+"""
+    function build_spread_params(infectdict)
 
-    
+Method to build spread params from dict containing params for all variants.
+"""
+function build_spread_params(infectdict::Dict)
+    spreadset = Dict{Symbol, Infectparams}()
+    loadvariants = infectdict["loadvariants"] # array of strings 
+
+    for variant in loadvariants
+        newdict = merge(infectdict[variant]["spread"], infectdict[variant]["immunity"])
+        newdict2 = Dict(Symbol(k) => v for (k,v) in newdict)
+        spreadset[Symbol(variant)] = Infectparams(newdict2)
+    end
+    return spreadset
 end
 
 
+"""
+    function build_transition_params(variants, paramdir)
+
+Build transition matrix from each illness condition to outcomes at each transition day
+for someone who is infected.
+
+Method for loading from transition params from a separate yaml file per each variant.
+
+Returns (transitionset, trvec)
+"""
 function build_transition_params(variants, paramdir)
     transitionset = Dict()
 
@@ -167,6 +203,33 @@ function build_transition_params(variants, paramdir)
     return (transitionset, trvec)
 end
 
+"""
+    function build_transition_params(infectdict)
+
+This method loads all variants from one YAML file to a dict, which is the
+input for this method.
+
+Returns (transitionset, trvec)
+"""
+function build_transition_params(infectdict)
+    loadvariants = infectdict["loadvariants"] # array of strings to array of symbols
+    transitionset = Dict()
+
+    for variant in loadvariants
+        if isnothing(infectdict[variant]["transition"]["tree"])
+            
+        else
+            transitionset[Symbol(variant)] = setup_dt(infectdict[variant]["transition"]["tree"])
+        end
+    end
+
+    # pre-allocate trvec used in hot loop: no. of columns in transition array
+    sz = size(first(first(transitionset[:base])[end])[end][:transition], 2)
+    trvec = zeros(sz)
+ 
+     return (transitionset, trvec)
+    
+end
 
 function build_socialparams(socialfilename, paramdir)
 

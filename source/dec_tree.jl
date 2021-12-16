@@ -4,8 +4,8 @@
 # decision tree for transition
 #############################################################
 
-
-function setup_dt(dtfilename)
+# method for creating from file per variant
+function setup_dt(dtfilename::String)
     arrays = YAML.load_file(dtfilename)
 
     newdict = (
@@ -34,6 +34,38 @@ function setup_dt(dtfilename)
     end
 
     return newdict
+end
+
+# method for creating from Dict
+function setup_dt(transition_dict::Dict)
+
+    newdict = (
+        Dict(symtoage[Symbol(k1)] =>      # agegrp : "age0_19" -> age0_19 enum   
+            Dict(k2 =>                    # stage in 1:5
+                Dict(Symbol(k3) =>  if k3 == "sickday"
+                                        v3
+                                    else # k3 = "transition"
+                                        Dict(symtocond[Symbol(k4)] => v4 for (k4, v4) in v3)
+                                    end
+                    for (k3, v3) in v2)
+                for (k2, v2) in v1)
+            for (k1, v1) in transition_dict)
+    )
+
+    # change :transition value to an array
+    for (k1, v1) in newdict         # k1 is agegrp
+        for (k2, v2) in v1          # k2 is stage in 1:5
+            for (k3, v3) in v2      # k3 is :sickday or :transition
+                if k3 == :transition
+                    # out = vcat(v3[nil]',v3[mild]',v3[sick]',v3[severe]') # stack the vectors
+                    newdict[k1][k2][k3] = vcat(v3[nil]',v3[mild]',v3[sick]',v3[severe]')  # use map2transition to index in/out of transition array
+                end
+            end
+        end
+    end
+
+    return newdict
+
 end
 
 
