@@ -5,25 +5,6 @@
 #           travel
 ####################################################
 
-Base.@kwdef struct Transitiondef
-    sickday::Int64
-    trarr::Matrix{Float64}
-end
-
-Base.@kwdef struct Agetree
-    age0_19::Vector{Transitiondef}
-    age20_39::Vector{Transitiondef}
-    age40_59::Vector{Transitiondef}
-    age60_79::Vector{Transitiondef}
-    age80_up::Vector{Transitiondef}
-end
-
-Base.@kwdef struct Transitionparams
-    tree::Union{Agetree, Nothing}
-    riskadjust::Vector{Float64}   # use [] for nothing
-end
-
-
     
 """
     transition!(locdat, infect_idx, dectree)
@@ -46,8 +27,9 @@ locdat must be a population table for a single locale.
         vaxfn! = vaxfn! == noop ? vaxtransitioneffect! : vaxfn!  # last branch new vaxfn! was passed in
     end
 
-
-    transarray = transitionset[:base]   # TODO test variant of each person
+    # TODO test variant of each person
+    # TODO based on variant use adjustment of :base or :base
+    transarray = transitionset[:base].tree   
 
     for p in infect_idx  # p for infected person    
         p_sickday = v_sickday[p]
@@ -55,7 +37,7 @@ locdat must be a population table for a single locale.
         p_agegrp = v_agegrp[p]  # agegroup of person p = agegrp column of locale data, row p 
 
         # if person's agegrp, sickday, and condition match a transition stage
-        transvec = has(transarray[p_agegrp], p_sickday, p_cond, trvec) 
+        transvec = has(getfield(transarray, Symbol(p_agegrp)), p_sickday, p_cond, trvec) 
 
         riskadjustments = riskadjust(spreadset, vaxset, locdat, p)
 
@@ -67,10 +49,10 @@ locdat must be a population table for a single locale.
 end
 
 
-function has(agetr::Dict, sickday::Int, p_cond::condition, trvec)::Union{Vector{Float64}, Nothing}
-    for (stage, v) in agetr
-        if v[:sickday] == sickday
-            trvec[:] = v[:transition][map2cond(p_cond), :]
+function has(agetr, sickday::Int, p_cond::condition, trvec)::Union{Vector{Float64}, Nothing}
+    for trdef in agetr
+        if trdef.sickday == sickday
+            trvec[:] = trdef.trarr[map2cond(p_cond), :]
             if sum(trvec) > 0.0
                 return trvec
             end
@@ -80,6 +62,7 @@ function has(agetr::Dict, sickday::Int, p_cond::condition, trvec)::Union{Vector{
 end
 
 
+# TODO: need to do effect of immunity, vax, variant
 # this will be set to the variable vaxfn!
 function vaxtransitioneffect!(transvec, adjustments)
     if transvec === nothing

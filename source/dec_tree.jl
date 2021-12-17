@@ -4,6 +4,26 @@
 # decision tree for transition
 #############################################################
 
+
+Base.@kwdef struct Transitiondef
+    sickday::Int64
+    trarr::Matrix{Float64}
+end
+
+Base.@kwdef struct Agetree
+    age0_19::Vector{Transitiondef}
+    age20_39::Vector{Transitiondef}
+    age40_59::Vector{Transitiondef}
+    age60_79::Vector{Transitiondef}
+    age80_up::Vector{Transitiondef}
+end
+
+Base.@kwdef struct Transitionparams
+    tree::Union{Agetree, Nothing}
+    riskadjust::Vector{Float64}   # use [] for nothing
+end
+
+
 # method for creating from file per variant
 function setup_dt(dtfilename::String)
     arrays = YAML.load_file(dtfilename)
@@ -36,36 +56,16 @@ function setup_dt(dtfilename::String)
     return newdict
 end
 
-# method for creating from Dict
-function setup_dt(transition_dict::Dict)
+# method for creating from Dict to nested structs
+function setup_dt(trdict::Dict)
 
-    newdict = (
-        Dict(symtoage[Symbol(k1)] =>      # agegrp : "age0_19" -> age0_19 enum   
-            Dict(k2 =>                    # stage in 1:5
-                Dict(Symbol(k3) =>  if k3 == "sickday"
-                                        v3
-                                    else # k3 = "transition"
-                                        Dict(symtocond[Symbol(k4)] => v4 for (k4, v4) in v3)
-                                    end
-                    for (k3, v3) in v2)
-                for (k2, v2) in v1)
-            for (k1, v1) in transition_dict)
-    )
+    prepdict = Dict(age_key => [Transitiondef(brk["sickday"], 
+                                        vcat(brk["transition"]["nil"]',brk["transition"]["mild"]',
+                                            brk["transition"]["sick"]',brk["transition"]["severe"]')) 
+                                for (_, brk) in sort(age)] 
+                        for (age_key, age) in sort(trdict))
 
-    # change :transition value to an array
-    for (k1, v1) in newdict         # k1 is agegrp
-        for (k2, v2) in v1          # k2 is stage in 1:5
-            for (k3, v3) in v2      # k3 is :sickday or :transition
-                if k3 == :transition
-                    # out = vcat(v3[nil]',v3[mild]',v3[sick]',v3[severe]') # stack the vectors
-                    newdict[k1][k2][k3] = vcat(v3[nil]',v3[mild]',v3[sick]',v3[severe]')  # use map2transition to index in/out of transition array
-                end
-            end
-        end
-    end
-
-    return newdict
-
+    return Agetree([prepdict[age] for age in keys(sort(trdict))]...) # sort and splat the arguments without using keywords
 end
 
 

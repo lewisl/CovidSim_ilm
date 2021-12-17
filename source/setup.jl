@@ -34,8 +34,8 @@ function setup(ndays, locales;  # must provide following inputs
         vaxschedset = nothing
     end
 
-    return (ndays = ndays, locales=locales, dat=datadict, transitionset=transitionset, geo=geodata, vaxset=vaxset,
-            vaxschedset=vaxschedset, spreadset=spreadset, social=socialparams, trvec = trvec)  
+    return (ndays=ndays, locales=locales, dat=datadict, transitionset=transitionset, geo=geodata, vaxset=vaxset,
+            vaxschedset=vaxschedset, spreadset=spreadset, social=socialparams, trvec=trvec)  
 end
 
 
@@ -217,18 +217,22 @@ function build_transition_params(infectdict)
 
     for variant in loadvariants
         if isnothing(infectdict[variant]["transition"]["tree"])
-            
-        else
-            transitionset[Symbol(variant)] = setup_dt(infectdict[variant]["transition"]["tree"])
+            transitionset[Symbol(variant)] = Transitionparams(
+                tree=nothing,
+                riskadjust=infectdict[variant]["transition"]["factors"]["riskadjust"])
+        elseif isnothing(infectdict[variant]["transition"]["factors"])
+            transitionset[Symbol(variant)] = Transitionparams(
+                tree=setup_dt(infectdict[variant]["transition"]["tree"]),
+                riskadjust=[])
         end
     end
 
     # pre-allocate trvec used in hot loop: no. of columns in transition array
-    sz = size(first(first(transitionset[:base])[end])[end][:transition], 2)
+    # sz = size(first(first(transitionset[:base])[end])[end][:transition], 2)
+    sz = size(transitionset[:base].tree.age0_19[1].trarr, 2)
     trvec = zeros(sz)
  
      return (transitionset, trvec)
-    
 end
 
 function build_socialparams(socialfilename, paramdir)
