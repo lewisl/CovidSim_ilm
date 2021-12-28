@@ -5,6 +5,10 @@ loadvariants: ["base", "alpha", "delta", "omicron"]
 usevariants: ["base"]
     # can be over-ridden with runsim parameter <usevariants>
 
+# base variant must exist!
+# base variant must have spread arrays for sendrisk and recvrisk
+# base variant must have full transition tree
+# other variants modify base!
 # variant name
 base:
   

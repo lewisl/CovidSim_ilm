@@ -1,0 +1,13 @@
+---
+Pfizer:
+  infect_fname:     pfizer_spread.yml
+  transition_fname: pfizer_transition.yml
+  directory_name:   pfizer
+Moderna:
+  infect_fname:     moderna_spread.yml
+  transition_fname: moderna_transition.yml
+  directory_name:   moderna
+JnJ:
+  infect_fname:     jnj_spread.yml
+  transition_fname: jnj_transition.yml
+  directory_name:   jnj

@@ -1,13 +1,81 @@
 ---
-Pfizer:
-  infect_fname:     pfizer_spread.yml
-  transition_fname: pfizer_transition.yml
-  directory_name:   pfizer
-Moderna:
-  infect_fname:     moderna_spread.yml
-  transition_fname: moderna_transition.yml
-  directory_name:   moderna
-JnJ:
-  infect_fname:     jnj_spread.yml
-  transition_fname: jnj_transition.yml
-  directory_name:   jnj
+Pfizer:  # will convert to symbol at load time
+  halflife:         280
+  reqdshots:          2
+  delay2ndshot:      21
+  full_effect_days:  14
+  day1_effect:      0.5
+  # reduction of effectiveness for risk of recipient becoming infected
+  infectfactor:     0.75
+
+  # effectiveness in reducing infection or illness risk
+  # shots: first, second, booster
+  # we need data for each known variant
+  effectiveness:
+    first:
+      base:  0.90
+      alpha: 0.90
+      delta: 0.84
+    full:
+      base:  0.94
+      alpha: 0.94
+      delta: 0.88
+    booster:
+      base:  0.94
+      alpha: 0.94
+      delta: 0.88
+
+Moderna:  # will convert to symbol at load time
+  halflife:         280
+  reqdshots:          2
+  delay2ndshot:      21
+  full_effect_days:  14
+  day1_effect:      0.5
+  # reduction of effectiveness for recipient becoming infected
+  infectfactor:     0.75
+
+  # effectiveness in reducing infection or illness risk
+  # shots: first, second, booster
+  # we need data for each known variant
+  effectiveness:
+    first:
+      base:  0.92
+      alpha: 0.92
+      delta: 0.85
+      omicron: 0.8
+    full:
+      base:  0.95
+      alpha: 0.95
+      delta: 0.88
+      omicron: 0.8
+    booster:
+      base:  0.95
+      alpha: 0.95
+      delta: 0.88
+      omicron: 0.8
+
+JnJ:  # will convert to symbol at load time
+  halflife:         240
+  reqdshots:          1
+  delay2ndshot:       0    
+  full_effect_days:  14
+  day1_effect:      0.5
+  # reduction of effectiveness for recipient becoming infected
+  infectfactor:     0.75
+
+  # effectiveness in reducing infection or illness risk
+  # shots: first, second, booster
+  # we need data for each known variant
+  effectiveness:
+    first:
+      base:  0.88
+      alpha: 0.88
+      delta: 0.80
+    full:
+      base:  0.88
+      alpha: 0.88
+      delta: 0.80
+    booster:
+      base:  0.88
+      alpha: 0.88
+      delta: 0.80

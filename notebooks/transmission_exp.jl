@@ -48,13 +48,13 @@ alldat = setup(ndays, [locale]; paramdir="../parameters",
 keys(alldat)
 
 # %%
-alldat.spreadset[:base].recvrisk
+alldat.infectset[:base].recvrisk
 
 # %%
-shifter(alldat.spreadset[:base].recvrisk, mult=1.2)
+shifter(alldat.infectset[:base].recvrisk, mult=1.2)
 
 # %%
-alldat.spreadset[:base].sendrisk
+alldat.infectset[:base].sendrisk
 
 # %%
 spreadparams = alldat["sp"]  # the spread parameters are loaded as a dict of float arrays

@@ -19,7 +19,7 @@ Returns a function that can be used in runcases input to run_a_sim.
 """
 function seed_case_gen(day, cnt, sickday, cond, variant, agegrp) # these args go into the returned seed! case
     # this gets returned; assign it a value at the cmdline; use as an input to run_a_sim
-    function runcase(locale, dat, socialparams, spreadset, sdcases, ages; startofday)  # args must match runcases loop in run_a_sim
+    function runcase(locale, dat, socialparams, infectset, sdcases, ages; startofday)  # args must match runcases loop in run_a_sim
         seed!(day, cnt, sickday, cond, variant, agegrp, locale, dat; startofday=startofday)  # payload: this is what the function will do when run
     end
 end

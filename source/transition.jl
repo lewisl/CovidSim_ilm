@@ -16,7 +16,7 @@ they move to recovered or dead.
 
 locdat must be a population table for a single locale.
 """
-@inline function transition!(locdat, infect_idx, spreadset, transitionset, vaxset, dovax, dovariant; vaxfn! = noop, trvec = zeros(6))
+@inline function transition!(locdat, infect_idx, infectset, transitionset, vaxset, dovax, dovariant; vaxfn! = noop, trvec = zeros(6))
         
     # aliases for person attribute columns--deref the named tuple once
     v_sickday = locdat.sickday
@@ -39,7 +39,7 @@ locdat must be a population table for a single locale.
         # if person's agegrp, sickday, and condition match a transition stage
         transvec = has(getfield(transarray, Symbol(p_agegrp)), p_sickday, p_cond, trvec) 
 
-        riskadjustments = riskadjust(spreadset, vaxset, locdat, p)
+        riskadjustments = riskadjust(infectset, vaxset, locdat, p)
 
         vaxfn!(transvec, riskadjustments) #vaxfn! will be function noop or function vaxtransitioneffect
 
@@ -49,10 +49,10 @@ locdat must be a population table for a single locale.
 end
 
 
-function has(agetr, sickday::Int, p_cond::condition, trvec)::Union{Vector{Float64}, Nothing}
+@inline function has(agetr, sickday::Int, p_cond::condition, trvec)::Union{Vector{Float64}, Nothing}
     for trdef in agetr
         if trdef.sickday == sickday
-            trvec[:] = trdef.trarr[map2cond(p_cond), :]
+            trvec[:] = trdef.transition[map2cond(p_cond), :]
             if sum(trvec) > 0.0
                 return trvec
             end
@@ -64,7 +64,7 @@ end
 
 # TODO: need to do effect of immunity, vax, variant
 # this will be set to the variable vaxfn!
-function vaxtransitioneffect!(transvec, adjustments)
+@inline function vaxtransitioneffect!(transvec, adjustments)
     if transvec === nothing
         return
     end
@@ -128,6 +128,79 @@ the number of days the person has been sick.
 
 end
 
+"""
+    riskadjust(infectset, vaxset, locdat, target) 
+
+Adjust the risk of getting infected and the effect on transitioning through stages of the infection based
+on vaccination, recovery from previous infection and the variant of the infection contracted by an individual.
+
+Returns (variant=variantfactor, recov=recovfactor, vax=vaxfactor)
+"""
+@inline function tr_riskadjust(infectset, vaxset, locdat, target; spr=0)
+    # calculate based on recovery date and variant half-life of partial immunity and immunity strength
+    # initially using exponential decay   TODO add parameter for exponential or sigmoid decay
+
+    # @bp
+
+    today = day_ctr[:day]
+    oneshotfactor = 0.85   # TODO yet another parameter to put somewhere...!
+
+    # target person characteristics
+    vaxstatus = locdat.vaxstatus[target]
+    status = locdat.status[target]
+    
+    # recovery effect, based on variant of person's infection
+    if status == recovered
+
+        variant = locdat.variant[target][end]
+        days_post_recov = today - locdat.recovday[target][end] #recovday is a vector of days--get the last one
+
+        if days_post_recov > 0   # TODO should be an assert: does this run day of or day after recovery?
+            # get the max immunity
+            immstrength = infectset[variant].immunestrength
+
+            # get the declined value
+            immhalflife = infectset[variant].immunehalflife
+            immdecline = lindecay(days_post_recov, immhalflife, 0.05)
+            recovfactor = 1.0 - (immdecline * immstrength)
+        end
+    else
+        recovfactor = 1.0  # no immunity effect from recovery
+    end
+
+    # vaccine effect (rise time and decay)
+    if vaxstatus != :none
+        # person's vaccine conditions
+        vaxrcvd = locdat.vaxrcvd[target]
+        vaxday = locdat.vaxday[target]
+        @assert size(vaxrcvd, 1) == size(vaxday, 1) "Oh, no: lengths of vaxrcvd and vaxday not equal"
+        days_post_vax = today - last(vaxday)
+
+        # vaccine characteristics
+        lastvax = last(vaxrcvd)
+        halflife = vaxset[lastvax].halflife
+        full_effect_days = vaxset[lastvax].full_effect_days
+        infectfactor = vaxset[lastvax].infectfactor
+     
+        # based on variant: for transition--own variant; for spreading: spreader's variant
+        variant = spr == 0 ? locdat.variant[target][end] : locdat.variant[spr][end]
+        vaxeffect = vaxset[lastvax].effectiveness[vaxstatus][variant]
+
+        # rise & decay
+        vaxmod = vaxmodifier(full_effect_days, today, days_post_vax, halflife; rise_lower=0.5, decay_lower=0.05)
+        vaxfactor = 1.0 - (vaxmod * vaxeffect * infectfactor)
+    else
+        vaxfactor = 1.0   # no immunity effect from vaccination
+    end
+
+    # variant effect (sender's variant affects infectiousness up or down)
+    variantfactor = 1.0   # replace with actual calculation...
+
+
+    return (variant=variantfactor, recov=recovfactor, vax=vaxfactor)
+
+end
+
 
 function map2transition(choice::Int) # faster than using a Dict, array, or tuple because few items
 
@@ -181,6 +254,20 @@ function map2cond(x::Enum)
         4
     else
         @assert false "invalid condition Enum $x"
+    end
+end
+
+function map2cond(x::Int)
+    if x==1
+        nil
+    elseif x==2
+        mild
+    elseif x==3
+        sick
+    elseif x==4
+        severe
+    else
+        @assert false "invalid condition Int $x"
     end
 end
 

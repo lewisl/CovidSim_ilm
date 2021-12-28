@@ -7,7 +7,6 @@
 ###################################################
 
 @Base.kwdef mutable struct Vaccineparams
-    name::Symbol 
     reqdshots::Int
     delay2ndshot::Union{Int, Nothing}   # days until 2nd shot (probability less important)
     halflife::Int  # days to 50% decline in effectiveness
@@ -22,7 +21,6 @@ end
         """
         Vaccineparams(vd::Dict)=(
             Vaccineparams(
-                name                     = Symbol(vd[:name]),
                 reqdshots                = vd[:reqdshots],
                 delay2ndshot             = vd[:delay2ndshot],
                 halflife                 = vd[:halflife],
@@ -106,18 +104,18 @@ end
 
 function build_vaxset(vaccinefilename; paramdir="../parameters")
 
-    vaccinefiles = YAML.load_file(joinpath(paramdir, vaccinefilename); dicttype=Dict{Symbol,Any})
+    vaccines = YAML.load_file(joinpath(paramdir, vaccinefilename); dicttype=Dict{Symbol,Any})
 
-    vaxset = Dict()
-    for vax in keys(vaccinefiles)
-        vparamsdict = YAML.load_file(joinpath(paramdir, "vaccine_parameters", vaccinefiles[vax][:directory_name],
-            vaccinefiles[vax][:infect_fname]), dicttype=Dict{Symbol, Any})
-        vparams = Vaccineparams(vparamsdict)
+    vaxset = Dict{Symbol, Vaccineparams}()
+    for vax in keys(vaccines)
+        # vparamsdict = YAML.load_file(joinpath(paramdir, "vaccine_parameters", vaccinefiles[vax][:directory_name],
+        #     vaccinefiles[vax][:infect_fname]), dicttype=Dict{Symbol, Any})
+        vparams = Vaccineparams(vaccines[vax])
         # not planning to use hard-code transition params for vaccines
         # vtrans = setup_dt(joinpath("../parameters", "vaccine_parameters", vaccinefiles[vax][:directory_name], 
         #             vaccinefiles[vax][:transition_fname]))
-        # can also get rid of extra layer of the dict--LATER if not needed for any use
-        vaxset[vax] = Dict(:params => vparams)  # :transition => vtrans
+        # TODO: will we ever do a transition decistion tree specific to a vaccine instead of adjustment calcs?
+        vaxset[vax] = vparams  
     end
 
     # clean vaxlist
@@ -195,8 +193,8 @@ Give people shots!
         vaxesincluded = collect(keys(vaxprops))
 
         dayrange = vxsched.dayrange
-        delay2ndshot = Dict(v=>vaxset[v][:params].delay2ndshot for v in vaxesincluded)
-        maxdelay = mapreduce(v->vaxset[v][:params].delay2ndshot, max, vaxesincluded)
+        delay2ndshot = Dict(v=>vaxset[v].delay2ndshot for v in vaxesincluded)
+        maxdelay = mapreduce(v->vaxset[v].delay2ndshot, max, vaxesincluded)
         stop =  dayrange.stop + maxdelay
 
         # shortcircuit the whole shebang for this schedule 
@@ -210,7 +208,7 @@ Give people shots!
         filterfunc = vxsched.filterfunc  # NOT USING YET
         shotmode = vxsched.shotmode # values in :first, :second, :all, :booster   TODO we are not using this yet
         pctfunc = vxsched.pctfunc
-        reqdshots = Dict(v => vaxset[v][:params].reqdshots for v in vaxesincluded)
+        reqdshots = Dict(v => vaxset[v].reqdshots for v in vaxesincluded)
         pct2ndshot = Dict(k => v.pct2ndshot for (k,v) in vaxprops)
         mix = [v.mix for v in values(vaxprops)]
 

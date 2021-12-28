@@ -58,14 +58,14 @@ end
 
 function sd_gen(;startday::Int, comply::Float64, cf::Tuple{Float64, Float64},
     tf::Tuple{Float64, Float64}, name::Symbol, include_ages=[])
-    function runcase(locale, dat, socialparams, spreadset, sdcases, ages; startofday)   
-        s_d_seed!(dat, sdcases, startday, comply, cf, tf, name, include_ages, locale, socialparams, spreadset, ages;
+    function runcase(locale, dat, socialparams, infectset, sdcases, ages; startofday)   
+        s_d_seed!(dat, sdcases, startday, comply, cf, tf, name, include_ages, locale, socialparams, infectset, ages;
                     startofday=startofday)
     end
 end
 
 
-@inline function s_d_seed!(dat, sdcases, startday, comply, cf, tf, name, include_ages, locale, socialparams, spreadset, ages; startofday)
+@inline function s_d_seed!(dat, sdcases, startday, comply, cf, tf, name, include_ages, locale, socialparams, infectset, ages; startofday)
     @assert 0.0 <= comply <= 1.0  "comply must be floating point in 0.0 to 1.0 inclusive"
     
     startofday || return
@@ -247,7 +247,7 @@ function lindecayarr(t::AbstractVector{T} where T, hl, lower1, lower2)
 end
 
 
-function vaxmodifier(full_effect_days, today, lastshotday, halflife; rise_lower=0.5, decay_lower=0.05)
+@inline function vaxmodifier(full_effect_days, today, lastshotday, halflife; rise_lower=0.5, decay_lower=0.05)
     # combines the effect of the rise to full effectiveness post shot with
         # the decay in effectiveness over time: based on current date
     @assert today >= lastshotday "today's date must be >= to day of most recent shot"
@@ -276,14 +276,14 @@ end
 squashfunc = simpleclamp
 
 """
-    riskadjust(spreadset, vaxset, locdat, target) 
+    riskadjust(infectset, vaxset, locdat, target) 
 
 Adjust the risk of getting infected and the effect on transitioning through stages of the infection based
 on vaccination, recovery from previous infection and the variant of the infection contracted by an individual.
 
 Returns (variant=variantfactor, recov=recovfactor, vax=vaxfactor)
 """
-function riskadjust(spreadset, vaxset, locdat, target; spr=0)
+@inline function riskadjust(infectset, vaxset, locdat, target; spr=0)
     # calculate based on recovery date and variant half-life of partial immunity and immunity strength
     # initially using exponential decay   TODO add parameter for exponential or sigmoid decay
 
@@ -304,10 +304,10 @@ function riskadjust(spreadset, vaxset, locdat, target; spr=0)
 
         if days_post_recov > 0   # TODO should be an assert: does this run day of or day after recovery?
             # get the max immunity
-            immstrength = spreadset[variant].immunestrength
+            immstrength = infectset[variant].immunestrength
 
             # get the declined value
-            immhalflife = spreadset[variant].immunehalflife
+            immhalflife = infectset[variant].immunehalflife
             immdecline = lindecay(days_post_recov, immhalflife, 0.05)
             recovfactor = 1.0 - (immdecline * immstrength)
         end
@@ -325,13 +325,13 @@ function riskadjust(spreadset, vaxset, locdat, target; spr=0)
 
         # vaccine characteristics
         lastvax = last(vaxrcvd)
-        halflife = vaxset[lastvax][:params].halflife
-        full_effect_days = vaxset[lastvax][:params].full_effect_days
-        infectfactor = vaxset[lastvax][:params].infectfactor
+        halflife = vaxset[lastvax].halflife
+        full_effect_days = vaxset[lastvax].full_effect_days
+        infectfactor = vaxset[lastvax].infectfactor
      
         # based on variant: for transition--own variant; for spreading: spreader's variant
         variant = spr == 0 ? locdat.variant[target][end] : locdat.variant[spr][end]
-        vaxeffect = vaxset[lastvax][:params].effectiveness[vaxstatus][variant]
+        vaxeffect = vaxset[lastvax].effectiveness[vaxstatus][variant]
 
         # rise & decay
         vaxmod = vaxmodifier(full_effect_days, today, days_post_vax, halflife; rise_lower=0.5, decay_lower=0.05)
@@ -349,16 +349,16 @@ function riskadjust(spreadset, vaxset, locdat, target; spr=0)
 end
 
 
-function infectrisk(spreadset, vaxset, locdat, spreader, target, adjustfactor)
+@inline function infectrisk(infectset, locdat, spreader, target, adjustfactor)
 
     # spreader person characteristics
     variant = locdat.variant[spreader][end]
     spr_sickday = locdat.sickday[spreader]
-    sendrisk = spreadset[variant].sendrisk[spr_sickday]
+    sendrisk = infectset[variant].sendrisk[spr_sickday]
 
     # target person characteristics
     target_agegrp = locdat.agegrp[target]
-    recvrisk = spreadset[variant].recvrisk[Int(target_agegrp)]
+    recvrisk = infectset[variant].recvrisk[Int(target_agegrp)]
 
     combinedfactor = recvrisk * sendrisk * adjustfactor.variant * min(adjustfactor.recov, adjustfactor.vax)
     riskfactor = squashfunc(combinedfactor)  
@@ -379,7 +379,7 @@ Infectious people spread the virus to susceptible people for a single locale. Ch
 columns in the population table. Runs social distancing cases.
 """
 @inline function spread!(locdat, infect_idx, contactable_idx, sdcases, socialparams,
-     spreadset, vaxset, density_factor, dovax, dovariant)
+     infectset, vaxset, density_factor, dovax, dovariant)
 
     n_newly_infected = 0
 
@@ -416,8 +416,8 @@ columns in the population table. Runs social distancing cases.
 
                 # infection outcome
                 if touched       
-                    adjustfactor = riskadjust(spreadset, vaxset, locdat, target; spr=spr)
-                    risk = infectrisk(spreadset, vaxset, locdat, spr, target, adjustfactor)
+                    adjustfactor = riskadjust(infectset, vaxset, locdat, target; spr=spr)
+                    risk = infectrisk(infectset, locdat, spr, target, adjustfactor)
                     if isinfected(risk)
                         col_cond[target] = nil # nil === asymptomatic or pre-symptomatic
                         col_status[target] = infectious

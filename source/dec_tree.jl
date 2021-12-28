@@ -7,7 +7,7 @@
 
 Base.@kwdef struct Transitiondef
     sickday::Int64
-    trarr::Matrix{Float64}
+    transition::Matrix{Float64}
 end
 
 Base.@kwdef struct Agetree
@@ -57,11 +57,28 @@ function setup_dt(dtfilename::String)
 end
 
 # method for creating from Dict to nested structs
+"""
+    function setup_dt(trdict::Dict)
+
+A decision tree is of the following type and structure:
+- an instance of struct Agetree with members:
+    - age0_19
+    - age20_39
+    - age40_59
+    - age60_79
+    - age80_up
+- Each age field of Agetree is a vector of struct Transitiondef with fields:
+    - sickday: the day on which transitions to different disease outcomes occurs
+    - transition: an array that maps from current conditions (rows) to outcomes (columns that are the probability of
+     either a different sickness condition or a final outcome of either recover or dead) 
+another disease state (condition or status).
+
+"""
 function setup_dt(trdict::Dict)
 
     prepdict = Dict(age_key => [Transitiondef(brk["sickday"], 
-                                        vcat(brk["transition"]["nil"]',brk["transition"]["mild"]',
-                                            brk["transition"]["sick"]',brk["transition"]["severe"]')) 
+                                    vcat(brk["transition"]["nil"]',brk["transition"]["mild"]',
+                                        brk["transition"]["sick"]',brk["transition"]["severe"]')) 
                                 for (_, brk) in sort(age)] 
                         for (age_key, age) in sort(trdict))
 
@@ -149,7 +166,22 @@ function display_tree_array(tree)
 end
 
 
-function sanitycheck(dectree)
+function display_tree_struct(tree)
+    for agegrp in fieldnames(typeof(tree))
+        agetree = getfield(tree, Symbol(agegrp))
+        println(agegrp, " # field of struct Agetree, values are vectors")
+        for brk in 1:length(agetree)
+            println("    brk: $brk", " # element of Vector{Transitiondef}")
+            println("    sickday: ", agetree[brk].sickday)
+            println("    transitions: ")
+            for r in eachrow(agetree[brk].transition)
+                print("        "); println(r)
+            end
+        end
+    end
+end
+
+function sanitycheck(dectree::Dict)
     for age in agegrps
         seqs = getseqs(dectree[age])
         probs, allpr = verifyprobs(seqs)
@@ -162,9 +194,9 @@ function sanitycheck(dectree)
 end
 
 
-function sanitycheck_array(dectree)
-    for age in agegrps
-        seqs = getseqs_array(dectree[age])
+function sanitycheck(dectree::Agetree)
+    for age in fieldnames(Agetree)
+        seqs = getseqs(getfield(dectree, Symbol(age)))
         probs, allpr = verifyprobs(seqs)
         println("for agegroup ", age)
         for p in pairs(probs)
@@ -178,7 +210,7 @@ end
 Use for Dict representation of trees. Find all sequences of conditions by transition date and current condition through to new conditions
 for a single agegrp.
 """
-function getseqs(dt_this_age)
+function getseqs(dt_this_age::Dict)
     # find the top nodes
     dt_this_age = sort(dt_this_age)
     breakdays = collect(keys(dt_this_age))
@@ -226,50 +258,53 @@ end
 
 
 """
-Use for Array representation of trees. Find all sequences of conditions by transition date and current condition through to new conditions
-for a single agegrp.
+Use for Array and struct representation of trees. Find all sequences of conditions by transition date and current condition 
+through to new conditions for a single agegrp.
 """
-function getseqs_array(dt_this_age)
+function getseqs(dt_age::Vector{Transitiondef})
+    # dt_age is an vector of Transitiondef
     # find the top nodes (node is a condition/status transition)
-    dt_this_age = sort(dt_this_age)  # in order by breaks
-    brk_idx = collect(keys(dt_this_age))
-    brk1 = first(brk_idx)   # a breakday is a day on which disease transitions occur to people
-    breakdays = [dt_this_age[i][:sickday] for i in brk_idx]
+    # dt_age = sort(dt_age)  # in order by breaks
+    breakdays = [brk.sickday for brk in dt_age]
+    brk_idx = 1:size(dt_age,1)
     todo = [] # array of node sequences 
     done = [] # ditto
 
     # gather the outcomes at the first breakday for the starting conditions
     # no transition has happened yet: these are initial conditions: the first sequence(s) to be extended
 
-    breakday = breakdays[brk1]                      # dt_this_age[brk1][:sickday]
-    transitions = dt_this_age[brk1][:transition]  # from-to matrix of probabilities
+    breakday = breakdays[1]                      # dt_age[brk1][:sickday]
+    transitions = dt_age[1].transition  # from-to matrix of probabilities
 
-    for fromcond in eachindex(transitions[:,1])     # fromcond in keys(dt_this_age[brk1])
-        for i in 1:size(transitions,2)          # length(dt_this_age[brk1][fromcond][:outcomes])
-            if transitions[fromcond, i] != 0.0       # dt_this_age[brk1][fromcond][:outcomes][i]
+    for row in eachindex(transitions[:,1])     
+        for i in 1:size(transitions,2)              # to outcome -> column within row
+            if transitions[row, i] != 0.0       
                 outcome = transition_cases[i]
-                prob = transitions[fromcond, i]           # dt_this_age[brk1][fromcond][:probs][i]
-                push!(todo, [(sickday=breakday, fromcond=condition(fromcond), tocond=outcome, prob=prob)])
+                prob = transitions[row, i] 
+                push!(todo, [(sickday=breakday, fromcond=map2cond(row), tocond=outcome, prob=prob)])
             end
         end
     end
 
     # build sequences from top to terminal states: recovered or dead
     while !isempty(todo)
-        seq = popfirst!(todo)  # got this right
+        seq = popfirst!(todo)  
         lastnode = seq[end]
         breakday, fromcond, tocond = lastnode    # breakday = day of transition; fromcond = row index; tocond = column index
         nxtidx = findfirst(isequal(breakday), breakdays) + 1
         for brk in brk_idx[nxtidx:end]
-            next_transition = dt_this_age[brk][:transition]
+            next_transition = dt_age[brk].transition
+
             breakday = breakdays[brk]
             next_steps = [ i for i in eachindex(next_transition[:,1]) if any(next_transition[i,:] .!= 0.0) ] 
-            if Int(tocond) in next_steps # in keys(dt_this_age[brk])   # keys are the fromcond at the next break day so previous tocond == current fromcond
-                outcomes_idx = findall(next_transition[tocond,:] .!= 0.0)  
-                for i in 1:length(outcomes_idx)                      # 1:length(dt_this_age[brk][tocond][:outcomes])
-                    outcome = outcomes_idx[i]  # dt_this_age[brk][tocond][:outcomes][i]
-                    prob = next_transition[tocond, outcome]    # prob = dt_this_age[brk][tocond][:probs][i]   
-                                        newseq = vcat(seq, (sickday=breakday, fromcond=tocond, tocond=transition_cases[outcome], prob=prob))
+
+            if map2cond(tocond) in next_steps # keys are the fromcond at the next break day so previous tocond == current fromcond
+                outcomes_idx = findall(next_transition[map2cond(tocond),:] .!= 0.0)  
+
+                for i in 1:length(outcomes_idx)                      # 1:length(dt_age[brk][tocond][:outcomes])
+                    outcome = outcomes_idx[i]  # dt_age[brk][tocond][:outcomes][i]
+                    prob = next_transition[map2cond(tocond), outcome]    # prob = dt_age[brk][tocond][:probs][i]   
+                    newseq = vcat(seq, (sickday=breakday, fromcond=tocond, tocond=transition_cases[outcome], prob=prob))
                     outcome = transition_cases[outcome]
                     if (outcome == dead) | (outcome == recovered)  # terminal node reached--no more nodes to add
                         push!(done, newseq)
@@ -300,7 +335,172 @@ function verifyprobs(seqs)
     return ret, allpr
 end
 
-# what a tree looks like using from->to array for transitions
+# what a tree looks like using nested structs and from->to array for transitions
+#=
+age0_19 =               # field of struct Agetree, value is a vector of Transitiondef, sorted by sickday
+    [   sickday: 5      # field of Transitiondef
+        transitions:    # field of Transitiondef
+            [0.0, 0.391304347826087, 0.4891304347826087, 0.11956521739130435, 0.0, 0.0]
+            [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+            [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+            [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+        sickday: 9
+        transitions: 
+            [0.9, 0.0, 0.0, 0.1, 0.0, 0.0]
+            [0.0, 0.0, 1.0, 0.0, 0.0, 0.0]
+            [0.0, 0.0, 0.0, 0.95, 0.05, 0.0]
+            [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+        sickday: 14
+        transitions: 
+            [1.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+            [1.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+            [0.85, 0.0, 0.0, 0.12, 0.03, 0.0]
+            [0.692, 0.0, 0.0, 0.0, 0.302, 0.006]
+        sickday: 19
+        transitions: 
+            [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+            [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+            [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+            [0.891, 0.0, 0.0, 0.0, 0.106, 0.003]
+        sickday: 25
+        transitions: 
+            [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+            [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+            [0.976, 0.0, 0.0, 0.0, 0.0, 0.024]
+            [0.91, 0.0, 0.0, 0.0, 0.0, 0.09]
+    ]
+age20_39 =
+    [   sickday: 5
+        transitions: 
+            [0.0, 0.2, 0.7, 0.1, 0.0, 0.0]
+            [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+            [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+            [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+        sickday: 9
+        transitions: 
+            [0.9, 0.0, 0.0, 0.1, 0.0, 0.0]
+            [0.85, 0.0, 0.0, 0.15, 0.0, 0.0]
+            [0.0, 0.0, 0.0, 0.9, 0.1, 0.0]
+            [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+        sickday: 14
+        transitions: 
+            [1.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+            [1.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+            [0.83, 0.0, 0.0, 0.1, 0.07, 0.0]
+            [0.474, 0.0, 0.0, 0.0, 0.514, 0.012]
+        sickday: 19
+        transitions: 
+            [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+            [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+            [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+            [0.922, 0.0, 0.0, 0.0, 0.072, 0.006]
+        sickday: 25
+        transitions: 
+            [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+            [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+            [0.964, 0.0, 0.0, 0.0, 0.0, 0.036]
+            [0.964, 0.0, 0.0, 0.0, 0.0, 0.036]
+    ]
+age40_59 =
+    [   sickday: 5
+        transitions: 
+            [0.0, 0.2, 0.7, 0.1, 0.0, 0.0]
+            [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+            [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+            [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+        sickday: 9
+        transitions: 
+            [0.9, 0.0, 0.0, 0.1, 0.0, 0.0]
+            [0.85, 0.0, 0.05, 0.1, 0.0, 0.0]
+            [0.0, 0.0, 0.0, 0.9, 0.1, 0.0]
+            [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+        sickday: 14
+        transitions: 
+            [1.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+            [0.9, 0.0, 0.0, 0.1, 0.0, 0.0]
+            [0.85, 0.0, 0.0, 0.14, 0.01, 0.0]
+            [0.776, 0.0, 0.0, 0.0, 0.206, 0.018]
+        sickday: 19
+        transitions: 
+            [1.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+            [1.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+            [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+            [0.856, 0.0, 0.0, 0.0, 0.126, 0.018]
+        sickday: 25
+        transitions: 
+            [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+            [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+            [0.958, 0.0, 0.0, 0.0, 0.0, 0.042]
+            [0.958, 0.0, 0.0, 0.0, 0.0, 0.042]
+    ]
+age60_79 =
+        transitions: 
+            [0.0, 0.15, 0.6, 0.25, 0.0, 0.0]
+            [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+            [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+            [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+        sickday: 9
+        transitions: 
+            [0.62, 0.0, 0.0, 0.38, 0.0, 0.0]
+            [0.5, 0.0, 0.25, 0.25, 0.0, 0.0]
+            [0.0, 0.0, 0.0, 0.78, 0.22, 0.0]
+            [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+        sickday: 14
+        transitions: 
+            [0.8, 0.1, 0.1, 0.0, 0.0, 0.0]
+            [0.8, 0.0, 0.15, 0.05, 0.0, 0.0]
+            [0.8, 0.0, 0.0, 0.1, 0.1, 0.0]
+            [0.165, 0.0, 0.0, 0.0, 0.715, 0.12]
+        sickday: 19
+        transitions: 
+            [1.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+            [1.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+            [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+            [0.81, 0.0, 0.0, 0.0, 0.13, 0.06]
+        sickday: 25
+        transitions: 
+            [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+            [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+            [0.76, 0.0, 0.0, 0.0, 0.0, 0.24]
+            [0.688, 0.0, 0.0, 0.0, 0.0, 0.312]
+    ]
+age80_up =
+    [   sickday: 5
+        transitions: 
+            [0.0, 0.1, 0.5, 0.4, 0.0, 0.0]
+            [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+            [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+            [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+        sickday: 9
+        transitions: 
+            [0.5, 0.0, 0.0, 0.5, 0.0, 0.0]
+            [0.0, 0.0, 0.4, 0.6, 0.0, 0.0]
+            [0.0, 0.0, 0.0, 0.6, 0.4, 0.0]
+            [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+        sickday: 14
+        transitions: 
+            [0.7, 0.0, 0.3, 0.0, 0.0, 0.0]
+            [0.7, 0.0, 0.0, 0.3, 0.0, 0.0]
+            [0.7, 0.0, 0.0, 0.1, 0.2, 0.0]
+            [0.12, 0.0, 0.0, 0.0, 0.67, 0.21]
+        sickday: 19
+        transitions: 
+            [1.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+            [1.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+            [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+            [0.49, 0.0, 0.0, 0.0, 0.24, 0.27]
+        sickday: 25
+        transitions: 
+            [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+            [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+            [0.682, 0.0, 0.0, 0.0, 0.0, 0.318]
+            [0.676, 0.0, 0.0, 0.0, 0.0, 0.324]
+    ]
+=#
+
+
+
+# what an older version tree built as a Dict looks like using from->to array for transitions
 #=
 agegrp: age0_19 =>
     sickday: 25

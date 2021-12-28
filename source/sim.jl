@@ -47,7 +47,7 @@ function runsim(model;
     cumhistmx = deepcopy(model.dat["cumhistmx"])   # first key is locale
     newhistmx = deepcopy(model.dat["newhistmx"])   # first key is locale
     geodf = model.geo
-    spreadset = model.spreadset
+    infectset = model.infectset
     socialparams = model.social
     vaxset = model.vaxset
     vaxschedset = model.vaxschedset
@@ -85,7 +85,7 @@ function runsim(model;
             density_factor = geodf[geodf[!, :fips] .== loc, :density_factor][]  # TODO not a good place for this
             
             for case in runcases
-                case(loc, popdat, socialparams, spreadset, sdcases, ages; startofday=true)  # TODO extend ages to be any filter for 
+                case(loc, popdat, socialparams, infectset, sdcases, ages; startofday=true)  # TODO extend ages to be any filter for 
             end                                                 # who participates in a given case
 
             # filter for key people
@@ -101,11 +101,11 @@ function runsim(model;
 
             # two fundamental steps of the simulation: spread! and transition!
             sprtime += @elapsed spread!(locdat, infect_idx, contactable_idx, sdcases, socialparams, 
-                                        spreadset, vaxset, density_factor, dovax, dovariant)   
-            trtime += @elapsed transition!(locdat, infect_idx, spreadset, transitionset, vaxset, dovax, dovariant; trvec=trvec)                        
+                                        infectset, vaxset, density_factor, dovax, dovariant)   
+            trtime += @elapsed transition!(locdat, infect_idx, infectset, transitionset, vaxset, dovax, dovariant; trvec=trvec)                        
 
             for case in runcases
-                case(loc, popdat, socialparams, spreadset, sdcases, ages; startofday=false)  # TODO extend ages to be any filter for 
+                case(loc, popdat, socialparams, infectset, sdcases, ages; startofday=false)  # TODO extend ages to be any filter for 
             end                                                 # who participates in a given case
 
             # r0 displayed every 10 days
