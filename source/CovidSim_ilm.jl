@@ -155,8 +155,6 @@ lookup tables for enum values:
 - for string use symcond[Symbol("nil")] => nil::condition = 5
 =#
 
-
-
 const inst_cond = instances(condition)
 """
     symtocond[cond::Symbol]

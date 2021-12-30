@@ -237,25 +237,42 @@ end
 
 function build_socialparams(socialfilename, paramdir)
 
-    social_inputs = YAML.load_file(joinpath(paramdir, socialfilename))
+    social_inputs = YAML.load_file(joinpath(paramdir, socialfilename), dicttype=OrderedDict{Symbol, Any})
 
-    required_params = ["contactfactors", "touchfactors", "gammashape"]
-    has_all = true
-    lacking = []
-    for p in required_params
-        if !haskey(social_inputs, p)
-            push!(lacking, p)
-            has_all = false
+    # check for all required params
+        required_params = [:contactfactors, :touchfactors, :gammashape]
+        has_all = true
+        lacking = []
+        for p in required_params
+            if !haskey(social_inputs, p)
+                push!(lacking, p)
+                has_all = false
+            end
         end
-    end
-    @assert has_all "required keys: $lacking not in $(infectfilename)"
+        @assert has_all "required keys: $lacking not in $(infectfilename)"
+
+        # build arrays for contactfactors and touchfactors
+        cfarr = zeros(length(keys(first(values(social_inputs[:contactfactors])))), length(keys(social_inputs[:contactfactors])))
+        tfarr = zeros(length(keys(first(values(social_inputs[:touchfactors])))), length(keys(social_inputs[:touchfactors])))
+
+        for (i, v1) in enumerate(sort(social_inputs[:contactfactors]))
+            cfarr[:, i] .= Float64.(values(v1[2]))
+        end
+        for (i, v1) in enumerate(sort(social_inputs[:touchfactors]))
+            tfarr[:, i] .= Float64.(values(v1[2]))
+        end
+
 
     Socialparams(
-        gammashape         = social_inputs["gammashape"],
-        contactfactors    = Dict(symtoage[Symbol(k1)] => 
-                                Dict(symtocond[Symbol(k2)] => Float64(v2) for (k2, v2) in v1)  for (k1, v1) in social_inputs["contactfactors"]),
-        touchfactors      = Dict(symtoage[Symbol(k1)] => 
-                                Dict(symtoallconds[Symbol(k2)] => Float64(v2) for (k2, v2) in v1)  for (k1, v1) in social_inputs["touchfactors"])
+        gammashape      = Float64(social_inputs[:gammashape]),
+        contactfactors  = cfarr,
+        touchfactors    = tfarr
+        # contactfactors  = Dict(symtoage[k1] => 
+        #                         Dict(symtocond[k2] => Float64(v2) for (k2, v2) in v1)  
+        #                     for (k1, v1) in social_inputs[:contactfactors]),
+        # touchfactors    = Dict(symtoage[k1] => 
+        #                         Dict(symtoallconds[k2] => Float64(v2) for (k2, v2) in v1)  
+        #                     for (k1, v1) in social_inputs[:touchfactors])
         )
     
 end
@@ -263,7 +280,7 @@ end
 
 
 #####################################################################################
-# helper functions for setup
+# helper functions for data structures, other
 #####################################################################################
 
 noop(args...; kwargs...) = nothing
@@ -296,6 +313,31 @@ function makemaptup(keys, values)
     NamedTuple{keys}(values)
 end
 
+function mapcontact(x::condition)
+    Int(x)-4
+end
+
+function mapage(x::agegrp)
+    Int(x)
+end
+
+function maptouch(x::Union{condition, status})
+    if x == unexposed
+        1
+    elseif x == recovered
+        2
+    elseif x == nil
+        3
+    elseif x == mild
+        4
+    elseif x == sick
+        5
+    elseif x == severe
+        6
+    else
+        @assert false "invalid index to touchfactors $x"
+    end
+end
 
 function map2vec(maptup, vals)
     [getfield(maptup, x) for x in vals]

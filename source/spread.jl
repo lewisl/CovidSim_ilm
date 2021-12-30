@@ -41,8 +41,8 @@ end
 
 Base.@kwdef struct Socialparams
     gammashape::Float64
-    contactfactors::Dict{Enum, Dict{Enum, Float64}}
-    touchfactors::Dict{Enum, Dict{Enum, Float64}}
+    contactfactors::Matrix{Float64}     # Dict{agegrp, Dict{condition, Float64}}
+    touchfactors::Matrix{Float64}     # Dict{agegrp, Dict{Union{condition, status}, Float64}}
 end
 
 
@@ -52,8 +52,8 @@ Base.@kwdef struct Spreadcase                 # Base.@kwdef -> use keyword argum
     cfdelta::Tuple{Float64,Float64}  
     tfdelta::Tuple{Float64,Float64}  
     comply::Float64             # compliance fraction
-    cfcase::Dict{Enum, Dict{Enum, Float64}}
-    tfcase::Dict{Enum, Dict{Enum, Float64}}
+    cfcase::Dict{agegrp, Dict{Enum, Float64}}
+    tfcase::Dict{agegrp, Dict{Enum, Float64}}
 end
 
 function sd_gen(;startday::Int, comply::Float64, cf::Tuple{Float64, Float64},
@@ -134,8 +134,9 @@ end
 Returns the number of contacts that someone spreading the disease will make on a day. This
 method uses the default contactfactors for the current spreader.
 """
-@inline function numcontacts(density_factor, gammashape, agegrp, cond, contactfactors)::Int 
-    @inbounds @fastmath scale = density_factor * contactfactors[agegrp][cond]
+@inline function numcontacts(density_factor, gammashape, agegrp, cond, 
+        contactfactors)::Int 
+    @inbounds @fastmath scale = density_factor * contactfactors[mapcontact(cond), mapage(agegrp)]
     @fastmath round(Int,rand(Gamma(gammashape, scale)))
 end
 
@@ -146,7 +147,7 @@ Returns the number of contacts that someone spreading the disease will make on a
 method uses the spreadcase applicable to the current spreader.
 """
 @inline function numcontacts(density_factor, gammashape, agegrp, cond, acase::Spreadcase)::Int
-    @inbounds @fastmath scale = density_factor * acase.cfcase[agegrp][cond]  
+    @inbounds @fastmath scale = density_factor * acase.cfcase[mapcontact(cond), mapage(agegrp)]  
     @fastmath round(Int,rand(Gamma(gammashape, scale)))
 end
 
@@ -158,7 +159,7 @@ Returns true if the contact made was significant to the recipient or false if no
 This method uses the default touchfactors for the current recipient.
 """
 @inline function istouched(agegrp, lookup, touchfactors)::Bool
-    return @inbounds @fastmath rand(Binomial(1, touchfactors[agegrp][lookup])) == 1
+    return @inbounds @fastmath rand(Binomial(1, touchfactors[maptouch(lookup), mapage(agegrp)])) == 1
 end
 
 
@@ -169,7 +170,7 @@ Returns true if the contact made was significant to the recipient or false if no
 This method uses the spreadcase for the recipient.
 """
 @inline function istouched(agegrp, lookup, acase::Spreadcase)::Bool
-    return @inbounds @fastmath rand(Binomial(1, acase.tfcase[agegrp][lookup])) == 1
+    return @inbounds @fastmath rand(Binomial(1, acase.tfcase[maptouch(lookup), mapage(agegrp)])) == 1
 end
 
 
@@ -396,7 +397,10 @@ columns in the population table. Runs social distancing cases.
     col_sdcomply = locdat.sdcomply
     col_variant = locdat.variant
 
-    dovax && (begin; col_vax      = locdat.vaxrcvd; col_vaxday = locdat.vaxday; end)
+    dovax && (begin 
+                col_vax = locdat.vaxrcvd 
+                col_vaxday = locdat.vaxday 
+              end)
 
     # assign contacts, do touches, do new infections
     @inbounds for spr in infect_idx      # spr is the person who is the spreader
