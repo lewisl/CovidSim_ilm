@@ -29,12 +29,12 @@ function setup_dt(dtfilename::String)
     arrays = YAML.load_file(dtfilename)
 
     newdict = (
-        Dict(symtoage[Symbol(k1)] =>      # agegrp    
+        Dict(symbol2agegrp(Symbol(k1)) =>      # agegrp    
             Dict(k2 =>                    # stage in 1:5
                 Dict(Symbol(k3) =>  if k3 == "sickday"
                                         v3
                                     else 
-                                        Dict(symtocond[Symbol(k4)] => v4 for (k4, v4) in v3)
+                                        Dict(symbol2condition(k4) => v4 for (k4, v4) in v3)
                                     end
                     for (k3, v3) in v2)
                 for (k2, v2) in v1)
@@ -98,9 +98,9 @@ function old_setup_dt(dtfilename)
     trees = YAML.load_file(dtfilename)
 
     newdict = (
-                Dict(symtoage[Symbol(k1)] =>         
+                Dict(symbol2agegrp(Symbol(k1)) =>         
                     Dict(k2 =>             
-                        Dict(symtocond[Symbol(k3)] => 
+                        Dict(symbol2condition(k3) => 
                             Dict(Symbol(k4) => v4 for (k4, v4) in v3) 
                                                         for (k3, v3) in v2)
                                                             for (k2, v2) in v1)
@@ -113,7 +113,7 @@ function old_setup_dt(dtfilename)
             for (k3,v3) in v2
                 for (k4, v4) in v3
                     if k4 == :outcomes
-                        outs = [symtoallconds[Symbol(out)]  for out in v4]
+                        outs = [Symbol2allconds(out)  for out in v4]
                         newdict[k1][k2][k3][k4] = outs
                     end
                 end

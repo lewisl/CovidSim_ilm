@@ -41,8 +41,8 @@ end
 
 Base.@kwdef struct Socialparams
     gammashape::Float64
-    contactfactors::Matrix{Float64}     # Dict{agegrp, Dict{condition, Float64}}
-    touchfactors::Matrix{Float64}     # Dict{agegrp, Dict{Union{condition, status}, Float64}}
+    contactfactors::Matrix{Float64}     
+    touchfactors::Matrix{Float64}     
 end
 
 
@@ -52,8 +52,8 @@ Base.@kwdef struct Spreadcase                 # Base.@kwdef -> use keyword argum
     cfdelta::Tuple{Float64,Float64}  
     tfdelta::Tuple{Float64,Float64}  
     comply::Float64             # compliance fraction
-    cfcase::Dict{agegrp, Dict{Enum, Float64}}
-    tfcase::Dict{agegrp, Dict{Enum, Float64}}
+    cfcase::Matrix{Float64}
+    tfcase::Matrix{Float64}
 end
 
 function sd_gen(;startday::Int, comply::Float64, cf::Tuple{Float64, Float64},

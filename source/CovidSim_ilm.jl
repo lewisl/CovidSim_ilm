@@ -105,7 +105,7 @@ const smaller = 5
 const rural = 6
 
 #######################################################################
-# enum values for condition, status and agegrp to use in popmatrix
+# enum values for condition, status and agegrp to use in population table
 #######################################################################
 
 @enum condition begin
@@ -147,70 +147,6 @@ const allconds = vcat(infectious_cases, statuses) # note excludes uninfected::co
 const agegrps = instances(agegrp) # tuple of enums
 const n_agegrps = length(instances(agegrp))
 const vaxlist = Symbol[]  # filled by vax.jl
-
-#= 
-lookup tables for enum values: 
-- don't need lookup for Int or Symbol: just use Symbol(nil) and Int(nil)-->these are faster than any lookup
-- for symbol use symcond[:nil] => nil::condition = 5
-- for string use symcond[Symbol("nil")] => nil::condition = 5
-=#
-
-const inst_cond = instances(condition)
-"""
-    symtocond[cond::Symbol]
-Dict used as lookup table to convert symbol or string to enum value for a condition.
-
-Examples:
-- for symbol use symtocond[:nil] => nil::condition = 5
-- for string use symtocond[Symbol("nil")] => nil::condition = 5
-    
-"""
-const symtocond = freeze(Dict(zip(Symbol.(inst_cond), inst_cond)))
-
-# lookup table for status enum values
-inst_status = instances(status)
-"""
-    symtostat[stat::Symbol]
-Dict used as lookup table to convert symbol or string to enum value for a status.
-
-Examples:
-- for symbol use symtostat[:infectious] => infectious::status = 2
-- for string use symtostat[Symbol("infectious")] => infectious::status = 2
-    
-"""
-const symtostat = freeze(Dict(zip(Symbol.(inst_status), inst_status)))
-
-# lookup table for agegrp
-inst_a = instances(agegrp)
-
-"""
-    symtoage[age::Symbol]
-Dict used as lookup table to convert symbol or string to enum value for an age.
-
-Examples:
-- for symbol use symtoage[:age0_19] => agegrp::age0_19 = 1
-- for string use symtoage[Symbol("age0_19")] => agegrp::age0_19 = 1
-    
-"""
-const symtoage = freeze(Dict(zip(Symbol.(inst_a), inst_a))) # .5x time of regular dict
-
-# lookup table for shift
-inst_shift = instances(shift)
-
-"""
-    symtoshift[sh::Symbol]
-Dict used as lookup table to convert symbol or string to enum value for an shift.
-
-Examples:
-- for symbol use symtoshift[:recover] returns shift::recover = 1
-- for string use symtoage[Symbol("recover")] returns shift::recover = 1
-    
-"""
-const symtoshift = freeze(Dict(zip(Symbol.(inst_shift), inst_shift))) # .5x time of regular dict
-
-
-# lookup table for combined status and condition
-const symtoallconds = merge(symtostat, symtocond)
 
 # other columns used only in series dataframes
 const totinfected       = 9
@@ -383,10 +319,10 @@ export
     n_agegrps,
     recvrisk,
     totalcol,
-    symtocond,
-    symtostat,
-    symtoage,
-    symtoallconds
+    symbol2conditon,
+    symbol2status,
+    symbol2agegrp,
+    symbol2allconds
 
 # constants for indices to transition arrays
 export
