@@ -1,21 +1,19 @@
 # TODO
+    # vaccine effect changes
+        # explicitly test vaccine transition factors for null
+        # if a factor is missing for a variant use :base or 1.0?
+    # variant effect changes
+        # are we using the infectmultiplier on base?
     # more info
         # get fatality rate by age and co-morbidity CDC, Italian NIH
         # by agegroup, hospitalization %, ICU admission %, fatality %
         # UW virology, expansion of deaths by state on log chart
     # fix all the travel functions to latest APIs
     # put in an inflection measure
-
     # make setting up vaccination optional
-
     # add transq to ilm and test
-    # recovery should not guarantee future immmunity
-    # vaccination with 3 vaccines / 1 or 2 shots
     # support variants for transition, spread and vaccination
     # use currying to simplify case APIs
-    # extend to two years
-    # clean up reports and notebooks to work with latest ilm model: get rid of some...
-        # get rid of riskmx
     # should quarantine be special or is it extreme social distancing--with no contacts?
         #= 
         tricky because we only using contacts for outgoing contacts by spreaders.

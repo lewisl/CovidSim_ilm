@@ -39,7 +39,7 @@ locdat must be a population table for a single locale.
         # if person's agegrp, sickday, and condition match a transition stage
         transvec = has(getfield(transarray, Symbol(p_agegrp)), p_sickday, p_cond, trvec) 
 
-        riskadjustments = riskadjust(infectset, vaxset, locdat, p)
+        riskadjustments = riskadjust(infectset, vaxset, locdat, p)   # TODO make a function specific to transition
 
         vaxfn!(transvec, riskadjustments) #vaxfn! will be function noop or function vaxtransitioneffect
 
@@ -117,15 +117,12 @@ the number of days the person has been sick.
         elseif tocond == recovered
             push!(locdat.recovday[p], day_ctr[:day])
             locdat.status[p] = recovered
-            # locdat.cond[p] = uninfected
+            # locdat.cond[p] = uninfected   # TODO decide if this makes sense--using this to maintain a history of past infection
         else   
             locdat.cond[p] = tocond   # change the condition = degree of sickness
             locdat.sickday[p] += 1    # advance number of days person has been sick
         end    
-
-
     end
-
 end
 
 """

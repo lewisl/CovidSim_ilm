@@ -10,7 +10,7 @@ function buildsim(ndays, locales;
     geofilename = "../data/geo2data.csv", 
     socialfilename = "socialparams.yml",
     vaccinefilename = "vaccines.yml",
-    variantsfilename = "variants.yml")
+    variantfilename = "variants.yml")
 
     locales = locales isa Int ? [locales] : locales
 
@@ -20,7 +20,7 @@ function buildsim(ndays, locales;
         geofilename=geofilename, 
         socialfilename=socialfilename,
         vaccinefilename=vaccinefilename,
-        variantsfilename=variantsfilename
+        variantfilename=variantfilename
         )
 
     return model
@@ -80,12 +80,12 @@ function runsim(model;
             silent || println("Simulation starting for location $loc")
             
             locdat = popdat[loc]
-            ages = agegrp_idx[loc]  # indices by agegrp
+            age_idx_loc = agegrp_idx[loc]  # indices by agegrp
             
             density_factor = geodf[geodf[!, :fips] .== loc, :density_factor][]  # TODO not a good place for this
             
             for case in runcases
-                case(loc, popdat, socialparams, infectset, sdcases, ages; startofday=true)  # TODO extend ages to be any filter for 
+                case(loc, popdat, socialparams, infectset, sdcases, age_idx_loc; startofday=true)  # TODO extend ages to be any filter for 
             end                                                 # who participates in a given case
 
             # filter for key people
@@ -105,7 +105,7 @@ function runsim(model;
             trtime += @elapsed transition!(locdat, infect_idx, infectset, transitionset, vaxset, dovax, dovariant; trvec=trvec)                        
 
             for case in runcases
-                case(loc, popdat, socialparams, infectset, sdcases, ages; startofday=false)  # TODO extend ages to be any filter for 
+                case(loc, popdat, socialparams, infectset, sdcases, age_idx_loc; startofday=false)  # TODO extend ages to be any filter for 
             end                                                 # who participates in a given case
 
             # r0 displayed every 10 days
@@ -153,9 +153,6 @@ end
         cumdat = cumhist[loc]   # sink
         newdat = newhist[loc]   # sink
 
-        #
-        # cumulative data
-        #
         @inbounds for age in instances(agegrp)
             int_age = Int(age)
 
@@ -180,8 +177,10 @@ end
             end
 
 
-            # insert status into sink: cum
-            for st in inst_status 
+            #
+            # cumulative data
+            #
+            for st in statuses 
                 cumdat[thisday, getindex(map2series, Symbol(st))[int_age]] = get(status_today, st, 0)
             end
 
@@ -196,8 +195,9 @@ end
             end
 
 
-
-            # insert into sink: new
+            #
+            # new (each day) data
+            #
             for ac in allconds   # status and conds
                 if thisday == 1
                     newdat[thisday, getindex(map2series, Symbol(ac))[int_age]] = get(status_today, Int(ac), 0)

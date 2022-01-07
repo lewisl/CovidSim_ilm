@@ -31,6 +31,7 @@ base:
     infectmultiplier: 1.0
 
   # immunity section: affect immunity after recovery from infection
+  # this depends on the "attacking" variant
   immunity:
 
     # partial immunity strength after recovery: one means total immunity from infection
@@ -231,8 +232,12 @@ base:
             mild:      [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
             sick:      [0.682, 0.0, 0.0, 0.0, 0.0, 0.318]
             severe:    [0.676, 0.0, 0.0, 0.0, 0.0, 0.324]
-    factors: ~
-  
+    factors: 
+      vaxhalflifeadjust:  # multiply times half-life of indicated vaccine
+        JnJ:        0.5
+        Pfizer:     0.8
+        Moderna:    0.9
+
 
   # UNUSED: from an earlier version of the parameters file format
   # infect_fname:     base_spread.yml
@@ -274,6 +279,11 @@ alpha:
     factors:   # risk adjustment to base
               #   recov, nil, mild, sick,  severe,  dead
       riskadjust: [1.0,  1.0, 1.0,  1.1,    1.1,    1.1 ]
+      vaxhalflifeadjust:  # multiply times half-life of indicated vaccine
+        JnJ:        0.5
+        Pfizer:     0.8
+        Moderna:    0.9
+
     # UNUSED: these are unused from an earlier version of the parameters file format
     # infect_fname:     alpha_spread.yml
     # transition_fname: alpha_transition_array.yml
@@ -314,6 +324,11 @@ delta:
     factors:   # risk adjustment to base
               #   recov, nil, mild, sick,  severe,  dead
       riskadjust: [1.0,  1.0, 1.0,  1.1,    1.1,    1.1 ]
+      vaxhalflifeadjust:  # multiply times half-life of indicated vaccine
+        JnJ:        0.9
+        Pfizer:     0.9
+        Moderna:    0.9
+
 
   # UNUSED:  from an earlier version of the parameters file format
   # infect_fname:     delta_spread.yml
@@ -337,7 +352,7 @@ omicron:
     recvrisk: []
 
     # muliplier for infectiousness compared to base
-    infectmultiplier: 1.2
+    infectmultiplier: 1.5
 
 
 
@@ -354,7 +369,11 @@ omicron:
     tree: ~  # if no tree, apply factors to base variant tree
     factors:   # risk adjustment to base
               #   recov, nil, mild, sick,  severe,  dead
-      riskadjust: [1.0,  1.0, 1.0,  1.1,    1.1,    1.1 ]
+      riskadjust: [1.1,  1.05, 1.05,  0.9,    0.7,    0.6 ]
+      vaxhalflifeadjust:  # multiply times half-life of indicated vaccine
+        JnJ:        0.5
+        Pfizer:     0.8
+        Moderna:    0.9
   # these are unused from an earlier version of the parameters file format
   # infect_fname:     omicron_spread.yml
   # transition_fname: omicron_transition_array.yml

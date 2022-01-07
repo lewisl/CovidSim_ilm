@@ -10,7 +10,7 @@ function setup(ndays, locales;  # must provide following inputs
     geofilename, 
     socialfilename,
     vaccinefilename,
-    variantsfilename)
+    variantfilename)
 
     # geodata
         geodata = buildgeodata(geofilename)
@@ -22,7 +22,7 @@ function setup(ndays, locales;  # must provide following inputs
         socialparams = build_socialparams(socialfilename, paramdir)
 
     # variants, spread parameters, transition arrays
-        infectset, transitionset, trvec = build_infect_params(variantsfilename, paramdir)
+        infectset, transitionset, trvec = build_infect_params(variantfilename, paramdir)
 
 
     # vaccines  TODO this is not the right approach: test if we have vax inputs instead
@@ -48,7 +48,10 @@ function quickdate(strdates)  # 20x faster than the built-in date parsing, e.g.-
     ret = [Date.(i[3], i[1], i[2]) for i in ret]
 end
 
-
+"""
+Pre-allocate and initialize population data for all locales in the simulation.
+Calls pop_data for each locale.
+"""
 function build_data(locales, geodata, n_days)
 
     pop = [geodata[geodata[:, "fips"] .== loc, "pop"][1] for loc in locales]
@@ -67,6 +70,9 @@ end
 
 """
 Pre-allocate and initialize population data for one locale in the simulation.
+Returns a TypedTable which is a tuple of arrays:
+- each column is a trait of people
+- rows are days of the simulatoin
 """
 function pop_data(pop; age_dist=age_dist)
 
@@ -104,6 +110,12 @@ const map2series = (unexposed=1:6, infectious=7:12, recovered=13:18, dead=19:24,
                     base=79:84, alpha=85:90, delta=91:96, omicron=97:102)                 # variants
 
 
+# map2dict = Dict{Symbol, UnitRange{Int64}}(:unexposed=>1:6, :infectious=>7:12, :recovered=>13:18, :dead=>19:24,          # status
+#                 :nil=>25:30, :mild=>31:36, :sick=>37:42, :severe=>43:48, :totinfected=>49:54,   # conditions
+#                 :Pfizer=>55:60, :Moderna=>61:66, :JnJ=>67:72, :totvaccinated=>73:78,          # vaccines
+#                 :base=>79:84, :alpha=>85:90, :delta=>91:96, :omicron=>97:102)      
+
+
 function hist_dict(locales, n_days; conds=allconds, agegrps=n_agegrps)
     dat = Dict{Int64, Array{Int}}()
     for loc in locales
@@ -132,6 +144,8 @@ function build_infect_params(variantfilename, paramdir)
     infectdict = YAML.load_file(joinpath(paramdir, variantfilename))
     loadvariants = infectdict["loadvariants"]
     usevariants = infectdict["usevariants"]
+
+    println("is key base present? ", haskey(infectdict, "base"))
 
     (transitionset, trvec) = build_transition_params(infectdict)
     infectset = build_spread_params(infectdict)
@@ -213,18 +227,20 @@ Returns (transitionset, trvec)
 """
 function build_transition_params(infectdict)
     loadvariants = infectdict["loadvariants"] # array of strings to array of symbols
+    usevariants = infectdict["usevariants"]
     transitionset = Dict()
 
+    println(loadvariants)
+    println("infecdict has key base? ", haskey(infectdict, "base"))
+
     for variant in loadvariants
-        if isnothing(infectdict[variant]["transition"]["tree"])
-            transitionset[Symbol(variant)] = Transitionparams(
-                tree=nothing,
-                riskadjust=infectdict[variant]["transition"]["factors"]["riskadjust"])
-        elseif isnothing(infectdict[variant]["transition"]["factors"])
-            transitionset[Symbol(variant)] = Transitionparams(
-                tree=setup_dt(infectdict[variant]["transition"]["tree"]),
-                riskadjust=[])
-        end
+        
+        transitionset[Symbol(variant)] = Transitionparams(
+            tree=(isnothing(infectdict[variant]["transition"]["tree"]) ? nothing : 
+                    setup_dt(infectdict[variant]["transition"]["tree"])),
+            factors=Transitionfactors(infectdict[variant]["transition"]["factors"])
+            )
+
     end
 
     # pre-allocate trvec used in hot loop: no. of columns in transition array
@@ -540,4 +556,3 @@ function precalc_agegrp_filt(dat)  # dat for a single locale
     agegrp_filt_idx = Dict(age => findall(agegrp_filt_bit[age]) for age in agegrps)
     return (boolean=agegrp_filt_bit, idx=agegrp_filt_idx)
 end
-# agegrp_filt_bit, agegrp_filt_idx = precalc_agegrp_filt(ilmat);

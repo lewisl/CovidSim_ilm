@@ -5,10 +5,10 @@
 #############################################################
 
 
-Base.@kwdef struct Transitiondef
-    sickday::Int64
-    transition::Matrix{Float64}
-end
+        Base.@kwdef struct Transitiondef
+            sickday::Int64
+            transition::Matrix{Float64}
+        end
 
 Base.@kwdef struct Agetree
     age0_19::Vector{Transitiondef}
@@ -18,9 +18,25 @@ Base.@kwdef struct Agetree
     age80_up::Vector{Transitiondef}
 end
 
+
+Base.@kwdef struct Transitionfactors
+    riskadjust::Union{Vector{Float64}, Nothing}
+    vaxhalflifeadjust::Union{Dict{Symbol, Float64}, Nothing}
+    
+        # inner method
+        function Transitionfactors(factordict)
+            riskadj = get(factordict, "riskadjust", nothing)
+            vaxadj = get(factordict, "vaxhalflifeadjust", nothing)
+            vaxadj = if !isnothing(vaxadj)
+                        Dict(Symbol(k)=>v for (k,v) in vaxadj)
+                     end
+            new(riskadj, vaxadj)
+        end
+end
+
 Base.@kwdef struct Transitionparams
     tree::Union{Agetree, Nothing}
-    riskadjust::Vector{Float64}   # use [] for nothing
+    factors::Transitionfactors   # use [] for nothing
 end
 
 
@@ -91,38 +107,6 @@ transitionT is Type alias for type that holds a transition decision tree
 """
 const transitionT = Dict{agegrp, Dict{Int64, Dict{Symbol, Any}}}
 
-
-
-
-function old_setup_dt(dtfilename)
-    trees = YAML.load_file(dtfilename)
-
-    newdict = (
-                Dict(symbol2agegrp(Symbol(k1)) =>         
-                    Dict(k2 =>             
-                        Dict(symbol2condition(k3) => 
-                            Dict(Symbol(k4) => v4 for (k4, v4) in v3) 
-                                                        for (k3, v3) in v2)
-                                                            for (k2, v2) in v1)
-                                                                for (k1,v1) in trees)
-                )
-
-    # Convert values in :outcomes to Enum condition or status
-    for (k1,v1) in newdict
-        for (k2,v2) in v1
-            for (k3,v3) in v2
-                for (k4, v4) in v3
-                    if k4 == :outcomes
-                        outs = [Symbol2allconds(out)  for out in v4]
-                        newdict[k1][k2][k3][k4] = outs
-                    end
-                end
-            end
-        end
-    end
-
-    return newdict
-end
 
 
 function display_tree(tree)
@@ -210,7 +194,7 @@ end
 Use for Dict representation of trees. Find all sequences of conditions by transition date and current condition through to new conditions
 for a single agegrp.
 """
-function getseqs(dt_this_age::Dict)
+function getseqs(dt_this_age::Dict; maxsearches = 100)
     # find the top nodes
     dt_this_age = sort(dt_this_age)
     breakdays = collect(keys(dt_this_age))
@@ -230,7 +214,11 @@ function getseqs(dt_this_age::Dict)
 
 
     # build sequences from top to terminal states: recovered or dead
+    ctr = 0
     while !isempty(todo)
+        if (ctr += 1) > maxsearches
+            @assert false "maxsearches exceeded when buildig sequences through transition tree at $ctr"
+        end
         seq = popfirst!(todo)  
         lastnode = seq[end]
         breakday, fromcond, tocond = lastnode
@@ -261,7 +249,7 @@ end
 Use for Array and struct representation of trees. Find all sequences of conditions by transition date and current condition 
 through to new conditions for a single agegrp.
 """
-function getseqs(dt_age::Vector{Transitiondef})
+function getseqs(dt_age::Vector{Transitiondef}; maxsearches = 100)
     # dt_age is an vector of Transitiondef
     # find the top nodes (node is a condition/status transition)
     # dt_age = sort(dt_age)  # in order by breaks
@@ -287,7 +275,11 @@ function getseqs(dt_age::Vector{Transitiondef})
     end
 
     # build sequences from top to terminal states: recovered or dead
+    ctr = 0
     while !isempty(todo)
+        if (ctr += 1) > maxsearches
+            @assert false "maxsearches exceeded when buildig sequences through transition tree at $ctr"
+        end
         seq = popfirst!(todo)  
         lastnode = seq[end]
         breakday, fromcond, tocond = lastnode    # breakday = day of transition; fromcond = row index; tocond = column index

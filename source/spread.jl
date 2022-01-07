@@ -57,15 +57,15 @@ Base.@kwdef struct Spreadcase                 # Base.@kwdef -> use keyword argum
 end
 
 function sd_gen(;startday::Int, comply::Float64, cf::Tuple{Float64, Float64},
-    tf::Tuple{Float64, Float64}, name::Symbol, include_ages=[])
-    function runcase(locale, dat, socialparams, infectset, sdcases, ages; startofday)   
-        s_d_seed!(dat, sdcases, startday, comply, cf, tf, name, include_ages, locale, socialparams, infectset, ages;
+                tf::Tuple{Float64, Float64}, name::Symbol, include_ages=[])
+    function runcase(locale, dat, socialparams, infectset, sdcases, age_idx_loc; startofday)   
+        s_d_seed!(dat, sdcases, startday, comply, cf, tf, name, include_ages, locale, socialparams, infectset, age_idx_loc;
                     startofday=startofday)
     end
 end
 
 
-@inline function s_d_seed!(dat, sdcases, startday, comply, cf, tf, name, include_ages, locale, socialparams, infectset, ages; startofday)
+@inline function s_d_seed!(dat, sdcases, startday, comply, cf, tf, name, include_ages, locale, socialparams, infectset, age_idx_loc; startofday)
     @assert 0.0 <= comply <= 1.0  "comply must be floating point in 0.0 to 1.0 inclusive"
     
     startofday || return
@@ -74,7 +74,7 @@ end
         locdat = dat[locale]
 
         if comply == 0.0  # magic signal: if comply is zero turn off this case for include_ages
-            cancel_sd_case!(locdat, sdcases, name, include_ages, ages)
+            cancel_sd_case!(locdat, sdcases, name, include_ages, age_idx_loc)
             return
         end
 
@@ -102,14 +102,14 @@ end
         if isempty(include_ages)   # include all include_ages
             locdat.sdcomply[complyfilter] .= name
         else
-            byage_idx = intersect(complyfilter, union((ages[i] for i in include_ages)...))
+            byage_idx = intersect(complyfilter, union((age_idx_loc[i] for i in include_ages)...))
             locdat.sdcomply[byage_idx] .= name
         end
     end
 end
 
 
-function cancel_sd_case!(locdat, sdcases, name, include_ages, ages)
+function cancel_sd_case!(locdat, sdcases, name, include_ages, age_idx_loc)
     # filter on who is in this case now
     incase_idx = findall(locdat.sdcomply .== name)
 
@@ -117,7 +117,7 @@ function cancel_sd_case!(locdat, sdcases, name, include_ages, ages)
         locdat.sdcomply[incase_idx] .= :none
         delete!(sdcases, name)  # there is no one left in this case...
     else  # only turn it off for some ages
-        byage_idx = intersect(incase_idx, union((ages[i] for i in include_ages)...))
+        byage_idx = intersect(incase_idx, union((age_idx_loc[i] for i in include_ages)...))
         locdat.sdcomply[byage_idx] .= :none
     end    
 
@@ -414,7 +414,7 @@ columns in the population table. Runs social distancing cases.
                       # combine a status or a condition value        
             # contactlookup = col_status[target] == infectious ?  col_cond[target] : col_status[target]  # unexposed or recovered
 
-            if in(col_status[target], (unexposed, recovered))  # only condition that can get infected   TODO: handle reinfection of recovered
+            if in(col_status[target], (unexposed, recovered))  # only conditions that can get infected   
                 touch_param = col_sdcomply[target] == :none ? touchfactors : sdcases[col_sdcomply[target]]
                 touched = istouched(col_agegrp[target], unexposed, touch_param)   # contactlookup or col_status[target]
 
