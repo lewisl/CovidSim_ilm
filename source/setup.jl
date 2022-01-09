@@ -18,6 +18,9 @@ function setup(ndays, locales;  # must provide following inputs
     # simulation data matrix
         datadict = build_data(locales, geodata, ndays)
 
+    # history series
+        series = build_series(locales, ndays)
+
     # social parameters
         socialparams = build_socialparams(socialfilename, paramdir)
 
@@ -34,8 +37,9 @@ function setup(ndays, locales;  # must provide following inputs
         vaxschedset = nothing
     end
 
-    return (ndays=ndays, locales=locales, dat=datadict, transitionset=transitionset, geo=geodata, vaxset=vaxset,
-            vaxschedset=vaxschedset, infectset=infectset, social=socialparams, trvec=trvec)  
+    return (ndays=ndays, locales=locales, dat=datadict, series=series, geo=geodata, 
+            transitionset=transitionset, vaxset=vaxset, vaxschedset=vaxschedset, infectset=infectset, 
+            social=socialparams, trvec=trvec)  
 end
 
 
@@ -60,11 +64,8 @@ function build_data(locales, geodata, n_days)
 
     # precalculate agegrp indices
     agegrp_idx = Dict(loc => precalc_agegrp_filt(popdat[loc]).idx for loc in locales)
-
-    cumhistmx = hist_dict(locales, n_days)
-    newhistmx = hist_dict(locales, n_days)
     
-    return Dict("popdat"=>popdat, "agegrp_idx"=>agegrp_idx, "cumhistmx"=>cumhistmx, "newhistmx"=>newhistmx)
+    return Dict("popdat"=>popdat, "agegrp_idx"=>agegrp_idx)
 end
 
 
@@ -104,24 +105,41 @@ end
 
 
 # columns of history series: traits by agegrp and total:  first 5 cols are agegrps, 6th is total
-const map2series = (unexposed=1:6, infectious=7:12, recovered=13:18, dead=19:24,          # status
-                    nil=25:30, mild=31:36, sick=37:42, severe=43:48, totinfected=49:54,   # conditions
-                    Pfizer=55:60, Moderna=61:66, JnJ=67:72, totvaccinated=73:78,          # vaccines
-                    base=79:84, alpha=85:90, delta=91:96, omicron=97:102)                 # variants
+# const map2series = (unexposed=1:6, infectious=7:12, recovered=13:18, dead=19:24,          # status
+#                     nil=25:30, mild=31:36, sick=37:42, severe=43:48, totinfected=49:54,   # conditions
+#                     Pfizer=55:60, Moderna=61:66, JnJ=67:72, totvaccinated=73:78,          # vaccines
+#                     base=79:84, alpha=85:90, delta=91:96, omicron=97:102)                 # variants
 
 
-# map2dict = Dict{Symbol, UnitRange{Int64}}(:unexposed=>1:6, :infectious=>7:12, :recovered=>13:18, :dead=>19:24,          # status
-#                 :nil=>25:30, :mild=>31:36, :sick=>37:42, :severe=>43:48, :totinfected=>49:54,   # conditions
-#                 :Pfizer=>55:60, :Moderna=>61:66, :JnJ=>67:72, :totvaccinated=>73:78,          # vaccines
-#                 :base=>79:84, :alpha=>85:90, :delta=>91:96, :omicron=>97:102)      
+Base.@kwdef struct Series
+    cum::Matrix{Int}
+    new::Matrix{Int}
+    groups::Vector{Symbol}
+    cols::OrderedDict{Symbol, UnitRange{Int64}}
+end
 
 
-function hist_dict(locales, n_days; conds=allconds, agegrps=n_agegrps)
-    dat = Dict{Int64, Array{Int}}()
+function build_series(locales, n_days)
+    map2dict = OrderedDict{Symbol, UnitRange{Int64}}(
+        :unexposed=>1:6, :infectious=>7:12, :recovered=>13:18, :dead=>19:24,            # status
+        :nil=>25:30, :mild=>31:36, :sick=>37:42, :severe=>43:48, :totinfected=>49:54,   # condition
+        :Pfizer=>55:60, :Moderna=>61:66, :JnJ=>67:72, :totvaccinated=>73:78,            # vaccine
+        :base=>79:84, :alpha=>85:90, :delta=>91:96, :omicron=>97:102                    # variant
+        )   
+    group = collect(keys(map2dict))  
+
+    tmpdict = Dict{Int, Series}()   # dict of locales to Series
+
     for loc in locales
-        dat[loc] = zeros(Int, n_days, map2series[end][end]) 
+        tmpdict[loc] = Series(
+            cum = zeros(Int, n_days, map2dict[last(group)][end]), 
+            new = zeros(Int, n_days, map2dict[last(group)][end]), 
+            groups = group,
+            cols = map2dict
+            )
     end
-    return dat       
+
+    return tmpdict       
 end
 
 
@@ -144,8 +162,6 @@ function build_infect_params(variantfilename, paramdir)
     infectdict = YAML.load_file(joinpath(paramdir, variantfilename))
     loadvariants = infectdict["loadvariants"]
     usevariants = infectdict["usevariants"]
-
-    println("is key base present? ", haskey(infectdict, "base"))
 
     (transitionset, trvec) = build_transition_params(infectdict)
     infectset = build_spread_params(infectdict)
@@ -229,9 +245,6 @@ function build_transition_params(infectdict)
     loadvariants = infectdict["loadvariants"] # array of strings to array of symbols
     usevariants = infectdict["usevariants"]
     transitionset = Dict()
-
-    println(loadvariants)
-    println("infecdict has key base? ", haskey(infectdict, "base"))
 
     for variant in loadvariants
         

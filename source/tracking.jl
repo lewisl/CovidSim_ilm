@@ -57,14 +57,15 @@ end
 
 # outcomes per agegrp
 function virus_outcome(series, locale; agegrp=totalcol, base=:infected)  # denom in (:infected, :pop, :none)
+    map2series = series[locale].cols
 
-    n = size(series[locale][:cum],1)
+    n = size(series[locale].cum, 1)
     outcomes = Dict{Symbol, Float64}()  # TODO should we have integer outcomes for totals when base=:none?
     agegrp = Int(agegrp)
     
     # each denominator for data summary
-    total_pop = series[locale][:cum][1, map2series.unexposed[agegrp]] + series[locale][:cum][1, map2series.infectious[agegrp]]
-    total_infected = series[locale][:cum][end, map2series.totinfected[agegrp]]
+    total_pop = series[locale].cum[1, map2series[:unexposed][agegrp]] + series[locale].cum[1, map2series[:infectious][agegrp]]
+    total_infected = series[locale].cum[end, map2series[:totinfected][agegrp]]
 
     denom = if base == :pop 
                 total_pop 
@@ -76,7 +77,7 @@ function virus_outcome(series, locale; agegrp=totalcol, base=:infected)  # denom
 
     for cond in statuses
         ssym = Symbol(cond)
-        outcomes[ssym] = series[locale][:cum][n, map2series[ssym][agegrp]] / denom
+        outcomes[ssym] = series[locale].cum[n, map2series[ssym][agegrp]] / denom
     end
 
     return outcomes
@@ -84,7 +85,9 @@ end
 
 
 function onecond(series, locale, cond; case=:new, agegrp=totalcol, filt=:pos)
-    datacol = series[locale][case][:,map2series[cond][agegrp]]
+    map2series = series[locale].cols
+
+    datacol = getproperty(series[locale], case)[:,map2series[Symbol(cond)][Int(agegrp)]]
     if filt == :pos
         datacol[datacol .> 0]
     else
@@ -106,10 +109,12 @@ function cumplot(series, locale, plcols=[:unexposed, :infectious, :recovered, :d
 
     !(typeof(plcols) <: Array) && (plcols = [plcols])
 
+    map2series = series[locale].cols
+
     # the data
-    n = size(series[locale][:cum],1)
+    n = size(series[locale].cum, 1)
     days = days == "all" ? (1:n) : days
-    cumseries = series[locale][:cum][days, [map2series[i][totalcol] for i in plcols]]
+    cumseries = series[locale].cum[days, [map2series[i][totalcol] for i in plcols]]
 
     # labels and annotations
     labels = [titlecase(condnames[i]) for i in plcols]
@@ -117,17 +122,17 @@ function cumplot(series, locale, plcols=[:unexposed, :infectious, :recovered, :d
     people = if !isempty(geo)
                 geo[geo[:,fips] .== locale, popsize][1]
              else # this will off by a tiny bit because of rounding
-                series[locale][:cum][1, map2series[:unexposed][totalcol]] + series[locale][:cum][1,map2series[:infectious][totalcol]]
+                series[locale].cum[1, map2series[:unexposed][totalcol]] + series[locale].cum[1,map2series[:infectious][totalcol]]
              end   
     cityname = !isempty(geo) ? geo[geo[:,fips] .== locale, city][1] : ""
-    died = series[locale][:cum][end, map2series[:dead][totalcol]]
+    died = series[locale].cum[end, map2series[:dead][totalcol]]
     # infected = series[locale][:cum][1,map2series[unexposed][totalcol]] - series[locale][:cum][end,map2series[unexposed][totalcol]]
-    infected = people - series[locale][:cum][end,map2series[:unexposed][totalcol]]
-    recovered = series[locale][:cum][end, map2series.recovered[totalcol]]
+    infected = people - series[locale].cum[end,map2series[:unexposed][totalcol]]
+    recovered = series[locale].cum[end, map2series[:recovered][totalcol]]
     unexp = people - infected
 
     firstseries = plcols[1]
-    half_yscale = floor(Int, maximum(series[locale][:cum][:,map2series[firstseries][totalcol]]) * 0.7)
+    half_yscale = floor(Int, maximum(series[locale].cum[:,map2series[firstseries][totalcol]]) * 0.7)
     co_pal = length(plcols) == 2 ? [theme_palette(thm)[2], theme_palette(thm)[4]] : theme_palette(thm)
  
 
@@ -151,20 +156,22 @@ function cumplot(series, locale, plcols=[:unexposed, :infectious, :recovered, :d
 end
 
 
-function newplot(series, locale, plcols=[infectious]; days="all")
+function newplot(series, locale, plcols=[:infectious]; days="all")
 
     # pyplot()
     theme(:ggplot2, foreground_color_border =:black)
 
     !(typeof(plcols) <: Array) && (plcols = [plcols])
 
+    map2series = series[locale].cols
+
     # the data and labels
-    n = size(series[locale][:new],1)
+    n = size(series[locale].new,1)
     days = days == "all" ? (1:n) : days
-    newseries = series[locale][:new][days, [map2series[i][totalcol] for i in plcols]]
+    newseries = series[locale].new[days, [map2series[i][totalcol] for i in plcols]]
     labels = [titlecase(condnames[i]) for i in plcols]
     labels = reshape([labels...], 1, length(labels))
-    people = series[locale][:cum][1, map2series[unexposed][totalcol]] + series[locale][:cum][1,map2series[infectious][totalcol]]
+    people = series[locale].cum[1, map2series[:unexposed][totalcol]] + series[locale].cum[1,map2series[:infectious][totalcol]]
 
     # the plot
     groupedbar( days, newseries[days,1:end], 
@@ -177,7 +184,7 @@ function newplot(series, locale, plcols=[infectious]; days="all")
                 yaxis = ("People"),
                 reuse =false
         )
-    gui()
+    # gui()
 end
 
 

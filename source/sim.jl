@@ -44,8 +44,9 @@ function runsim(model;
     trvec = model.trvec # preallocated small vector
     popdat = deepcopy(model.dat["popdat"])   # Copy the population data so model can be reused!!!
     agegrp_idx = model.dat["agegrp_idx"]   # first key is locale
-    cumhistmx = deepcopy(model.dat["cumhistmx"])   # first key is locale
-    newhistmx = deepcopy(model.dat["newhistmx"])   # first key is locale
+    # cumhistmx = deepcopy(model.dat["cumhistmx"])   # first key is locale
+    # newhistmx = deepcopy(model.dat["newhistmx"])   # first key is locale
+    series = deepcopy(model.series)
     geodf = model.geo
     infectset = model.infectset
     socialparams = model.social
@@ -117,7 +118,7 @@ function runsim(model;
         end
 
         # accumulate simulation statistics
-        histtime += @elapsed do_history!(locales, popdat, cumhistmx, newhistmx, agegrp_idx)
+        histtime += @elapsed do_history!(locales, popdat, series, agegrp_idx)
 
         silent || println("Simulation completed for $(day_ctr[:day]) days.")
     end
@@ -125,7 +126,7 @@ function runsim(model;
     #######################
 
     # simulation history series for plotting: arrays NOT dataframes
-    series = Dict(loc=>Dict(:cum=>cumhistmx[loc], :new=>newhistmx[loc]) for loc in locales)
+    # series = Dict(loc=>Dict(:cum=>cumhistmx[loc], :new=>newhistmx[loc]) for loc in locales)
 
     # sum agegrps to total for all series groups (by agegrp)
     hist_total_agegrps!(series, locales)
@@ -146,18 +147,20 @@ end
 #  Update daily history series
 ################################################################################
 
-@views function do_history!(locales, popdat, cumhist, newhist, agegrp_idx)
+@views function do_history!(locales, popdat, series, agegrp_idx)  # cumhist, newhist,
     thisday = day_ctr[:day]
+    map2series = series[first(locales)].cols
+
     for loc in locales
-        dat = popdat[loc]  # source
-        cumdat = cumhist[loc]   # sink
-        newdat = newhist[loc]   # sink
+        locdat = popdat[loc]  # source
+        cumdat = series[loc].cum   # sink
+        newdat = series[loc].new   # sink
 
         @inbounds for age in instances(agegrp)
             int_age = Int(age)
 
             # get the source data: status
-            dat_age = dat[agegrp_idx[loc][age]]
+            dat_age = locdat[agegrp_idx[loc][age]]
             status_today = countmap(dat_age.status)    # cumulative position for thisday, keys are Enum status
 
             # get the source data: conditions in (nil, mild, sick, severe)
@@ -181,17 +184,17 @@ end
             # cumulative data
             #
             for st in statuses 
-                cumdat[thisday, getindex(map2series, Symbol(st))[int_age]] = get(status_today, st, 0)
+                cumdat[thisday, map2series[Symbol(st)][int_age]] = get(status_today, st, 0)
             end
 
             # insert condition into sink: cum
             for co in infectious_cases # 5:8
-                cumdat[thisday, getindex(map2series, Symbol(co))[int_age]] = get(sick_today, co, 0)
+                cumdat[thisday, map2series[Symbol(co)][int_age]] = get(sick_today, co, 0)
             end
 
             # insert vaccination into sink: cum
             for vax in vaxlist
-                cumdat[thisday, getindex(map2series, vax)[int_age]] = get(vax_today, vax, 0)
+                cumdat[thisday, map2series[vax][int_age]] = get(vax_today, vax, 0)
             end
 
 
@@ -200,22 +203,22 @@ end
             #
             for ac in allconds   # status and conds
                 if thisday == 1
-                    newdat[thisday, getindex(map2series, Symbol(ac))[int_age]] = get(status_today, Int(ac), 0)
+                    newdat[thisday, map2series[Symbol(ac)][int_age]] = get(status_today, Int(ac), 0)
                 else  # on all other days
-                    newdat[thisday, getindex(map2series, Symbol(ac))[int_age]] = (
-                        cumdat[thisday, getindex(map2series,Symbol(ac))[int_age]] 
-                        - cumdat[thisday - 1, getindex(map2series, Symbol(ac))[int_age]]
+                    newdat[thisday, map2series[Symbol(ac)][int_age]] = (
+                        cumdat[thisday, map2series[Symbol(ac)][int_age]] 
+                        - cumdat[thisday - 1, map2series[Symbol(ac)][int_age]]
                         )         
                 end
             end
 
             for vax in vaxlist
                 if thisday == 1
-                    newdat[thisday, getindex(map2series, vax)[int_age]] = get(vax_today, vax, 0)
+                    newdat[thisday, map2series[vax][int_age]] = get(vax_today, vax, 0)
                 else  # on all other days
-                    newdat[thisday, getindex(map2series, vax)[int_age]] = (
-                        cumdat[thisday, getindex(map2series, vax)[int_age]] 
-                        - cumdat[thisday - 1, getindex(map2series, vax)[int_age]]
+                    newdat[thisday, map2series[vax][int_age]] = (
+                        cumdat[thisday, map2series[vax][int_age]] 
+                        - cumdat[thisday - 1, map2series[vax][int_age]]
                         )         
                 end
             end                
@@ -228,44 +231,39 @@ end # function
 
 
 function hist_total_agegrps!(series, locales)
+    cols = series[first(locales)].cols
     for loc in locales
+        locseries = series[loc]
         for kind in [:cum, :new]
-            for cond in Int.(allconds)  # infectious cases and statuses
-                series[loc][kind][:,map2series[cond][totalcol]] = sum(series[loc][kind][:,map2series[cond][collect(Int.(agegrps))]],dims=2)
+            loc_arr = getproperty(locseries, kind)   
+            for cond in allconds  # infectious cases and statuses
+                colgroup = cols[Symbol(cond)]
+                loc_arr[:, colgroup[totalcol]] = sum(loc_arr[:, colgroup[collect(Int.(agegrps))]], dims=2)
+                # series[loc][kind][:,map2series[cond][totalcol]] = sum(series[loc][kind][:,map2series[cond][collect(Int.(agegrps))]],dims=2)
             end
             for vax in vaxlist
-                series[loc][kind][:,map2series[vax][totalcol]] = sum(series[loc][kind][:,map2series[vax][collect(Int.(agegrps))]],dims=2)
+                colgroup = cols[Symbol(vax)]
+                loc_arr[:, colgroup[totalcol]] = sum(loc_arr[:, colgroup[collect(Int.(agegrps))]], dims=2)
+                # series[loc][kind][:,map2series[vax][totalcol]] = sum(series[loc][kind][:,map2series[vax][collect(Int.(agegrps))]],dims=2)
             end
         end
     end
 end
 
 
-function review_history(histmx)
-    for i in 1:size(histmx, 3)
-        println("   *** Day $i ***")
-        display(hcat(histmx[:,:,i], [:Unexposed, :Infectious, :Recovered, :Dead, :Nil, :Mild, :Sick, :Severe]))
-        print("Press enter or type q and enter to quit> "); resp = chomp(readline())
-        if resp == "q"; break; end
-    end
-end
-
-
 # a single locale that already has both new and cum series
 function add_totinfected_series!(series, locale)
-    if !(haskey(series[locale], :cum) && haskey(series[locale], :new))
-        error("locale series must contain both :cum and :new series")
-        return
-    end
+    locseries = series[locale]
+    cols = series[locale].cols
     # for new
     @views begin
-        n = size(series[locale][:new],1)
-        series[locale][:new] = hcat(series[locale][:new], zeros(Int, n, 6))
-        series[locale][:new][:,map2series.totinfected] = ( (series[locale][:new][:,map2series.unexposed] .< 0 ) .*
-                                                          abs.(series[locale][:new][:,map2series.unexposed]) ) 
+        n = size(series[locale].new,1)
+        # locseries.new = hcat(locseries.new, zeros(Int, n, 6))
+        locseries.new[:,cols[:totinfected]] = ( (locseries.new[:,cols[:unexposed]] .< 0 ) .*
+                                                          abs.(locseries.new[:,cols[:unexposed]]) ) 
         # for cum
-        series[locale][:cum] = hcat(series[locale][:cum], zeros(Int, n, 6))
-        cumsum!(series[locale][:cum][:,map2series.totinfected], series[locale][:new][:,map2series.totinfected], dims=1)  
+        # series[locale][:cum] = hcat(series[locale][:cum], zeros(Int, n, 6))
+        cumsum!(locseries.cum[:, cols[:totinfected]], locseries.new[:, cols[:totinfected]], dims=1)  
     end
     return
 end

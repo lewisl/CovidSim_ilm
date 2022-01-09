@@ -241,7 +241,6 @@ export
     newplot,
     dayplot,
     dayanimate2,
-    review_history,
     make_series,
     virus_outcome
 
@@ -305,7 +304,6 @@ export
     condnames,
     infectious_cases,
     transition_cases,
-    map2series,
     series_colnames,
     agegrp,
     age0_19,
