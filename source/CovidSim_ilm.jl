@@ -145,6 +145,7 @@ const allconds = vcat(infectious_cases, statuses) # note excludes uninfected::co
 const agegrps = instances(agegrp) # tuple of enums
 const n_agegrps = length(instances(agegrp))
 const vaxlist = Symbol[]  # filled by vax.jl
+const variantlist = Symbol[]  # filled by setup.jl
 
 # other columns used only in series dataframes
 const totinfected       = 9

@@ -38,20 +38,18 @@ function runsim(model;
     empty_all_caches!() # from previous runs
 
     # split up some members of model
-    ndays = model.ndays
-    locales = model.locales
-    transitionset = model.transitionset  # transition arrays
-    trvec = model.trvec # preallocated small vector
-    popdat = deepcopy(model.dat["popdat"])   # Copy the population data so model can be reused!!!
-    agegrp_idx = model.dat["agegrp_idx"]   # first key is locale
-    # cumhistmx = deepcopy(model.dat["cumhistmx"])   # first key is locale
-    # newhistmx = deepcopy(model.dat["newhistmx"])   # first key is locale
-    series = deepcopy(model.series)
-    geodf = model.geo
-    infectset = model.infectset
-    socialparams = model.social
-    vaxset = model.vaxset
-    vaxschedset = model.vaxschedset
+        ndays = model.ndays
+        locales = model.locales
+        transitionset = model.transitionset  # transition arrays
+        trvec = model.trvec # preallocated small vector
+        popdat = deepcopy(model.dat["popdat"])   # Copy the population data so model can be reused!!!
+        agegrp_idx = model.dat["agegrp_idx"]   # first key is locale
+        series = deepcopy(model.series)
+        geodf = model.geo
+        infectset = model.infectset
+        socialparams = model.social
+        vaxset = model.vaxset
+        vaxschedset = model.vaxschedset
 
     # restart the day counter to zero
     reset!(day_ctr, :day)  # return and reset key to 0 :day leftover from prior runs
@@ -61,12 +59,12 @@ function runsim(model;
     sdcases = Dict{Symbol, Spreadcase}()  # hold definitions of spreadcases
 
 
-    # execution timing
-    vaxtime = 0
-    sprtime = 0
-    trtime = 0
-    idxtime = 0
-    histtime = 0
+    # execution timers
+    vaxtime = 0     # vaccinate
+    sprtime = 0     # spread infection
+    trtime = 0      # transition infected population through stages of illness
+    idxtime = 0     # calculate indices for infectious and susceptible
+    histtime = 0    # update history time series
 
 
     ######################
@@ -85,7 +83,7 @@ function runsim(model;
             
             density_factor = geodf[geodf[!, :fips] .== loc, :density_factor][]  # TODO not a good place for this
             
-            for case in runcases
+            for case in runcases  # cases that run at the beginning of the day
                 case(loc, popdat, socialparams, infectset, sdcases, age_idx_loc; startofday=true)  # TODO extend ages to be any filter for 
             end                                                 # who participates in a given case
 
@@ -105,7 +103,7 @@ function runsim(model;
                                         infectset, vaxset, density_factor, dovax, dovariant)   
             trtime += @elapsed transition!(locdat, infect_idx, infectset, transitionset, vaxset, dovax, dovariant; trvec=trvec)                        
 
-            for case in runcases
+            for case in runcases  # cases that run at the end of the day
                 case(loc, popdat, socialparams, infectset, sdcases, age_idx_loc; startofday=false)  # TODO extend ages to be any filter for 
             end                                                 # who participates in a given case
 
@@ -179,50 +177,37 @@ end
                 vax_today = Dict()
             end
 
-
-            #
-            # cumulative data
-            #
-            for st in statuses 
-                cumdat[thisday, map2series[Symbol(st)][int_age]] = get(status_today, st, 0)
+            # get the source data: variants: use filt_infectious from above...
+            if length(filt_infectious) > 0
+                variant_today = countmap(last.(dat_age.variant[filt_infectious]))
+            else
+                variant_today = Dict()
             end
-
-            # insert condition into sink: cum
-            for co in infectious_cases # 5:8
-                cumdat[thisday, map2series[Symbol(co)][int_age]] = get(sick_today, co, 0)
-            end
-
-            # insert vaccination into sink: cum
-            for vax in vaxlist
-                cumdat[thisday, map2series[vax][int_age]] = get(vax_today, vax, 0)
-            end
-
-
+            
             #
-            # new (each day) data
+            # cumulative and new series
             #
-            for ac in allconds   # status and conds
-                if thisday == 1
-                    newdat[thisday, map2series[Symbol(ac)][int_age]] = get(status_today, Int(ac), 0)
-                else  # on all other days
-                    newdat[thisday, map2series[Symbol(ac)][int_age]] = (
-                        cumdat[thisday, map2series[Symbol(ac)][int_age]] 
-                        - cumdat[thisday - 1, map2series[Symbol(ac)][int_age]]
-                        )         
+
+            function saveseries!(cumdat, newdat, items, sourcemap, filt)
+                for item in items
+                    if thisday == 1
+                        cumdat[thisday, map2series[Symbol(item)][filt]] = get(sourcemap, item, 0)
+                        newdat[thisday, map2series[Symbol(item)][filt]] = get(sourcemap, item, 0)  # initialize 1st day of new
+                    else
+                        cumdat[thisday, map2series[Symbol(item)][filt]] = get(sourcemap, item, 0)
+                        newdat[thisday, map2series[Symbol(item)][filt]] = (    # day 2... do cum(day n) - cum(day n-1)
+                            cumdat[thisday, map2series[Symbol(item)][filt]]
+                            - cumdat[thisday - 1, map2series[Symbol(item)][filt]]
+                        )
+                    end
                 end
             end
 
-            for vax in vaxlist
-                if thisday == 1
-                    newdat[thisday, map2series[vax][int_age]] = get(vax_today, vax, 0)
-                else  # on all other days
-                    newdat[thisday, map2series[vax][int_age]] = (
-                        cumdat[thisday, map2series[vax][int_age]] 
-                        - cumdat[thisday - 1, map2series[vax][int_age]]
-                        )         
-                end
-            end                
-
+            saveseries!(cumdat, newdat, statuses, status_today, int_age)
+            saveseries!(cumdat, newdat, infectious_cases, sick_today, int_age)
+            saveseries!(cumdat, newdat, vaxlist, vax_today, int_age)
+            saveseries!(cumdat, newdat, variantlist, variant_today, int_age)
+        
         end # for age in agegrps
 
     end # for loc in locales
@@ -236,16 +221,22 @@ function hist_total_agegrps!(series, locales)
         locseries = series[loc]
         for kind in [:cum, :new]
             loc_arr = getproperty(locseries, kind)   
+
             for cond in allconds  # infectious cases and statuses
                 colgroup = cols[Symbol(cond)]
                 loc_arr[:, colgroup[totalcol]] = sum(loc_arr[:, colgroup[collect(Int.(agegrps))]], dims=2)
-                # series[loc][kind][:,map2series[cond][totalcol]] = sum(series[loc][kind][:,map2series[cond][collect(Int.(agegrps))]],dims=2)
             end
+
             for vax in vaxlist
                 colgroup = cols[Symbol(vax)]
                 loc_arr[:, colgroup[totalcol]] = sum(loc_arr[:, colgroup[collect(Int.(agegrps))]], dims=2)
-                # series[loc][kind][:,map2series[vax][totalcol]] = sum(series[loc][kind][:,map2series[vax][collect(Int.(agegrps))]],dims=2)
             end
+
+            for variant in variantlist
+                colgroup = cols[Symbol(variant)]
+                loc_arr[:, colgroup[totalcol]] = sum(loc_arr[:, colgroup[collect(Int.(agegrps))]], dims=2)
+            end
+
         end
     end
 end

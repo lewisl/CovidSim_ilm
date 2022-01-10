@@ -124,8 +124,10 @@ function build_vaxset(vaccinefilename; paramdir="../parameters")
         deleteat!(vaxlist, collect(1:l))
     end
 
-    for k in keys(vaxset)
-        push!(vaxlist, k)   # this is a module global variable. Forgive me for I have sinned--except it makes sense...
+    if isempty(vaxlist)
+        for k in keys(vaxset)
+            push!(vaxlist, k)   # this is a module global variable. Forgive me for I have sinned--except it makes sense...
+        end
     end
 
     return vaxset

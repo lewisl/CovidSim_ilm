@@ -186,6 +186,7 @@ function build_spread_params(variants, paramdir)
         v = Infectparams(v)
         infectset[variant] = v  # access a param as infectset[:alpha].recvrisk
     end
+
     return infectset
 end
 
@@ -204,6 +205,13 @@ function build_spread_params(infectdict::Dict)
         newdict2 = Dict(Symbol(k) => v for (k,v) in newdict)
         infectset[Symbol(variant)] = Infectparams(newdict2)
     end
+
+    if isempty(variantlist)
+        for variant in loadvariants
+            push!(variantlist, Symbol(variant))   # this is a module global variable. Forgive me for I have sinned--except it makes sense...
+        end
+    end
+
     return infectset
 end
 
