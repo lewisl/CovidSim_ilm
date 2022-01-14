@@ -19,9 +19,15 @@ locdat must be a population table for a single locale.
 @inline function transition!(locdat, infect_idx, infectset, transitionset, vaxset, dovax, dovariant; vaxfn! = noop, trvec = zeros(6))
         
     # aliases for person attribute columns--deref the named tuple once
-    v_sickday = locdat.sickday
-    v_cond = locdat.cond
-    v_agegrp = locdat.agegrp
+    c_sickday = locdat.sickday
+    c_cond = locdat.cond
+    c_agegrp = locdat.agegrp
+    c_vaxstatus = locdat.vaxstatus
+    c_status = locdat.status
+    c_variant = locdat.variant 
+    c_recovday = locdat.recovday 
+    c_vaxrcvd = locdat.vaxrcvd
+    c_vaxday = locdat.vaxday
 
     if dovax
         vaxfn! = vaxfn! == noop ? vaxtransitioneffect! : vaxfn!  # last branch new vaxfn! was passed in
@@ -32,14 +38,16 @@ locdat must be a population table for a single locale.
     transarray = transitionset[:base].tree   
 
     for p in infect_idx  # p for infected person    
-        p_sickday = v_sickday[p]
-        p_cond = v_cond[p]
-        p_agegrp = v_agegrp[p]  # agegroup of person p = agegrp column of locale data, row p 
+        p_sickday = c_sickday[p]
+        p_cond = c_cond[p]
+        p_agegrp = c_agegrp[p]  # agegroup of person p = agegrp column of locale data, row p 
 
         # if person's agegrp, sickday, and condition match a transition stage
         transvec = has(getfield(transarray, Symbol(p_agegrp)), p_sickday, p_cond, trvec) 
 
-        riskadjustments = riskadjust(infectset, vaxset, locdat, p)   # TODO make a function specific to transition
+        riskadjustments = riskadjust(infectset, vaxset, p;
+                        c_vaxstatus=c_vaxstatus, c_status=c_status, c_variant=c_variant, 
+                        c_recovday=c_recovday, c_vaxrcvd=c_vaxrcvd, c_vaxday=c_vaxday)   # TODO make a function specific to transition
 
         vaxfn!(transvec, riskadjustments) #vaxfn! will be function noop or function vaxtransitioneffect
 

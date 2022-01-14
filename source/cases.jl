@@ -19,8 +19,8 @@ Returns a function that can be used in runcases input to run_a_sim.
 """
 function seed_case_gen(day, cnt, sickday, cond, variant, agegrp) # these args go into the returned seed! case
     # this gets returned; assign it a value at the cmdline; use as an input to run_a_sim
-    function runcase(locale, dat, socialparams, infectset, sdcases, ages; startofday)  # args must match runcases loop in run_a_sim
-        seed!(day, cnt, sickday, cond, variant, agegrp, locale, dat; startofday=startofday)  # payload: this is what the function will do when run
+    function caserunner(locdat, socialparams, infectset, sdcases, ages; startofday)  # args must match runcases loop in run_a_sim
+        seed!(day, cnt, sickday, cond, variant, agegrp, locdat; startofday=startofday)  # payload: this is what the function will do when run
     end
 end
 
@@ -30,16 +30,16 @@ end
 
 This is the action function that setups and implements a seeding case all in one execution.
 """
-function seed!(day, cnt, sickday, conds, variants, agegrps, locale, dat; startofday)
+function seed!(day, cnt, sickday, conds, variants, agegrps, locdat; startofday)
 
     startofday || return  # if true->don't return.  if false->then do return
 
     @assert length(sickday) == 1 "input only one sickday value"
     # @warn "Seeding is for testing and may result in case counts out of balance"
     if day == day_ctr[:day]
-        println("*** seed day $(day_ctr[:day]): $(sum(cnt)) $conds to $locale")
+        println("*** seed day $(day_ctr[:day]): $(sum(cnt)) $conds")
         # @assert (cond in [nil, mild, sick, severe]) "Seed cases must have conditions of nil, mild, sick, or severe" 
-        make_sick!(dat[locale]; cnt=cnt, ages=agegrps, tocond=conds, tovariant=variants, tosickday=sickday)
+        make_sick!(locdat; cnt=cnt, ages=agegrps, tocond=conds, tovariant=variants, tosickday=sickday)
     end
 end
 

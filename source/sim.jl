@@ -65,11 +65,13 @@ function runsim(model;
     trtime = 0      # transition infected population through stages of illness
     idxtime = 0     # calculate indices for infectious and susceptible
     histtime = 0    # update history time series
+    totalsimtime = 0
 
 
     ######################
     # simulation loop
     ######################
+    totalsimtime += @elapsed begin
     for i = 1:ndays
         inc!(day_ctr, :day)  # increment the simulation day counter
         silent || println("simulation day: ", day_ctr[:day])
@@ -78,13 +80,15 @@ function runsim(model;
 
             silent || println("Simulation starting for location $loc")
             
-            locdat = popdat[loc]
+            # this should be the first and only place to deref the locale (as loc)
+            locdat = popdat[loc]  
+            locseries = series[loc]
             age_idx_loc = agegrp_idx[loc]  # indices by agegrp
             
             density_factor = geodf[geodf[!, :fips] .== loc, :density_factor][]  # TODO not a good place for this
             
             for case in runcases  # cases that run at the beginning of the day
-                case(loc, popdat, socialparams, infectset, sdcases, age_idx_loc; startofday=true)  # TODO extend ages to be any filter for 
+                case(locdat, socialparams, infectset, sdcases, age_idx_loc; startofday=true)  # TODO extend ages to be any filter for 
             end                                                 # who participates in a given case
 
             # filter for key people
@@ -104,7 +108,7 @@ function runsim(model;
             trtime += @elapsed transition!(locdat, infect_idx, infectset, transitionset, vaxset, dovax, dovariant; trvec=trvec)                        
 
             for case in runcases  # cases that run at the end of the day
-                case(loc, popdat, socialparams, infectset, sdcases, age_idx_loc; startofday=false)  # TODO extend ages to be any filter for 
+                case(locdat, socialparams, infectset, sdcases, age_idx_loc; startofday=false)  # TODO extend ages to be any filter for 
             end                                                 # who participates in a given case
 
             # r0 displayed every 10 days
@@ -113,28 +117,20 @@ function runsim(model;
                 println("day $(day_ctr[:day]), locale $loc: rt = $current_r0")
             end
 
-        end
+            # accumulate simulation statistics in series for plotting: arrays NOT dataframes
+            histtime += @elapsed begin
+                do_history!(locdat, locseries, age_idx_loc)
+                hist_total_agegrps!(locseries) # sum agegrps to total for all series groups (by agegrp)
+                add_totinfected_series!(locseries) # we might need a totvaccinated series
+            end
 
-        # accumulate simulation statistics
-        histtime += @elapsed do_history!(locales, popdat, series, agegrp_idx)
+        end # for loc in locales
 
         silent || println("Simulation completed for $(day_ctr[:day]) days.")
-    end
+    end # for i in 1:n_days
+    end # totalsimtime
 
-    #######################
-
-    # simulation history series for plotting: arrays NOT dataframes
-    # series = Dict(loc=>Dict(:cum=>cumhistmx[loc], :new=>newhistmx[loc]) for loc in locales)
-
-    # sum agegrps to total for all series groups (by agegrp)
-    hist_total_agegrps!(series, locales)
-
-    for loc in locales
-        add_totinfected_series!(series, loc)
-        # we might need a totvaccinated series
-    end
-
-    @show idxtime, vaxtime, sprtime, trtime, histtime
+    @show idxtime, vaxtime, sprtime, trtime, histtime, totalsimtime
 
     return popdat, series
 end
@@ -145,118 +141,108 @@ end
 #  Update daily history series
 ################################################################################
 
-@views function do_history!(locales, popdat, series, agegrp_idx)  # cumhist, newhist,
+@views function do_history!(locdat, locseries, age_idx_loc)  # cumhist, newhist,
     thisday = day_ctr[:day]
-    map2series = series[first(locales)].cols
+    map2series = locseries.cols
+        
+    cumdat = locseries.cum   # sink
+    newdat = locseries.new   # sink
 
-    for loc in locales
-        locdat = popdat[loc]  # source
-        cumdat = series[loc].cum   # sink
-        newdat = series[loc].new   # sink
+    @inbounds for age in instances(agegrp)
+        int_age = Int(age)
 
-        @inbounds for age in instances(agegrp)
-            int_age = Int(age)
+        # get the source data: status
+        dat_age = locdat[age_idx_loc][age]
+        status_today = countmap(dat_age.status)    # cumulative position for thisday, keys are Enum status
 
-            # get the source data: status
-            dat_age = locdat[agegrp_idx[loc][age]]
-            status_today = countmap(dat_age.status)    # cumulative position for thisday, keys are Enum status
+        # get the source data: conditions in (nil, mild, sick, severe)
+        filt_infectious = findall(dat_age.status .== infectious)
+        if length(filt_infectious) > 0
+            sick_today = countmap(dat_age.cond[filt_infectious])  # keys are enum condition
+        else   # there can be days when no one is infected
+            sick_today = Dict()
+        end
 
-            # get the source data: conditions in (nil, mild, sick, severe)
-            filt_infectious = findall(dat_age.status .== infectious)
-            if length(filt_infectious) > 0
-                sick_today = countmap(dat_age.cond[filt_infectious])  # keys are enum condition
-            else   # there can be days when no one is infected
-                sick_today = Dict()
-            end
+        # get the source data: vaccination
+        filt_vaccinated = findall(last.(dat_age.vaxrcvd) .!= :none)
+        if length(filt_vaccinated) > 0
+            vax_today = countmap(last.(dat_age.vaxrcvd[filt_vaccinated]))  # keys are symbol
+        else
+            vax_today = Dict()
+        end
 
-            # get the source data: vaccination
-            filt_vaccinated = findall(last.(dat_age.vaxrcvd) .!= :none)
-            if length(filt_vaccinated) > 0
-                vax_today = countmap(last.(dat_age.vaxrcvd[filt_vaccinated]))  # keys are symbol
-            else
-                vax_today = Dict()
-            end
+        # get the source data: variants: use filt_infectious from above...
+        if length(filt_infectious) > 0
+            variant_today = countmap(last.(dat_age.variant[filt_infectious]))
+        else
+            variant_today = Dict()
+        end
+        
+        #
+        # cumulative and new series
+        #
 
-            # get the source data: variants: use filt_infectious from above...
-            if length(filt_infectious) > 0
-                variant_today = countmap(last.(dat_age.variant[filt_infectious]))
-            else
-                variant_today = Dict()
-            end
-            
-            #
-            # cumulative and new series
-            #
-
-            function saveseries!(cumdat, newdat, items, sourcemap, filt)
-                for item in items
-                    if thisday == 1
-                        cumdat[thisday, map2series[Symbol(item)][filt]] = get(sourcemap, item, 0)
-                        newdat[thisday, map2series[Symbol(item)][filt]] = get(sourcemap, item, 0)  # initialize 1st day of new
-                    else
-                        cumdat[thisday, map2series[Symbol(item)][filt]] = get(sourcemap, item, 0)
-                        newdat[thisday, map2series[Symbol(item)][filt]] = (    # day 2... do cum(day n) - cum(day n-1)
-                            cumdat[thisday, map2series[Symbol(item)][filt]]
-                            - cumdat[thisday - 1, map2series[Symbol(item)][filt]]
-                        )
-                    end
+        function saveseries!(cumdat, newdat, items, sourcemap, filt)
+            for item in items
+                if thisday == 1
+                    cumdat[thisday, map2series[Symbol(item)][filt]] = get(sourcemap, item, 0)
+                    newdat[thisday, map2series[Symbol(item)][filt]] = get(sourcemap, item, 0)  # initialize 1st day of new
+                else
+                    cumdat[thisday, map2series[Symbol(item)][filt]] = get(sourcemap, item, 0)
+                    newdat[thisday, map2series[Symbol(item)][filt]] = (    # day 2... do cum(day n) - cum(day n-1)
+                        cumdat[thisday, map2series[Symbol(item)][filt]]
+                        - cumdat[thisday - 1, map2series[Symbol(item)][filt]]
+                    )
                 end
             end
+        end
 
-            saveseries!(cumdat, newdat, statuses, status_today, int_age)
-            saveseries!(cumdat, newdat, infectious_cases, sick_today, int_age)
-            saveseries!(cumdat, newdat, vaxlist, vax_today, int_age)
-            saveseries!(cumdat, newdat, variantlist, variant_today, int_age)
+        saveseries!(cumdat, newdat, statuses, status_today, int_age)
+        saveseries!(cumdat, newdat, infectious_cases, sick_today, int_age)
+        saveseries!(cumdat, newdat, vaxlist, vax_today, int_age)
+        saveseries!(cumdat, newdat, variantlist, variant_today, int_age)
         
-        end # for age in agegrps
-
-    end # for loc in locales
+    end # for age in agegrps
 
 end # function
 
 
-function hist_total_agegrps!(series, locales)
-    cols = series[first(locales)].cols
-    for loc in locales
-        locseries = series[loc]
-        for kind in [:cum, :new]
-            loc_arr = getproperty(locseries, kind)   
+function hist_total_agegrps!(locseries)
+    cols = locseries.cols
+    for kind in [:cum, :new]
+        loc_arr = getproperty(locseries, kind)   
 
-            for cond in allconds  # infectious cases and statuses
-                colgroup = cols[Symbol(cond)]
-                loc_arr[:, colgroup[totalcol]] = sum(loc_arr[:, colgroup[collect(Int.(agegrps))]], dims=2)
-            end
-
-            for vax in vaxlist
-                colgroup = cols[Symbol(vax)]
-                loc_arr[:, colgroup[totalcol]] = sum(loc_arr[:, colgroup[collect(Int.(agegrps))]], dims=2)
-            end
-
-            for variant in variantlist
-                colgroup = cols[Symbol(variant)]
-                loc_arr[:, colgroup[totalcol]] = sum(loc_arr[:, colgroup[collect(Int.(agegrps))]], dims=2)
-            end
-
+        for cond in allconds  # infectious cases and statuses
+            colgroup = cols[Symbol(cond)]
+            loc_arr[:, colgroup[totalcol]] = sum(loc_arr[:, colgroup[collect(Int.(agegrps))]], dims=2)
         end
+
+        for vax in vaxlist
+            colgroup = cols[Symbol(vax)]
+            loc_arr[:, colgroup[totalcol]] = sum(loc_arr[:, colgroup[collect(Int.(agegrps))]], dims=2)
+        end
+
+        for variant in variantlist
+            colgroup = cols[Symbol(variant)]
+            loc_arr[:, colgroup[totalcol]] = sum(loc_arr[:, colgroup[collect(Int.(agegrps))]], dims=2)
+        end
+
     end
 end
 
 
 # a single locale that already has both new and cum series
-function add_totinfected_series!(series, locale)
-    locseries = series[locale]
-    cols = series[locale].cols
+function add_totinfected_series!(locseries)
+    cols = locseries.cols
     # for new
     @views begin
-        n = size(series[locale].new,1)
+        n = size(locseries.new,1)
         # locseries.new = hcat(locseries.new, zeros(Int, n, 6))
         locseries.new[:,cols[:totinfected]] = ( (locseries.new[:,cols[:unexposed]] .< 0 ) .*
                                                           abs.(locseries.new[:,cols[:unexposed]]) ) 
-        # for cum
-        # series[locale][:cum] = hcat(series[locale][:cum], zeros(Int, n, 6))
         cumsum!(locseries.cum[:, cols[:totinfected]], locseries.new[:, cols[:totinfected]], dims=1)  
     end
-    return
+    return nothing
 end
 
 
