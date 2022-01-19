@@ -121,11 +121,11 @@ the number of days the person has been sick.
         if tocond == dead  
             locdat.deadday[p] = day_ctr[:day]
             locdat.status[p] = dead  # change the status
-            # locdat.cond[p] = uninfected # change the condition--> kept to know what cause of death was
+            locdat.cond[p] = uninfected # change the condition--> kept to know what cause of death was
         elseif tocond == recovered
             push!(locdat.recovday[p], day_ctr[:day])
             locdat.status[p] = recovered
-            # locdat.cond[p] = uninfected   # TODO decide if this makes sense--using this to maintain a history of past infection
+            locdat.cond[p] = uninfected   # TODO decide if this makes sense--using this to maintain a history of past infection
         else   
             locdat.cond[p] = tocond   # change the condition = degree of sickness
             locdat.sickday[p] += 1    # advance number of days person has been sick

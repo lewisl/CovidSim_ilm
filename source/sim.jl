@@ -88,7 +88,7 @@ function runsim(model;
             density_factor = geodf[geodf[!, :fips] .== loc, :density_factor][]  # TODO not a good place for this
             
             for case in runcases  # cases that run at the beginning of the day
-                case(locdat, socialparams, infectset, sdcases, age_idx_loc; startofday=true)  # TODO extend ages to be any filter for 
+                case(locdat, socialparams, infectset, sdcases, age_idx_loc; day=day_ctr[:day], startofday=true, locale=loc)  # TODO extend ages to be any filter for 
             end                                                 # who participates in a given case
 
             # filter for key people
@@ -108,7 +108,7 @@ function runsim(model;
             trtime += @elapsed transition!(locdat, infect_idx, infectset, transitionset, vaxset, dovax, dovariant; trvec=trvec)                        
 
             for case in runcases  # cases that run at the end of the day
-                case(locdat, socialparams, infectset, sdcases, age_idx_loc; startofday=false)  # TODO extend ages to be any filter for 
+                case(locdat, socialparams, infectset, sdcases, age_idx_loc; day=day_ctr[:day], startofday=false, locale=loc)  # TODO extend ages to be any filter for 
             end                                                 # who participates in a given case
 
             # r0 displayed every 10 days
