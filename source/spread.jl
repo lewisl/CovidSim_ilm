@@ -403,17 +403,31 @@ columns in the population table. Runs social distancing cases.
     c_vaxday     = locdat.vaxday
 
 
+    # initialization before spreading loop
+    shuffle!(contactable_idx)
+    taken = pos = 0
+    mx = length(contactable_idx)
+
+
     # assign contacts, do touches, do new infections
     @inbounds for spr in infect_idx      # spr is the person who is the spreader
-        # determine number of outbound contacts
+        # determine number of outbound contacts and the selected ones => sel
         contact_param = c_sdcomply[spr] == :none ? contactfactors : sdcases[c_sdcomply[spr]]
         nc = numcontacts(density_factor, gammashape, c_agegrp[spr], c_cond[spr], contact_param)  
-        
+        pos = taken + 1
+        taken = taken + nc
+        if taken <= mx
+            sel = pos:taken
+        else
+            sel = Iterators.flatten((pos:mx, 1:(taken - mx)))
+            taken = taken - mx
+        end
+
         # TODO we could keep track of contacts for contact tracing
         # target is the outbound contact reached by the spr (spreader)
-        @inbounds @fastmath for target in sample(contactable_idx, nc, replace=true) # people can get contacted more than once
-                      # combine a status or a condition value        
-            # contactlookup = c_status[target] == infectious ?  c_cond[target] : c_status[target]  # unexposed or recovered
+        # @inbounds @fastmath for target in sample(contactable_idx, nc, replace=true) # people can get contacted more than once
+        @inbounds @fastmath for i in sel
+            target = contactable_idx[i]
 
             if in(c_status[target], (unexposed, recovered))  # only conditions that can get infected   
                 touch_param = c_sdcomply[target] == :none ? touchfactors : sdcases[c_sdcomply[target]]
@@ -427,15 +441,17 @@ columns in the population table. Runs social distancing cases.
                     risk = infectrisk(infectset, c_variant, c_sickday, c_agegrp, spr, target, adjustfactor)
                     if isinfected(risk)
                         tovariant = dovariant ? c_variant[spr][end] : :base
-                        c_cond[target] = nil # nil === asymptomatic or pre-symptomatic
-                        c_status[target] = infectious
-                        c_sickday[target] = 1
-                        push!(c_variant[target], tovariant)
+                        begin # make the target sick
+                            c_cond[target] = nil 
+                            c_status[target] = infectious
+                            c_sickday[target] = 1
+                            push!(c_variant[target], tovariant)
+                        end
                         n_newly_infected += 1
                     end
                 end  # if (touched ...)
             end  # if contactstatus
-        end  # for target in sample(...)
+        end  # for target in sample(...) or for i in sel
     end  # for p in infect_idx
 
     return n_newly_infected # n_contacts, n_touched, n_newly_infected

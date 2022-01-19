@@ -505,28 +505,30 @@ function circ(n=30)
         pos = taken + 1
         taken = taken + nc
         if taken <= mx
-            sel = collect(pos:taken)
+            sel = pos:taken
         else
-            sel = collect(pos:mx)
-            append!(sel, 1:(taken-mx))
+            sel = Iterators.flatten((pos:mx, 1:(taken - mx)))
             taken = taken-mx
         end
-        println("spr: ", spr, " contacts: ", nc, " are: ", sel)
-    end
-end
-
-function circ2(n=30)
-    infect_idx = collect(1:n)
-    contactable_idx = collect(1:3*n)
-
-    shuffle!(contactable_idx)
-    taken = pos = 0
-    mx = length(contactable_idx)
-
-    for spr in infect_idx
-        nc = rand(0:6)  # sloppy use of uniform dist.
-        for target in 1:(Iterators.take(1:mx, nc)
-            println("spr: ", spr, " contacts: ", nc, " are: ", target)
+        println("spreader: ", spr, " nc: ", nc, " sel: ", sel)
+        for i in sel
+            println("    target: ", contactable_idx[i])
         end
     end
 end
+
+# function circ2(n=30)
+#     infect_idx = collect(1:n)
+#     contactable_idx = collect(1:3*n)
+
+#     shuffle!(contactable_idx)
+#     taken = pos = 0
+#     mx = length(contactable_idx)
+
+#     for spr in infect_idx
+#         nc = rand(0:6)  # sloppy use of uniform dist.
+#         for target in 1:(Iterators.take(1:mx, nc)
+#             println("spr: ", spr, " contacts: ", nc, " are: ", target)
+#         end
+#     end
+# end
