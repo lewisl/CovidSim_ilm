@@ -517,18 +517,41 @@ function circ(n=30)
     end
 end
 
-# function circ2(n=30)
-#     infect_idx = collect(1:n)
-#     contactable_idx = collect(1:3*n)
 
-#     shuffle!(contactable_idx)
-#     taken = pos = 0
-#     mx = length(contactable_idx)
+#########################################
+# compare dict of vectors to named tuple of vectors
+#########################################
 
-#     for spr in infect_idx
-#         nc = rand(0:6)  # sloppy use of uniform dist.
-#         for target in 1:(Iterators.take(1:mx, nc)
-#             println("spr: ", spr, " contacts: ", nc, " are: ", target)
-#         end
-#     end
-# end
+function make_dict_vect(num, sz, typ)
+    outdict = Dict{Symbol, Vector{typ}}()
+    for i in 1:num
+        outdict[Symbol("c" * repr(i))] = zeros(typ, sz)
+    end
+    return outdict
+end
+
+
+function make_nt_vect(num, sz, typ)
+    tmp = Dict{String, Vector{typ}}()
+    for i in 1:num
+        tmp["c" * repr(i)] = zeros(typ, sz)
+    end
+    return (; (Symbol(k) => v for (k,v) in tmp)...)
+end
+
+function dowork!(dat::Dict{Symbol, Vector{Int64}}, cols)
+    for i in cols
+        dat[Symbol("c" * repr(i))] .+= 3
+    end
+end
+
+function dowork!(dat::NamedTuple, cols)
+    for i in cols
+        dat[Symbol("c" * repr(i))] .+= 3
+    end
+end
+
+function wrap(dat, cols)
+    dowork!(dat, cols)
+end
+

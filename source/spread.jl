@@ -411,9 +411,11 @@ columns in the population table. Runs social distancing cases.
 
     # assign contacts, do touches, do new infections
     @inbounds for spr in infect_idx      # spr is the person who is the spreader
-        # determine number of outbound contacts and the selected ones => sel
+        # determine number of outbound contacts 
         contact_param = c_sdcomply[spr] == :none ? contactfactors : sdcases[c_sdcomply[spr]]
         nc = numcontacts(density_factor, gammashape, c_agegrp[spr], c_cond[spr], contact_param)  
+
+        # step through shuffled contactable_idx as sel and wrap around
         pos = taken + 1
         taken = taken + nc
         if taken <= mx
