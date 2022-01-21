@@ -16,18 +16,19 @@ they move to recovered or dead.
 
 locdat must be a population table for a single locale.
 """
-@inline function transition!(locdat, infect_idx, infectset, transitionset, vaxset, dovax, dovariant; vaxfn! = noop, trvec = zeros(6))
-        
-    # aliases for person attribute columns--deref the named tuple once
-    c_sickday = locdat.sickday
-    c_cond = locdat.cond
-    c_agegrp = locdat.agegrp
-    c_vaxstatus = locdat.vaxstatus
-    c_status = locdat.status
-    c_variant = locdat.variant 
-    c_recovday = locdat.recovday 
-    c_vaxrcvd = locdat.vaxrcvd
-    c_vaxday = locdat.vaxday
+@inline function transition!(infect_idx, infectset, transitionset, vaxset, dovax, dovariant; vaxfn! = noop, trvec = zeros(6),
+        c_cond,
+        c_status,
+        c_agegrp,
+        c_sickday,
+        c_sdcomply,
+        c_variant,
+        c_vaxstatus,
+        c_recovday,
+        c_vaxrcvd,
+        c_vaxday,
+        c_deadday
+    )
 
     if dovax
         vaxfn! = vaxfn! == noop ? vaxtransitioneffect! : vaxfn!  # last branch new vaxfn! was passed in
@@ -51,8 +52,13 @@ locdat must be a population table for a single locale.
 
         vaxfn!(transvec, riskadjustments) #vaxfn! will be function noop or function vaxtransitioneffect
 
-        dotransition!(locdat, p, p_cond, transvec) # perform transition logic and update population table
-
+        dotransition!(p, p_cond, transvec; # perform transition logic and update population table
+                c_sickday   = c_sickday,
+                c_deadday   = c_deadday,
+                c_status    = c_status,
+                c_cond      = c_cond,
+                c_recovday  = c_recovday
+            )
     end  
 end
 
@@ -96,11 +102,17 @@ Transition an infected person to a new condition or status if called
 with a transition vector (trvec) or increment
 the number of days the person has been sick.
 """
-@inline function dotransition!(locdat, p, p_cond, trvec::Union{Vector{Float64}, Nothing})
+@inline function dotransition!(p, p_cond, trvec::Union{Vector{Float64}, Nothing};
+                c_sickday,
+                c_deadday,
+                c_status,
+                c_cond,
+                c_recovday
+            )
    
     if isnothing(trvec)
 
-        locdat.sickday[p] += 1  
+        c_sickday[p] += 1  
 
     else
         choice = categorical_sim(trvec) # which outcome based on probability...?
@@ -119,16 +131,16 @@ the number of days the person has been sick.
         # end
 
         if tocond == dead  
-            locdat.deadday[p] = day_ctr[:day]
-            locdat.status[p] = dead  # change the status
-            locdat.cond[p] = uninfected # change the condition--> kept to know what cause of death was
+            c_deadday[p] = day_ctr[:day]
+            c_status[p] = dead  # change the status
+            c_cond[p] = uninfected # change the condition--> kept to know what cause of death was
         elseif tocond == recovered
-            push!(locdat.recovday[p], day_ctr[:day])
-            locdat.status[p] = recovered
-            locdat.cond[p] = uninfected   # TODO decide if this makes sense--using this to maintain a history of past infection
+            push!(c_recovday[p], day_ctr[:day])
+            c_status[p] = recovered
+            c_cond[p] = uninfected   # TODO decide if this makes sense--using this to maintain a history of past infection
         else   
-            locdat.cond[p] = tocond   # change the condition = degree of sickness
-            locdat.sickday[p] += 1    # advance number of days person has been sick
+            c_cond[p] = tocond   # change the condition = degree of sickness
+            c_sickday[p] += 1    # advance number of days person has been sick
         end    
     end
 end
@@ -141,7 +153,13 @@ on vaccination, recovery from previous infection and the variant of the infectio
 
 Returns (variant=variantfactor, recov=recovfactor, vax=vaxfactor)
 """
-@inline function tr_riskadjust(infectset, vaxset, locdat, target; spr=0)
+@inline function tr_riskadjust(infectset, vaxset, locdat, target; spr=0,
+                c_vaxstatus,
+                c_status,
+                c_variant,
+                c_vaxrcvd,
+                c_vaxday
+            )
     # calculate based on recovery date and variant half-life of partial immunity and immunity strength
     # initially using exponential decay   TODO add parameter for exponential or sigmoid decay
 
@@ -151,13 +169,13 @@ Returns (variant=variantfactor, recov=recovfactor, vax=vaxfactor)
     oneshotfactor = 0.85   # TODO yet another parameter to put somewhere...!
 
     # target person characteristics
-    vaxstatus = locdat.vaxstatus[target]
-    status = locdat.status[target]
+    vaxstatus = c_vaxstatus[target]
+    status = c_status[target]
     
     # recovery effect, based on variant of person's infection
     if status == recovered
 
-        variant = locdat.variant[target][end]
+        variant = c_variant[target][end]
         days_post_recov = today - locdat.recovday[target][end] #recovday is a vector of days--get the last one
 
         if days_post_recov > 0   # TODO should be an assert: does this run day of or day after recovery?
@@ -176,8 +194,8 @@ Returns (variant=variantfactor, recov=recovfactor, vax=vaxfactor)
     # vaccine effect (rise time and decay)
     if vaxstatus != :none
         # person's vaccine conditions
-        vaxrcvd = locdat.vaxrcvd[target]
-        vaxday = locdat.vaxday[target]
+        vaxrcvd = c_vaxrcvd[target]
+        vaxday = c_vaxday[target]
         @assert size(vaxrcvd, 1) == size(vaxday, 1) "Oh, no: lengths of vaxrcvd and vaxday not equal"
         days_post_vax = today - last(vaxday)
 
@@ -188,7 +206,7 @@ Returns (variant=variantfactor, recov=recovfactor, vax=vaxfactor)
         infectfactor = vaxset[lastvax].infectfactor
      
         # based on variant: for transition--own variant; for spreading: spreader's variant
-        variant = spr == 0 ? locdat.variant[target][end] : locdat.variant[spr][end]
+        variant = spr == 0 ? c_variant[target][end] : c_variant[spr][end]
         vaxeffect = vaxset[lastvax].effectiveness[vaxstatus][variant]
 
         # rise & decay

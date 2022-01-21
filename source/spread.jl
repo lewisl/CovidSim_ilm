@@ -379,8 +379,19 @@ altrisk(risk) = sigmoid(spreadin(risk))
 Infectious people spread the virus to susceptible people for a single locale. Changes attribute
 columns in the population table. Runs social distancing cases.
 """
-@inline function spread!(locdat, infect_idx, contactable_idx, sdcases, socialparams,
-     infectset, vaxset, density_factor, dovax, dovariant)
+@inline function spread!(infect_idx, contactable_idx, sdcases, socialparams,
+     infectset, vaxset, density_factor, dovax, dovariant;
+        c_cond,
+        c_status,
+        c_agegrp,
+        c_sickday,
+        c_sdcomply,
+        c_variant,
+        c_vaxstatus,
+        c_recovday,
+        c_vaxrcvd,
+        c_vaxday
+     )
 
     n_newly_infected = 0
 
@@ -389,25 +400,10 @@ columns in the population table. Runs social distancing cases.
     touchfactors   = socialparams.touchfactors
     gammashape     = socialparams.gammashape
 
-    # column aliases as vector c_...  ...avoid deref'ing the columns repeatedly in the loop
-    c_cond       = locdat.cond
-    c_status     = locdat.status
-    c_agegrp     = locdat.agegrp
-    c_sickday    = locdat.sickday
-    c_sdcomply   = locdat.sdcomply
-    c_variant    = locdat.variant
-    c_vaxstatus  = locdat.vaxstatus
-    c_variant    = locdat.variant
-    c_recovday   = locdat.recovday
-    c_vaxrcvd    = locdat.vaxrcvd
-    c_vaxday     = locdat.vaxday
-
-
     # initialization before spreading loop
     shuffle!(contactable_idx)
     taken = pos = 0
     mx = length(contactable_idx)
-
 
     # assign contacts, do touches, do new infections
     @inbounds for spr in infect_idx      # spr is the person who is the spreader

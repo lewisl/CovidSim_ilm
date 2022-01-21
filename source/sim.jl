@@ -72,62 +72,102 @@ function runsim(model;
     # simulation loop
     ######################
     totalsimtime += @elapsed begin
-    for i = 1:ndays
-        inc!(day_ctr, :day)  # increment the simulation day counter
-        silent || println("simulation day: ", day_ctr[:day])
 
-        for loc in locales     
+    for loc in locales     
 
-            silent || println("Simulation starting for location $loc")
-            
-            # this should be the first and only place to deref the locale (as loc)
-            locdat = popdat[loc]  
-            locseries = series[loc]
-            age_idx_loc = agegrp_idx[loc]  # indices by agegrp
-            
-            density_factor = geodf[geodf[!, :fips] .== loc, :density_factor][]  # TODO not a good place for this
-            
-            for case in runcases  # cases that run at the beginning of the day
-                case(locdat, socialparams, infectset, sdcases, age_idx_loc; day=day_ctr[:day], startofday=true, locale=loc)  # TODO extend ages to be any filter for 
-            end                                                 # who participates in a given case
+        silent || println("Simulation starting for location $loc")
+        
+        # this should be the first and only place to deref the locale (as loc)
+        locdat = popdat[loc]  
+        locseries = series[loc]
+        age_idx_loc = agegrp_idx[loc]  # indices by agegrp
 
-            # filter for key people
-            idxtime += @elapsed begin
-                # @bp
-                infect_idx = findall(locdat.status .== infectious)
-                contactable_idx = findall(locdat.status .!= dead)
-            end
+        # column aliases as vector c_...  ...avoid deref'ing the columns repeatedly in the loop
+            # pass these columns to spread! and transition!
+        c_cond       = locdat.cond
+        c_status     = locdat.status
+        c_agegrp     = locdat.agegrp
+        c_sickday    = locdat.sickday
+        c_sdcomply   = locdat.sdcomply
+        c_variant    = locdat.variant
+        c_vaxstatus  = locdat.vaxstatus
+        c_variant    = locdat.variant
+        c_recovday   = locdat.recovday
+        c_vaxrcvd    = locdat.vaxrcvd
+        c_vaxday     = locdat.vaxday
+        c_deadday    = locdat.deadday
 
-            # if dovax give shots
-            dovax && (vaxtime += @elapsed vaccinate!(locdat, vaxschedset, contactable_idx, vaxset))
-            # @show size(contactable_idx), vaxset
 
-            # two fundamental steps of the simulation: spread! and transition!
-            sprtime += @elapsed spread!(locdat, infect_idx, contactable_idx, sdcases, socialparams, 
-                                        infectset, vaxset, density_factor, dovax, dovariant)   
-            trtime += @elapsed transition!(locdat, infect_idx, infectset, transitionset, vaxset, dovax, dovariant; trvec=trvec)                        
+        for i = 1:ndays
+            inc!(day_ctr, :day)  # increment the simulation day counter
+            silent || println("simulation day: ", day_ctr[:day])
 
-            for case in runcases  # cases that run at the end of the day
-                case(locdat, socialparams, infectset, sdcases, age_idx_loc; day=day_ctr[:day], startofday=false, locale=loc)  # TODO extend ages to be any filter for 
-            end                                                 # who participates in a given case
+                density_factor = geodf[geodf[!, :fips] .== loc, :density_factor][]  # TODO not a good place for this
+                
+                for case in runcases  # cases that run at the beginning of the day
+                    case(locdat, socialparams, infectset, sdcases, age_idx_loc; day=day_ctr[:day], startofday=true, locale=loc)  # TODO extend ages to be any filter for 
+                end                                                 # who participates in a given case
 
-            # r0 displayed every 10 days
-            if showr0 && (mod(day_ctr[:day],10) == 0)   # do we ever want to do this by locale -- maybe
-                current_r0 = r0_sim(locdat, age_dist=age_dist, dectree=dectree, socialparams=socialparams, infectparams=infectparams, sdcases=sdcases)
-                println("day $(day_ctr[:day]), locale $loc: rt = $current_r0")
-            end
+                # filter for key people
+                idxtime += @elapsed begin
+                    # @bp
+                    infect_idx = findall(locdat.status .== infectious)
+                    contactable_idx = findall(locdat.status .!= dead)
+                end
 
-            # accumulate simulation statistics in series for plotting: arrays NOT dataframes
-            histtime += @elapsed begin
-                do_history!(locdat, locseries, age_idx_loc)
-                hist_total_agegrps!(locseries) # sum agegrps to total for all series groups (by agegrp)
-                add_totinfected_series!(locseries) # we might need a totvaccinated series
-            end
+                # if dovax give shots
+                dovax && (vaxtime += @elapsed vaccinate!(locdat, vaxschedset, contactable_idx, vaxset))
+                # @show size(contactable_idx), vaxset
 
-        end # for loc in locales
+                # two fundamental steps of the simulation: spread! and transition!
+                sprtime += @elapsed spread!(infect_idx, contactable_idx, sdcases, socialparams, 
+                                            infectset, vaxset, density_factor, dovax, dovariant;
+                                            c_cond       = c_cond,
+                                            c_status     = c_status,
+                                            c_agegrp     = c_agegrp,
+                                            c_sickday    = c_sickday,
+                                            c_sdcomply   = c_sdcomply,
+                                            c_variant    = c_variant,
+                                            c_vaxstatus  = c_vaxstatus,
+                                            c_recovday   = c_recovday,
+                                            c_vaxrcvd    = c_vaxrcvd,
+                                            c_vaxday     = c_vaxday
+                                            )   
+                trtime += @elapsed transition!(infect_idx, infectset, transitionset, vaxset, dovax, dovariant; trvec=trvec,
+                                            c_cond       = c_cond,
+                                            c_status     = c_status,
+                                            c_agegrp     = c_agegrp,
+                                            c_sickday    = c_sickday,
+                                            c_sdcomply   = c_sdcomply,
+                                            c_variant    = c_variant,
+                                            c_vaxstatus  = c_vaxstatus,
+                                            c_recovday   = c_recovday,
+                                            c_vaxrcvd    = c_vaxrcvd,
+                                            c_vaxday     = c_vaxday,
+                                            c_deadday    = c_deadday
+                                            )                        
 
-        silent || println("Simulation completed for $(day_ctr[:day]) days.")
-    end # for i in 1:n_days
+                for case in runcases  # cases that run at the end of the day
+                    case(locdat, socialparams, infectset, sdcases, age_idx_loc; day=day_ctr[:day], startofday=false, locale=loc)  # TODO extend ages to be any filter for 
+                end                                                 # who participates in a given case
+
+                # r0 displayed every 10 days
+                if showr0 && (mod(day_ctr[:day],10) == 0)   # do we ever want to do this by locale -- maybe
+                    current_r0 = r0_sim(locdat, age_dist=age_dist, dectree=dectree, socialparams=socialparams, infectparams=infectparams, sdcases=sdcases)
+                    println("day $(day_ctr[:day]), locale $loc: rt = $current_r0")
+                end
+
+                # accumulate simulation statistics in series for plotting: arrays NOT dataframes
+                histtime += @elapsed do_history!(locdat, locseries, age_idx_loc)
+
+        end # for i in 1:n_days
+
+        histtime += @elapsed begin
+            hist_total_agegrps!(locseries) # sum agegrps to total for all series groups (by agegrp)
+            add_totinfected_series!(locseries) # we might need a totvaccinated series
+        end
+        silent || println("Simulation completed for $(day_ctr[:day]) days for locale $loc.")
+    end # for loc in locales
     end # totalsimtime
 
     @show idxtime, vaxtime, sprtime, trtime, histtime, totalsimtime
