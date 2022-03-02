@@ -6,13 +6,13 @@ reqdshots:          2
 delay2ndshot:      21
 full_effect_days:  14
 day1_effect:      0.5
-# reduction of effectiveness for recipient becoming infected
+# reduction of infectreduce for recipient becoming infected
 infectfactor:     0.75
 
-# effectiveness in reducing infection or illness risk
+# infectreduce in reducing infection or illness risk
 # shots: first, second, booster
 # we need data for each known variant
-effectiveness:
+infectreduce:
   first:
     base:  0.90
     alpha: 0.90

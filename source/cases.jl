@@ -134,7 +134,7 @@ function settraits!(locdat, s::Seedset)
         end
     end
 
-    println("*** seed day ", day_ctr[:day], " count: ", s.cnt, " change: ", s.change )
+    println("*** seed day ", day_ctr[:day], " count: ", s.cnt, " filter: ", s.filter, " change: ", s.change )
 
 end
 

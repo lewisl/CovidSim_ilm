@@ -9,8 +9,8 @@
 @Base.kwdef mutable struct Vaccineparams
     reqdshots::Int
     delay2ndshot::Union{Int, Nothing}   # days until 2nd shot (probability less important)
-    halflife::Int  # days to 50% decline in effectiveness
-    effectiveness::Dict{Symbol, Dict{Symbol, Float64}}
+    halflife::Int  # days to 50% decline in effect
+    infectreduce::Dict{Symbol, Dict{Symbol, Float64}}
     full_effect_days::Int
     day1_effect::Float64
     infectfactor::Float64
@@ -24,7 +24,7 @@ end
                 reqdshots                = vd[:reqdshots],
                 delay2ndshot             = vd[:delay2ndshot],
                 halflife                 = vd[:halflife],
-                effectiveness            = vd[:effectiveness], 
+                infectreduce            = vd[:infectreduce], 
                 full_effect_days         = vd[:full_effect_days],
                 day1_effect              = vd[:day1_effect],
                 infectfactor             = vd[:infectfactor]

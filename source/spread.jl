@@ -20,21 +20,21 @@
 Base.@kwdef struct Infectparams
     sendrisk::Vector{Float64}
     recvrisk::Vector{Float64}
-    immunestrength::Float64
+    recovery_immunity::Dict{Symbol, Float64}
     immunehalflife::Int64
-    infectmultiplier::Float64
+    basemultiplier::Float64
 end
 
         """
         Method for converting a dict loaded from YAML to this struct
         """
-        function Infectparams(id::Dict{Symbol, Any})
+        function Infectparams(indict::Dict{Symbol, Any})
             Infectparams(
-                sendrisk = id[:sendrisk],
-                recvrisk = id[:recvrisk],
-                immunestrength = id[:immunestrength],
-                immunehalflife = id[:immunehalflife],
-                infectmultiplier = id[:infectmultiplier]
+                sendrisk = indict[:sendrisk],
+                recvrisk = indict[:recvrisk],
+                recovery_immunity = indict[:recovery_immunity],
+                immunehalflife = indict[:immunehalflife],
+                basemultiplier = indict[:basemultiplier]
                 )
         end
 
@@ -193,9 +193,9 @@ end
 
 
 """
-    Vaccine effectiveness ramps up after receiving a shot.
+    Vaccine infectreduce ramps up after receiving a shot.
     This returns a value between 0.0 and 1.0 which 
-    must be multiplied times the vaccine specific effectiveness 
+    must be multiplied times the vaccine specific infectreduce 
     because this function only represents the time-based change.
 """
 function riseup(days_since_shot, delay_days, lower, upper)
@@ -206,7 +206,7 @@ riseup14(t) = riseup(t, 14, 0.0, 1.0)  # curried to only input the day as time t
 
 
 
-# gradual decay of vaccine effectiveness based on assumed half-life
+# gradual decay of vaccine infectreduce based on assumed half-life
 
 function lindecay(t, h, lower)
     y = 0.5 ./ -h * t  + 1.0
@@ -247,8 +247,8 @@ end
 
 
 @inline function vaxmodifier(full_effect_days, today, lastshotday, halflife; rise_lower=0.5, decay_lower=0.05)
-    # combines the effect of the rise to full effectiveness post shot with
-        # the decay in effectiveness over time: based on current date
+    # combines the effect of the rise to full infectreduce post shot with
+        # the decay in infectreduce over time: based on current date
     @assert today >= lastshotday "today's date must be >= to day of most recent shot"
 
     rise = riseup(today - lastshotday, full_effect_days, rise_lower, 1.0)
@@ -268,7 +268,7 @@ function sigmoidshift(x; risk_discount=0.2)
             )
 end
 
-function simpleclamp(x)
+@inline function simpleclamp(x)
     clamp(x, 0.0, 1.0)
 end
 
@@ -281,9 +281,9 @@ Adjust the risk of getting infected and the effect on transitioning through stag
 on vaccination, recovery from previous infection and the variant of the infection contracted by an individual.
 Works for targeting a single person--the target--with a single person spreading the virus--the spreader.
 
-Returns (variant=variantfactor, recov=recovfactor, vax=vaxfactor)
+Returns (variant=variantfactor, recov=recovimmunity, vax=vaximmunity)
 """
-@inline function riskadjust(infectset, vaxset, target; spr=0, 
+@inline @fastmath function riskadjust(infectset, vaxset, target; spr=0, 
             c_vaxstatus, c_status, c_variant, c_recovday, c_vaxrcvd, c_vaxday)
     # calculate based on recovery date and variant half-life of partial immunity and immunity strength
     # initially using exponential decay   TODO add parameter for exponential or sigmoid decay
@@ -296,24 +296,28 @@ Returns (variant=variantfactor, recov=recovfactor, vax=vaxfactor)
     # target person characteristics
     vaxstatus = c_vaxstatus[target]
     status = c_status[target]
+
+
     
-    # recovery effect, based on variant of person's infection
+    # recovery immunity effect, based on variant of person's infection
     if status == recovered
 
         variant = c_variant[target][end]
         days_post_recov = today - c_recovday[target][end] #recovday is a vector of days--get the last one
+        # spreader person characteristics
+        spr_variant = spr != 0 ? c_variant[spr][end] : variant
 
         if days_post_recov > 0   # TODO should be an assert: does this run day of or day after recovery?
             # get the max immunity
-            immstrength = infectset[variant].immunestrength
+            immstrength = infectset[variant].recovery_immunity[variant]
 
             # get the declined value
             immhalflife = infectset[variant].immunehalflife
             immdecline = lindecay(days_post_recov, immhalflife, 0.05)
-            recovfactor = 1.0 - (immdecline * immstrength)
+            recovimmunity = 1.0 - (immdecline * immstrength)
         end
     else
-        recovfactor = 1.0  # no immunity effect from recovery
+        recovimmunity = 1.0  # no immunity effect from recovery
     end
 
     # vaccine effect (rise time and decay)
@@ -330,27 +334,24 @@ Returns (variant=variantfactor, recov=recovfactor, vax=vaxfactor)
         full_effect_days = vaxset[lastvax].full_effect_days
         infectfactor = vaxset[lastvax].infectfactor
      
-        # based on variant: for transition--own variant; for spreading: spreader's variant
+        # based on variant: for transition--target variant with spr == 0; for spreading: spreader's variant
         variant = spr == 0 ? c_variant[target][end] : c_variant[spr][end]
-        vaxeffect = vaxset[lastvax].effectiveness[vaxstatus][variant]
+        vaxeffect = vaxset[lastvax].infectreduce[vaxstatus][variant]
 
         # rise & decay
         vaxmod = vaxmodifier(full_effect_days, today, days_post_vax, halflife; rise_lower=0.5, decay_lower=0.05)
-        vaxfactor = 1.0 - (vaxmod * vaxeffect * infectfactor)
+        vaximmunity = 1.0 - (vaxmod * vaxeffect * infectfactor)
     else
-        vaxfactor = 1.0   # no immunity effect from vaccination
+        vaximmunity = 1.0   # no immunity effect from vaccination
     end
 
-    # variant effect (sender's variant affects infectiousness up or down)
-    variantfactor = 1.0   # replace with actual calculation...
 
-
-    return (variant=variantfactor, recov=recovfactor, vax=vaxfactor)
+    return (recov=recovimmunity, vax=vaximmunity)
 
 end
 
 
-@inline function infectrisk(infectset, c_variant, c_sickday, c_agegrp, spreader, target, adjustfactor)
+@inline @fastmath function infectrisk(infectset, c_variant, c_sickday, c_agegrp, spreader, target, adjustfactor)
 
     # spreader person characteristics
     variant = c_variant[spreader][end]
@@ -361,7 +362,7 @@ end
     target_agegrp = c_agegrp[target]
     recvrisk = infectset[variant].recvrisk[Int(target_agegrp)]
 
-    combinedfactor = recvrisk * sendrisk * adjustfactor.variant * min(adjustfactor.recov, adjustfactor.vax)
+    combinedfactor = recvrisk * sendrisk * min(adjustfactor.recov, adjustfactor.vax)
     riskfactor = squashfunc(combinedfactor)  
 end
 
@@ -411,20 +412,20 @@ columns in the population table. Runs social distancing cases.
         contact_param = c_sdcomply[spr] == :none ? contactfactors : sdcases[c_sdcomply[spr]]
         nc = numcontacts(density_factor, gammashape, c_agegrp[spr], c_cond[spr], contact_param)  
 
-        # step through shuffled contactable_idx as sel and wrap around
+        # step through shuffled contactable_idx as selected and wrap around
         pos = taken + 1
         taken = taken + nc
         if taken <= mx
-            sel = pos:taken
+            selected = pos:taken
         else
-            sel = Iterators.flatten((pos:mx, 1:(taken - mx)))
+            selected = Iterators.flatten((pos:mx, 1:(taken - mx)))
             taken = taken - mx
         end
 
         # TODO we could keep track of contacts for contact tracing
         # target is the outbound contact reached by the spr (spreader)
         # @inbounds @fastmath for target in sample(contactable_idx, nc, replace=true) # people can get contacted more than once
-        @inbounds @fastmath for i in sel
+        @inbounds @fastmath for i in selected
             target = contactable_idx[i]
 
             if in(c_status[target], (unexposed, recovered))  # only conditions that can get infected   
@@ -449,7 +450,7 @@ columns in the population table. Runs social distancing cases.
                     end
                 end  # if (touched ...)
             end  # if contactstatus
-        end  # for target in sample(...) or for i in sel
+        end  # for target in sample(...) or for i in selected
     end  # for p in infect_idx
 
     return n_newly_infected # n_contacts, n_touched, n_newly_infected

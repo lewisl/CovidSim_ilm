@@ -157,14 +157,19 @@ function buildgeodata(filename)
     return geo
 end
 
+"""
+    function build_spread_params(variantfilename, paramdir)
 
+Build parameters for the spread of infection and the immunity conferred by recovering
+from infection for each variant.
+
+Method to build infect params from one file that contains all variants.
+"""
 function build_infect_params(variantfilename, paramdir)
-    infectdict = YAML.load_file(joinpath(paramdir, variantfilename))
-    loadvariants = infectdict["loadvariants"]
-    usevariants = infectdict["usevariants"]
+    infectdict = YAML.load_file(joinpath(paramdir, variantfilename), dicttype=Dict{Symbol, Any})
 
-    (transitionset, trvec) = build_transition_params(infectdict)
     infectset = build_spread_params(infectdict)
+    (transitionset, trvec) = build_transition_params(infectdict)
 
     return infectset, transitionset, trvec
 end
@@ -195,21 +200,37 @@ end
     function build_spread_params(infectdict)
 
 Method to build spread params from dict containing params for all variants.
+
+This is the method model building actually uses!
 """
 function build_spread_params(infectdict::Dict)
     infectset = LittleDict{Symbol, Infectparams}()
-    loadvariants = infectdict["loadvariants"] # array of strings 
+    loadvariants = keys(infectdict) 
 
     for variant in loadvariants
-        newdict = merge(infectdict[variant]["spread"], infectdict[variant]["immunity"])
-        newdict2 = Dict(Symbol(k) => v for (k,v) in newdict)
-        infectset[Symbol(variant)] = Infectparams(newdict2)
+        newdict = merge(infectdict[variant][:spread], infectdict[variant][:immunity])
+        # newdict = Dict(Symbol(k) => v for (k,v) in newdict)
+        infectset[Symbol(variant)] = Infectparams(newdict)
     end
 
     if isempty(variantlist)
         for variant in loadvariants
             push!(variantlist, Symbol(variant))   # this is a module global variable. Forgive me for I have sinned--except it makes sense...
         end
+    end
+
+    # set recvrisk and sendrisk
+    for variant in loadvariants
+        if variant == :base
+            continue
+        end
+        if isempty(infectset[variant].recvrisk)
+            append!(infectset[variant].recvrisk, infectset[:base].recvrisk .* infectset[variant].basemultiplier)
+            append!(infectset[variant].sendrisk, infectset[:base].sendrisk)
+        end
+        # if isempty(infectset[variant].sendrisk)
+        #     append!(infectset[variant].sendrisk, infectset[:base].sendrisk .* infectset[variant].basemultiplier)
+        # end
     end
 
     return infectset
@@ -241,25 +262,27 @@ function build_transition_params(variants, paramdir)
     return (transitionset, trvec)
 end
 
+
 """
     function build_transition_params(infectdict)
 
-This method loads all variants from one YAML file to a dict, which is the
-input for this method.
+This method loads all transition params for all variants from one dict, which contains
+all variants.
+
+This is the method model building actually uses!
 
 Returns (transitionset, trvec)
 """
 function build_transition_params(infectdict)
-    loadvariants = infectdict["loadvariants"] # array of strings to array of symbols
-    usevariants = infectdict["usevariants"]
+    loadvariants = keys(infectdict) # array of strings to array of symbols
     transitionset = Dict()
 
     for variant in loadvariants
         
         transitionset[Symbol(variant)] = Transitionparams(
-            tree=(isnothing(infectdict[variant]["transition"]["tree"]) ? nothing : 
-                    setup_dt(infectdict[variant]["transition"]["tree"])),
-            factors=Transitionfactors(infectdict[variant]["transition"]["factors"])
+            tree=(isnothing(infectdict[variant][:transition][:tree]) ? nothing : 
+                    setup_dt(infectdict[variant][:transition][:tree])),
+            factors=Transitionfactors(infectdict[variant][:transition][:factors])
             )
 
     end
@@ -271,6 +294,7 @@ function build_transition_params(infectdict)
  
      return (transitionset, trvec)
 end
+
 
 function build_socialparams(socialfilename, paramdir)
 

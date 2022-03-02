@@ -517,6 +517,29 @@ function circ(n=30)
     end
 end
 
+##################################################################
+#   test performance of closure of arrays
+##################################################################
+
+function buildit()
+    print("\nEnter n: "); n = parse(Int64, (chomp(readline())))
+    return rand(n), collect(1:n)
+end
+
+function dostuff!(xfl, xint, arr1, arr2)
+    arr1 .*= xfl
+    arr2 .+= xint
+end
+
+function doitem!(xfl, xint, item, arr1, arr2)
+    arr1[item] *= xfl
+    arr2[item] += xint
+end
+
+arrfl, arrint = buildit()
+
+clos!(xfl, xint) = dostuff!(xfl, xint, arrfl, arrint)
+clositem!(xfl, xint, item) = doitem!(xfl, xint, item, arrfl, arrint)
 
 #########################################
 # compare dict of vectors to named tuple of vectors

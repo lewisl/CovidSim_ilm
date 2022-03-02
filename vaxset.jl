@@ -5,7 +5,7 @@
                            reqdshots=2,
                            delay2ndshot=21,
                            halflife=280,
-                           effectiveness={
+                           infectreduce={
                                            :first : {:alpha : 0.92, 
                                                      :base : 0.92, 
                                                      :delta : 0.85},
@@ -27,7 +27,7 @@
                           reqdshots=2,
                           delay2ndshot=21,
                           halflife=280,
-                          effectiveness={
+                          infectreduce={
                                           :first : {:alpha : 0.9, 
                                                     :base : 0.9, 
                                                     :delta : 0.84},
@@ -49,7 +49,7 @@
                        reqdshots=1,
                        delay2ndshot=0,
                        halflife=240,
-                       effectiveness={
+                       infectreduce={
                                        :first : {:alpha : 0.88, 
                                                  :base : 0.88, 
                                                  :delta : 0.8},

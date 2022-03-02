@@ -1,6 +1,6 @@
 {
   :spread : {
-              :infectmultiplier : 1.0,
+              :basemultiplier : 1.0,
               :recvrisk : [0.1, 0.39, 
                            0.44, 
                            0.54, 

@@ -47,7 +47,7 @@ function setup_dt(dtfilename::String)
     newdict = (
         Dict(symbol2agegrp(Symbol(k1)) =>      # agegrp    
             Dict(k2 =>                    # stage in 1:5
-                Dict(Symbol(k3) =>  if k3 == "sickday"
+                Dict(Symbol(k3) =>  if k3 == :sickday
                                         v3
                                     else 
                                         Dict(symbol2condition(k4) => v4 for (k4, v4) in v3)
@@ -92,9 +92,9 @@ another disease state (condition or status).
 """
 function setup_dt(trdict::Dict)
 
-    prepdict = Dict(age_key => [Transitiondef(brk["sickday"], 
-                                    vcat(brk["transition"]["nil"]',brk["transition"]["mild"]',
-                                        brk["transition"]["sick"]',brk["transition"]["severe"]')) 
+    prepdict = Dict(age_key => [Transitiondef(brk[:sickday], 
+                                    vcat(brk[:transition][:nil]',brk[:transition][:mild]',
+                                        brk[:transition][:sick]',brk[:transition][:severe]')) 
                                 for (_, brk) in sort(age)] 
                         for (age_key, age) in sort(trdict))
 

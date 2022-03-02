@@ -4,7 +4,7 @@
         # if a factor is missing for a variant use :base or 1.0?
     # implement vxsched filterfunc using new seeding approach
     # variant effect changes
-        # are we using the infectmultiplier on base?
+        # are we using the basemultiplier on base?
     # more info
         # get fatality rate by age and co-morbidity CDC, Italian NIH
         # by agegroup, hospitalization %, ICU admission %, fatality %
@@ -161,7 +161,8 @@ Base.to_index(s::shift) = Int(s)
 
 
 const condnames  = Dict(:unexposed=>"unexposed", :infectious=>"infectious", :recovered=>"recovered", :dead=>"dead",
-                    :nil=>"nil", :mild=>"mild", :sick=>"sick", :severe=>"severe", 9=>"totinfected")
+                    :nil=>"nil", :mild=>"mild", :sick=>"sick", :severe=>"severe", 9=>"totinfected", 
+                    :omicron=>"omicron", :base=>"base", :alpha=>"alpha", :delta=>"delta")
         # slightly faster than string(:unexposed) because the string is created when the Dict is created
 const totalcol = 6
 

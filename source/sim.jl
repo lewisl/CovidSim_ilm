@@ -82,8 +82,7 @@ function runsim(model;
         locseries = series[loc]
         age_idx_loc = agegrp_idx[loc]  # indices by agegrp
 
-        # column aliases as vector c_...  ...avoid deref'ing the columns repeatedly in the loop
-            # pass these columns to spread! and transition!
+        # Deref columns once per locale and not in the deeper loops. Pass these columns to spread! and transition!
         c_cond       = locdat.cond
         c_status     = locdat.status
         c_agegrp     = locdat.agegrp
@@ -134,18 +133,18 @@ function runsim(model;
                                             c_vaxday     = c_vaxday
                                             )   
                 trtime += @elapsed transition!(infect_idx, infectset, transitionset, vaxset, dovax, dovariant; trvec=trvec,
-                                            c_cond       = c_cond,
-                                            c_status     = c_status,
-                                            c_agegrp     = c_agegrp,
-                                            c_sickday    = c_sickday,
-                                            c_sdcomply   = c_sdcomply,
-                                            c_variant    = c_variant,
-                                            c_vaxstatus  = c_vaxstatus,
-                                            c_recovday   = c_recovday,
-                                            c_vaxrcvd    = c_vaxrcvd,
-                                            c_vaxday     = c_vaxday,
-                                            c_deadday    = c_deadday
-                                            )                        
+                                               c_cond       = c_cond,
+                                               c_status     = c_status,
+                                               c_agegrp     = c_agegrp,
+                                               c_sickday    = c_sickday,
+                                               c_sdcomply   = c_sdcomply,
+                                               c_variant    = c_variant,
+                                               c_vaxstatus  = c_vaxstatus,
+                                               c_recovday   = c_recovday,
+                                               c_vaxrcvd    = c_vaxrcvd,
+                                               c_vaxday     = c_vaxday,
+                                               c_deadday    = c_deadday
+                                                )                        
 
                 for case in runcases  # cases that run at the end of the day
                     case(locdat, socialparams, infectset, sdcases, age_idx_loc; day=day_ctr[:day], startofday=false, locale=loc)  # TODO extend ages to be any filter for 

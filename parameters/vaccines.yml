@@ -5,13 +5,13 @@ Pfizer:  # will convert to symbol at load time
   delay2ndshot:      21
   full_effect_days:  14
   day1_effect:      0.5
-  # reduction of effectiveness for risk of recipient becoming infected
+  # reduction of infectreduce for risk of recipient becoming infected
   infectfactor:     0.75
 
-  # effectiveness in reducing infection or illness risk
+  # infectreduce in reducing infection or illness risk
   # shots: first, second, booster
   # we need data for each known variant
-  effectiveness:
+  infectreduce:
     first:
       base:     0.90
       alpha:    0.90
@@ -34,13 +34,13 @@ Moderna:  # will convert to symbol at load time
   delay2ndshot:      21
   full_effect_days:  14
   day1_effect:      0.5
-  # reduction of effectiveness for recipient becoming infected
+  # reduction of infectreduce for recipient becoming infected
   infectfactor:     0.75
 
-  # effectiveness in reducing infection or illness risk
+  # infectreduce in reducing infection risk is shown here
   # shots: first, second, booster
   # we need data for each known variant
-  effectiveness:
+  infectreduce:
     first:
       base:     0.92
       alpha:    0.92
@@ -63,13 +63,13 @@ JnJ:  # will convert to symbol at load time
   delay2ndshot:       0    
   full_effect_days:  14
   day1_effect:      0.5
-  # reduction of effectiveness for recipient becoming infected
+  # reduction of infectreduce for recipient becoming infected
   infectfactor:     0.75
 
-  # effectiveness in reducing infection or illness risk
+  # infectreduce in reducing infection or illness risk
   # shots: first, second, booster
   # we need data for each known variant
-  effectiveness:
+  infectreduce:
     first:
       base:     0.88
       alpha:    0.88

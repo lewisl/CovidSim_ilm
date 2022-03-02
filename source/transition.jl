@@ -207,7 +207,7 @@ Returns (variant=variantfactor, recov=recovfactor, vax=vaxfactor)
      
         # based on variant: for transition--own variant; for spreading: spreader's variant
         variant = spr == 0 ? c_variant[target][end] : c_variant[spr][end]
-        vaxeffect = vaxset[lastvax].effectiveness[vaxstatus][variant]
+        vaxeffect = vaxset[lastvax].infectreduce[vaxstatus][variant]
 
         # rise & decay
         vaxmod = vaxmodifier(full_effect_days, today, days_post_vax, halflife; rise_lower=0.5, decay_lower=0.05)

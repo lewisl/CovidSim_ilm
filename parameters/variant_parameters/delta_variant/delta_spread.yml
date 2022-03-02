@@ -18,4 +18,4 @@ immunestrength: 0.6
 immunehalflife: 240
 
 # muliplier for infectiousness compared to base
-infectmultiplier: 1.2
+basemultiplier: 1.2
