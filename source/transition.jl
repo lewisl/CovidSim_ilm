@@ -41,16 +41,23 @@ locdat must be a population table for a single locale.
     for p in infect_idx  # p for infected person    
         p_sickday = c_sickday[p]
         p_cond = c_cond[p]
+        p_status = c_status[p]
         p_agegrp = c_agegrp[p]  # agegroup of person p = agegrp column of locale data, row p 
+        p_variant = c_variant[p][end]
+        p_vaxstatus = c_vaxstatus[p]
+        p_vaxrcvd = c_vaxrcvd[p][end]
+        p_vaxday = c_vaxday[p][end]
+        p_recovday = c_recovday[p][end]
+
 
         # if person's agegrp, sickday, and condition match a transition stage
         transvec = has(getfield(transarray, Symbol(p_agegrp)), p_sickday, p_cond, trvec) 
 
-        riskadjustments = riskadjust(infectset, vaxset, p;
-                        c_vaxstatus=c_vaxstatus, c_status=c_status, c_variant=c_variant, 
-                        c_recovday=c_recovday, c_vaxrcvd=c_vaxrcvd, c_vaxday=c_vaxday)   # TODO make a function specific to transition
+        recoveff = p_status == recovered ? recoveffect(p_recovday, p_variant, p_variant, infectset) : 1.0
 
-        vaxfn!(transvec, riskadjustments) #vaxfn! will be function noop or function vaxtransitioneffect
+        vaxeff = p_vaxstatus != :none ? vaxeffect(infectset, vaxset, p_vaxstatus, p_variant, p_vaxrcvd, p_vaxday) : 1.0
+
+        vaxfn!(transvec, recoveff, vaxeff) #vaxfn! will be function noop or function vaxtransitioneffect
 
         dotransition!(p, p_cond, transvec; # perform transition logic and update population table
                 c_sickday   = c_sickday,
@@ -77,13 +84,13 @@ end
 
 
 # TODO: need to do effect of immunity, vax, variant
-# this will be set to the variable vaxfn!
-@inline function vaxtransitioneffect!(transvec, adjustments)
+# this function set to the variable vaxfn!
+@inline function vaxtransitioneffect!(transvec, recoveff, vaxeff, varianteff=1.0)
     if transvec === nothing
         return
     end
 
-    combinedfactor = adjustments.variant * min(adjustments.recov, adjustments.vax)
+    combinedfactor = varianteff * min(recoveff, vaxeff)
     riskfactor = squashfunc(combinedfactor)  
 
     for c in (sick, severe, dead)
@@ -145,83 +152,66 @@ the number of days the person has been sick.
     end
 end
 
+
+
 """
-    riskadjust(infectset, vaxset, locdat, target) 
+    vaximmunity(infectset, vaxset, vaxstatus, spr_variant, vaxrcvd, vaxday)
 
-Adjust the risk of getting infected and the effect on transitioning through stages of the infection based
-on vaccination, recovery from previous infection and the variant of the infection contracted by an individual.
-
-Returns (variant=variantfactor, recov=recovfactor, vax=vaxfactor)
+Immunity from vaccination for a single person.
 """
-@inline function tr_riskadjust(infectset, vaxset, locdat, target; spr=0,
-                c_vaxstatus,
-                c_status,
-                c_variant,
-                c_vaxrcvd,
-                c_vaxday
-            )
-    # calculate based on recovery date and variant half-life of partial immunity and immunity strength
-    # initially using exponential decay   TODO add parameter for exponential or sigmoid decay
-
-    # @bp
+@inline function vaxeffect(infectset, vaxset, vaxstatus, spr_variant, vaxrcvd, vaxday)
 
     today = day_ctr[:day]
     oneshotfactor = 0.85   # TODO yet another parameter to put somewhere...!
 
-    # target person characteristics
-    vaxstatus = c_vaxstatus[target]
-    status = c_status[target]
-    
-    # recovery effect, based on variant of person's infection
-    if status == recovered
+    # person's vaccine conditions
+    days_after_vax = today - vaxday
+    @assert today >= days_after_vax "today's date must be >= to day of most recent shot"
 
-        variant = c_variant[target][end]
-        days_post_recov = today - locdat.recovday[target][end] #recovday is a vector of days--get the last one
+    # vaccine characteristics
+    halflife = vaxset[vaxrcvd].halflife
+    full_effect_days = vaxset[vaxrcvd].full_effect_days
+    infectfactor = vaxset[vaxrcvd].infectfactor
+    vaxeffect = vaxset[vaxrcvd].infectreduce[vaxstatus][spr_variant]
+
+    # rise and decay of vaccine effectiveness
+    rise_lower=0.5    # TODO need to make these inputs somewhere
+    decay_lower=0.05
+    rise = riseup(today - days_after_vax, full_effect_days, rise_lower, 1.0)
+    days_after_full_effect = today - (days_after_vax + full_effect_days)     #clamp(today - (lastshotday + full_effect_days), 0, Int)
+    decay = lindecay(days_after_full_effect, halflife, decay_lower)
+    vaxmod = rise * decay
+
+    factor = 1.0 - (vaxmod * vaxeffect * infectfactor) 
+
+    return factor
+end
+
+
+"""
+    recovimmunity(recovday, targ_variant, spr_variant, infectset)
+
+Immunity from recovery for a single person.
+"""
+@inline function recoveffect(recovday, targ_variant, spr_variant, infectset)
+
+        today = day_ctr[:day]
+        days_post_recov = today - recovday 
 
         if days_post_recov > 0   # TODO should be an assert: does this run day of or day after recovery?
             # get the max immunity
-            immstrength = infectset[variant].immunestrength
+            immstrength = infectset[targ_variant].recovery_immunity[spr_variant]
 
             # get the declined value
-            immhalflife = infectset[variant].immunehalflife
+            immhalflife = infectset[targ_variant].immunehalflife
             immdecline = lindecay(days_post_recov, immhalflife, 0.05)
-            recovfactor = 1.0 - (immdecline * immstrength)
+
+            factor = 1.0 - (immdecline * immstrength)
+        else
+            factor = 1.0
         end
-    else
-        recovfactor = 1.0  # no immunity effect from recovery
-    end
 
-    # vaccine effect (rise time and decay)
-    if vaxstatus != :none
-        # person's vaccine conditions
-        vaxrcvd = c_vaxrcvd[target]
-        vaxday = c_vaxday[target]
-        @assert size(vaxrcvd, 1) == size(vaxday, 1) "Oh, no: lengths of vaxrcvd and vaxday not equal"
-        days_post_vax = today - last(vaxday)
-
-        # vaccine characteristics
-        lastvax = last(vaxrcvd)
-        halflife = vaxset[lastvax].halflife
-        full_effect_days = vaxset[lastvax].full_effect_days
-        infectfactor = vaxset[lastvax].infectfactor
-     
-        # based on variant: for transition--own variant; for spreading: spreader's variant
-        variant = spr == 0 ? c_variant[target][end] : c_variant[spr][end]
-        vaxeffect = vaxset[lastvax].infectreduce[vaxstatus][variant]
-
-        # rise & decay
-        vaxmod = vaxmodifier(full_effect_days, today, days_post_vax, halflife; rise_lower=0.5, decay_lower=0.05)
-        vaxfactor = 1.0 - (vaxmod * vaxeffect * infectfactor)
-    else
-        vaxfactor = 1.0   # no immunity effect from vaccination
-    end
-
-    # variant effect (sender's variant affects infectiousness up or down)
-    variantfactor = 1.0   # replace with actual calculation...
-
-
-    return (variant=variantfactor, recov=recovfactor, vax=vaxfactor)
-
+    return factor
 end
 
 

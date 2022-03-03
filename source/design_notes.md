@@ -1,4 +1,8 @@
 #### Immunity effectiveness from vaccination:
+    ##### rises for a short time after each shot
+        - effect of multiple shots: based on clinical trials
+        - number of shots recorded in vaxstatus as one of {:none, :first, :full, :booster}
+        - data provides max effectiveness from trial based on vaxstatus and inbound variant
     ##### decays with time per vaccine
         - varies with each kind of effectiveness?
         - varies per inbound variant?
@@ -9,6 +13,7 @@
             
 
 #### Immunity from recovery
+    ##### rises for a short time immediately after recovery
     ##### decays with time per acquired variant
        - varies per inbound variant (or capture that with effectiveness variation by variant)?
     ##### effectiveness per inbound variant

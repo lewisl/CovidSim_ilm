@@ -274,95 +274,78 @@ end
 
 squashfunc = simpleclamp
 
+
 """
-    riskadjust(infectset, vaxset, locdat, target) 
+    vaximmunity(infectset, vaxset, vaxstatus, spr_variant, vaxrcvd, vaxday)
 
-Adjust the risk of getting infected and the effect on transitioning through stages of the infection based
-on vaccination, recovery from previous infection and the variant of the infection contracted by an individual.
-Works for targeting a single person--the target--with a single person spreading the virus--the spreader.
-
-Returns (variant=variantfactor, recov=recovimmunity, vax=vaximmunity)
+Immunity from vaccination for a single person.
 """
-@inline @fastmath function riskadjust(infectset, vaxset, target; spr=0, 
-            c_vaxstatus, c_status, c_variant, c_recovday, c_vaxrcvd, c_vaxday)
-    # calculate based on recovery date and variant half-life of partial immunity and immunity strength
-    # initially using exponential decay   TODO add parameter for exponential or sigmoid decay
-
-    # @bp
+@inline function vaximmunity(infectset, vaxset, vaxstatus, spr_variant, vaxrcvd, vaxday)
 
     today = day_ctr[:day]
     oneshotfactor = 0.85   # TODO yet another parameter to put somewhere...!
 
-    # target person characteristics
-    vaxstatus = c_vaxstatus[target]
-    status = c_status[target]
+    # person's vaccine conditions
+    days_after_vax = today - vaxday
+    @assert today >= days_after_vax "today's date must be >= to day of most recent shot"
 
+    # vaccine characteristics
+    halflife = vaxset[vaxrcvd].halflife
+    full_effect_days = vaxset[vaxrcvd].full_effect_days
+    infectfactor = vaxset[vaxrcvd].infectfactor
+    vaxeffect = vaxset[vaxrcvd].infectreduce[vaxstatus][spr_variant]
 
-    
-    # recovery immunity effect, based on variant of person's infection
-    if status == recovered
+    # rise and decay of vaccine effectiveness
+    rise_lower=0.5    # TODO need to make these inputs somewhere
+    decay_lower=0.05
+    rise = riseup(today - days_after_vax, full_effect_days, rise_lower, 1.0)
+    days_after_full_effect = today - (days_after_vax + full_effect_days)     #clamp(today - (lastshotday + full_effect_days), 0, Int)
+    decay = lindecay(days_after_full_effect, halflife, decay_lower)
+    vaxmod = rise * decay
 
-        variant = c_variant[target][end]
-        days_post_recov = today - c_recovday[target][end] #recovday is a vector of days--get the last one
-        # spreader person characteristics
-        spr_variant = spr != 0 ? c_variant[spr][end] : variant
+    factor = 1.0 - (vaxmod * vaxeffect * infectfactor) 
 
-        if days_post_recov > 0   # TODO should be an assert: does this run day of or day after recovery?
-            # get the max immunity
-            immstrength = infectset[variant].recovery_immunity[variant]
-
-            # get the declined value
-            immhalflife = infectset[variant].immunehalflife
-            immdecline = lindecay(days_post_recov, immhalflife, 0.05)
-            recovimmunity = 1.0 - (immdecline * immstrength)
-        end
-    else
-        recovimmunity = 1.0  # no immunity effect from recovery
-    end
-
-    # vaccine effect (rise time and decay)
-    if vaxstatus != :none
-        # person's vaccine conditions
-        vaxrcvd = c_vaxrcvd[target]
-        vaxday = c_vaxday[target]
-        @assert size(vaxrcvd, 1) == size(vaxday, 1) "Oh, no: lengths of vaxrcvd and vaxday not equal"
-        days_post_vax = today - last(vaxday)
-
-        # vaccine characteristics
-        lastvax = last(vaxrcvd)
-        halflife = vaxset[lastvax].halflife
-        full_effect_days = vaxset[lastvax].full_effect_days
-        infectfactor = vaxset[lastvax].infectfactor
-     
-        # based on variant: for transition--target variant with spr == 0; for spreading: spreader's variant
-        variant = spr == 0 ? c_variant[target][end] : c_variant[spr][end]
-        vaxeffect = vaxset[lastvax].infectreduce[vaxstatus][variant]
-
-        # rise & decay
-        vaxmod = vaxmodifier(full_effect_days, today, days_post_vax, halflife; rise_lower=0.5, decay_lower=0.05)
-        vaximmunity = 1.0 - (vaxmod * vaxeffect * infectfactor)
-    else
-        vaximmunity = 1.0   # no immunity effect from vaccination
-    end
-
-
-    return (recov=recovimmunity, vax=vaximmunity)
-
+    return factor
 end
 
 
-@inline @fastmath function infectrisk(infectset, c_variant, c_sickday, c_agegrp, spreader, target, adjustfactor)
+"""
+    recovimmunity(recovday, targ_variant, spr_variant, infectset)
+
+Immunity from recovery for a single person.
+"""
+@inline function recovimmunity(recovday, targ_variant, spr_variant, infectset)
+
+        today = day_ctr[:day]
+        days_post_recov = today - recovday 
+
+        if days_post_recov > 0   # TODO should be an assert: does this run day of or day after recovery?
+            # get the max immunity
+            immstrength = infectset[targ_variant].recovery_immunity[spr_variant]
+
+            # get the declined value
+            immhalflife = infectset[targ_variant].immunehalflife
+            immdecline = lindecay(days_post_recov, immhalflife, 0.05)
+
+            factor = 1.0 - (immdecline * immstrength)
+        else
+            factor = 1.0
+        end
+
+    return factor
+end
+
+
+
+@inline @fastmath function infectrisk(infectset, spr_variant, spr_sickday, targ_agegrp, recovfactor, vaxfactor)
 
     # spreader person characteristics
-    variant = c_variant[spreader][end]
-    spr_sickday = c_sickday[spreader]
-    sendrisk = infectset[variant].sendrisk[spr_sickday]
+    sendrisk = infectset[spr_variant].sendrisk[spr_sickday]
 
     # target person characteristics
-    target_agegrp = c_agegrp[target]
-    recvrisk = infectset[variant].recvrisk[Int(target_agegrp)]
+    recvrisk = infectset[spr_variant].recvrisk[Int(targ_agegrp)]
 
-    combinedfactor = recvrisk * sendrisk * min(adjustfactor.recov, adjustfactor.vax)
+    combinedfactor = recvrisk * sendrisk * min(recovfactor, vaxfactor)
     riskfactor = squashfunc(combinedfactor)  
 end
 
@@ -434,10 +417,20 @@ columns in the population table. Runs social distancing cases.
 
                 # infection outcome
                 if touched       
-                    adjustfactor = riskadjust(infectset, vaxset, target; spr=spr,
-                                    c_vaxstatus=c_vaxstatus, c_status=c_status, c_variant=c_variant, 
-                                    c_recovday=c_recovday, c_vaxrcvd=c_vaxrcvd, c_vaxday=c_vaxday)
-                    risk = infectrisk(infectset, c_variant, c_sickday, c_agegrp, spr, target, adjustfactor)
+                        recovday = c_recovday[target][end]
+                        targ_variant = c_variant[target][end]
+                        spr_variant = c_variant[spr][end]
+                    recovfactor = c_status[target] == recovered ? recovimmunity(recovday, targ_variant, spr_variant, infectset) : 1.0
+
+                        vaxstatus = c_vaxstatus[target]
+                        vaxrcvd = c_vaxrcvd[target][end]
+                        vaxday = c_vaxday[target][end]
+                    vaxfactor = vaxstatus != :none ? vaximmunity(infectset, vaxset, vaxstatus, spr_variant, vaxrcvd, vaxday) : 1.0
+
+                        spr_sickday = c_sickday[spr]
+                        targ_agegrp = c_agegrp[target]
+                    risk = infectrisk(infectset, spr_variant, spr_sickday, targ_agegrp, recovfactor, vaxfactor)
+
                     if isinfected(risk)
                         tovariant = dovariant ? c_variant[spr][end] : :base
                         begin # make the target sick
