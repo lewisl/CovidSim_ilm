@@ -297,7 +297,8 @@ export
     rural
 
 # constants for indices to population matrix
-export     
+export    
+    # enum values for status and condition
     status,         
     unexposed,
     infectious,
@@ -309,6 +310,7 @@ export
     mild,
     sick,
     severe,
+
     totinfected,
     statuses,
     conditions,
@@ -317,6 +319,7 @@ export
     infectious_cases,
     transition_cases,
     series_colnames,
+    # enum and enum values for age groups
     agegrp,
     age0_19,
     age20_39,
@@ -324,6 +327,7 @@ export
     age60_79, 
     age80_up, 
     agegrps,
+    
     n_agegrps,
     recvrisk,
     totalcol,

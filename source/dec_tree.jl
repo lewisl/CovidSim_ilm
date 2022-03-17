@@ -269,7 +269,7 @@ function getseqs(dt_age::Vector{Transitiondef}; maxsearches = 100)
             if transitions[row, i] != 0.0       
                 outcome = transition_cases[i]
                 prob = transitions[row, i] 
-                push!(todo, [(sickday=breakday, fromcond=map2cond(row), tocond=outcome, prob=prob)])
+                push!(todo, [(sickday=breakday, fromcond=mapit(row, 1:4, infectious_cases), tocond=outcome, prob=prob)])   
             end
         end
     end
@@ -290,12 +290,12 @@ function getseqs(dt_age::Vector{Transitiondef}; maxsearches = 100)
             breakday = breakdays[brk]
             next_steps = [ i for i in eachindex(next_transition[:,1]) if any(next_transition[i,:] .!= 0.0) ] 
 
-            if map2cond(tocond) in next_steps # keys are the fromcond at the next break day so previous tocond == current fromcond
-                outcomes_idx = findall(next_transition[map2cond(tocond),:] .!= 0.0)  
+            if mapit(tocond, infectious_cases, 1:4) in next_steps # keys are the fromcond at the next break day so previous tocond == current fromcond
+                outcomes_idx = findall(next_transition[mapit(tocond, infectious_cases, 1:4),:] .!= 0.0)  
 
                 for i in 1:length(outcomes_idx)                      # 1:length(dt_age[brk][tocond][:outcomes])
                     outcome = outcomes_idx[i]  # dt_age[brk][tocond][:outcomes][i]
-                    prob = next_transition[map2cond(tocond), outcome]    # prob = dt_age[brk][tocond][:probs][i]   
+                    prob = next_transition[mapit(tocond, infectious_cases, 1:4), outcome]    # prob = dt_age[brk][tocond][:probs][i]   
                     newseq = vcat(seq, (sickday=breakday, fromcond=tocond, tocond=transition_cases[outcome], prob=prob))
                     outcome = transition_cases[outcome]
                     if (outcome == dead) | (outcome == recovered)  # terminal node reached--no more nodes to add

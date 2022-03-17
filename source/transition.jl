@@ -53,9 +53,9 @@ locdat must be a population table for a single locale.
         # if person's agegrp, sickday, and condition match a transition stage
         transvec = has(getfield(transarray, Symbol(p_agegrp)), p_sickday, p_cond, trvec) 
 
-        recoveff = p_status == recovered ? recoveffect(p_recovday, p_variant, p_variant, infectset) : 1.0
+        recoveff = p_status == recovered ? tr_recoveffect(p_recovday, p_variant, p_variant, infectset) : 1.0
 
-        vaxeff = p_vaxstatus != :none ? vaxeffect(infectset, vaxset, p_vaxstatus, p_variant, p_vaxrcvd, p_vaxday) : 1.0
+        vaxeff = p_vaxstatus != :none ? tr_vaxeffect(infectset, vaxset, p_vaxstatus, p_variant, p_vaxrcvd, p_vaxday) : 1.0
 
         vaxfn!(transvec, recoveff, vaxeff) #vaxfn! will be function noop or function vaxtransitioneffect
 
@@ -73,7 +73,7 @@ end
 @inline function has(agetr, sickday::Int, p_cond::condition, trvec)::Union{Vector{Float64}, Nothing}
     for trdef in agetr
         if trdef.sickday == sickday
-            trvec[:] = trdef.transition[map2cond(p_cond), :]
+            trvec[:] = trdef.transition[mapit(p_cond, infectious_cases, 1:4), :]
             if sum(trvec) > 0.0
                 return trvec
             end
@@ -94,10 +94,10 @@ end
     riskfactor = squashfunc(combinedfactor)  
 
     for c in (sick, severe, dead)
-        transvec[map2transition(c)] *= riskfactor
+        transvec[mapit(c, transition_cases, 1:6)] *= riskfactor
     end
 
-    correction = 1.0 / sum(transvec)
+    correction = 1.0 / sum(transvec)  # normalize to sum to 1.0
     transvec[:] .*= correction
 
 end
@@ -125,14 +125,11 @@ the number of days the person has been sick.
         choice = categorical_sim(trvec) # which outcome based on probability...?
 
         # debugging
-        if choice == 0
-            println("debugging function dotransition!")
-            println(trvec)
-            @assert false
-        end
+        @assert choice != 0 "Error in transvec $transvec resulted in choice = 0"
 
-        tocond = map2transition(choice)  # next condition or status
+        tocond = mapit(choice, 1:6, transition_cases)
 
+        # debugging
         # if locdat.sickday[p] >= 25
         #     println("$(day_ctr[:day]): agegrp: $(locdat.agegrp[p]) sickday: $(locdat.sickday[p]) from cond: $p_cond to cond: $tocond")
         # end
@@ -159,7 +156,7 @@ end
 
 Immunity from vaccination for a single person.
 """
-@inline function vaxeffect(infectset, vaxset, vaxstatus, spr_variant, vaxrcvd, vaxday)
+@inline function tr_vaxeffect(infectset, vaxset, vaxstatus, spr_variant, vaxrcvd, vaxday)
 
     today = day_ctr[:day]
     oneshotfactor = 0.85   # TODO yet another parameter to put somewhere...!
@@ -172,7 +169,7 @@ Immunity from vaccination for a single person.
     halflife = vaxset[vaxrcvd].halflife
     full_effect_days = vaxset[vaxrcvd].full_effect_days
     infectfactor = vaxset[vaxrcvd].infectfactor
-    vaxeffect = vaxset[vaxrcvd].infectreduce[vaxstatus][spr_variant]
+    tr_vaxeffect = vaxset[vaxrcvd].infectreduce[vaxstatus][spr_variant]
 
     # rise and decay of vaccine effectiveness
     rise_lower=0.5    # TODO need to make these inputs somewhere
@@ -182,18 +179,18 @@ Immunity from vaccination for a single person.
     decay = lindecay(days_after_full_effect, halflife, decay_lower)
     vaxmod = rise * decay
 
-    factor = 1.0 - (vaxmod * vaxeffect * infectfactor) 
+    factor = 1.0 - (vaxmod * tr_vaxeffect * infectfactor) 
 
     return factor
 end
 
 
 """
-    recovimmunity(recovday, targ_variant, spr_variant, infectset)
+    tr_recoveffect(recovday, targ_variant, spr_variant, infectset)
 
 Immunity from recovery for a single person.
 """
-@inline function recoveffect(recovday, targ_variant, spr_variant, infectset)
+@inline function tr_recoveffect(recovday, targ_variant, spr_variant, infectset)
 
         today = day_ctr[:day]
         days_post_recov = today - recovday 
@@ -214,74 +211,29 @@ Immunity from recovery for a single person.
     return factor
 end
 
+"""
+    mapit(x, sourcearr, targetarr)
 
-function map2transition(choice::Int) # faster than using a Dict, array, or tuple because few items
+For an input value x, find the value from the target array where x 
+is in the source array. x must match a value in the source array, which 
+are semantically keys. The matching value returns an integer index, which selects
+the value from the target array. Conceptually, the sourcearr is like keys to a Dict and
+the target array are the values of the Dict. For a small number of items, mapit will generally 
+be slower than a dict, and may be faster depending on which key is accessed.
 
-    if choice == 1  # most common
-        recovered
-    elseif choice == 2
-        nil
-    elseif choice == 3
-        mild
-    elseif choice == 4
-        sick
-    elseif choice == 5
-        severe
-    elseif choice == 6   # least common
-        dead
-    else
-        @assert false "invalid condition or status integer value $choice"
-    end
-        
-end
+Much of the benefit is from not creating a Dict as a mapping. However, if the Dict only
+is created once for many accesses then the advantage is small.
 
-function map2transition(choice::Enum) # faster than using a Dict, array, or tuple because few items
-
-    if choice == recovered  # most common
-        1
-    elseif choice == nil
-        2
-    elseif choice == mild
-        3
-    elseif choice == sick
-        4
-    elseif choice == severe
-        5
-    elseif choice == dead   # least common
-        6
-    else
-        @assert false "invalid condition or status enum value $choice"
-    end
-        
-end
-
-
-function map2cond(x::Enum)
-    if x==nil
-        1
-    elseif x==mild
-        2
-    elseif x==sick
-        3
-    elseif x==severe
-        4
-    else
-        @assert false "invalid condition Enum $x"
-    end
-end
-
-function map2cond(x::Int)
-    if x==1
-        nil
-    elseif x==2
-        mild
-    elseif x==3
-        sick
-    elseif x==4
-        severe
-    else
-        @assert false "invalid condition Int $x"
-    end
+Ex:
+    x = "three"
+    sourcearr = ["one", "two", "three", "four"]
+    targetarr = [150, 225, 325, 471]
+    mapit(x, sourcearr, targetarr) # returns 325
+"""
+function mapit(x, sourcearr, targetarr)
+    # @assert length(sourcearr) == length(targetarr) "Length of sourcearr not equal length of targetarr"
+    idx = findfirst(isequal(x), sourcearr)
+    targetarr[idx]
 end
 
 

@@ -152,21 +152,18 @@ end
 
 """
     function istouched(agegrp, lookup, touchfactors)::Bool
+    function istouched(agegrp, lookup, acase::Spreadcase)::Bool
 
 Returns true if the contact made was significant to the recipient or false if not.
-This method uses the default touchfactors for the current recipient.
+First method uses the default touchfactors for the current recipient.
+Second method uses the spreadcase for the recipient.
 """
 @inline function istouched(agegrp, lookup, touchfactors)::Bool
     return @inbounds @fastmath rand(Binomial(1, touchfactors[maptouch(lookup), mapage(agegrp)])) == 1
 end
 
 
-"""
-    function istouched(agegrp, lookup, acase::Spreadcase)::Bool
 
-Returns true if the contact made was significant to the recipient or false if not.
-This method uses the spreadcase for the recipient.
-"""
 @inline function istouched(agegrp, lookup, acase::Spreadcase)::Bool
     return @inbounds @fastmath rand(Binomial(1, acase.tfcase[maptouch(lookup), mapage(agegrp)])) == 1
 end
@@ -193,10 +190,16 @@ end
 
 
 """
-    Vaccine infectreduce ramps up after receiving a shot.
-    This returns a value between 0.0 and 1.0 which 
-    must be multiplied times the vaccine specific infectreduce 
-    because this function only represents the time-based change.
+    riseup(days_since_shot, delay_days, lower, upper)
+    riseup14(t)     
+
+Vaccine infectreduce ramps up after receiving a shot.
+This returns a value between 0.0 and 1.0 which 
+must be multiplied times the vaccine specific infectreduce 
+because this function only represents the time-based change.
+
+The second method is curried to only require days_since_shot as
+input. The other arguments to this method are: 14, 0.0, 1.0
 """
 function riseup(days_since_shot, delay_days, lower, upper)
     clamp(days_since_shot * (1.0 / delay_days), lower, upper)
@@ -276,11 +279,11 @@ squashfunc = simpleclamp
 
 
 """
-    vaximmunity(infectset, vaxset, vaxstatus, spr_variant, vaxrcvd, vaxday)
+    spr_vaxeffect(infectset, vaxset, vaxstatus, spr_variant, vaxrcvd, vaxday)
 
 Immunity from vaccination for a single person.
 """
-@inline function vaximmunity(infectset, vaxset, vaxstatus, spr_variant, vaxrcvd, vaxday)
+@inline function spr_vaxeffect(infectset, vaxset, vaxstatus, spr_variant, vaxrcvd, vaxday)
 
     today = day_ctr[:day]
     oneshotfactor = 0.85   # TODO yet another parameter to put somewhere...!
@@ -310,11 +313,11 @@ end
 
 
 """
-    recovimmunity(recovday, targ_variant, spr_variant, infectset)
+    spr_recoveffect(recovday, targ_variant, spr_variant, infectset)
 
 Immunity from recovery for a single person.
 """
-@inline function recovimmunity(recovday, targ_variant, spr_variant, infectset)
+@inline function spr_recoveffect(recovday, targ_variant, spr_variant, infectset)
 
         today = day_ctr[:day]
         days_post_recov = today - recovday 
@@ -420,12 +423,12 @@ columns in the population table. Runs social distancing cases.
                         recovday = c_recovday[target][end]
                         targ_variant = c_variant[target][end]
                         spr_variant = c_variant[spr][end]
-                    recovfactor = c_status[target] == recovered ? recovimmunity(recovday, targ_variant, spr_variant, infectset) : 1.0
+                    recovfactor = c_status[target] == recovered ? spr_recoveffect(recovday, targ_variant, spr_variant, infectset) : 1.0
 
                         vaxstatus = c_vaxstatus[target]
                         vaxrcvd = c_vaxrcvd[target][end]
                         vaxday = c_vaxday[target][end]
-                    vaxfactor = vaxstatus != :none ? vaximmunity(infectset, vaxset, vaxstatus, spr_variant, vaxrcvd, vaxday) : 1.0
+                    vaxfactor = vaxstatus != :none ? spr_vaxeffect(infectset, vaxset, vaxstatus, spr_variant, vaxrcvd, vaxday) : 1.0
 
                         spr_sickday = c_sickday[spr]
                         targ_agegrp = c_agegrp[target]
@@ -433,12 +436,7 @@ columns in the population table. Runs social distancing cases.
 
                     if isinfected(risk)
                         tovariant = dovariant ? c_variant[spr][end] : :base
-                        begin # make the target sick
-                            c_cond[target] = nil 
-                            c_status[target] = infectious
-                            c_sickday[target] = 1
-                            push!(c_variant[target], tovariant)
-                        end
+                        set_infected!(target, c_cond, nil, c_status, infectious, c_sickday, 1, c_variant, tovariant)
                         n_newly_infected += 1
                     end
                 end  # if (touched ...)
@@ -447,6 +445,14 @@ columns in the population table. Runs social distancing cases.
     end  # for p in infect_idx
 
     return n_newly_infected # n_contacts, n_touched, n_newly_infected
+end
+
+function set_infected!(target, condcol, condval, statcol, statval, sickdaycol, sickdayval, variantcol, variantval)
+    # wrapping args in some containers and deref'ing the containers will take too much time in the hottest loop of the simulation
+    condcol[target]=condval
+    statcol[target] = statval
+    sickdaycol[target] = sickdayval
+    push!(variantcol[target], variantval)
 end
 
 
