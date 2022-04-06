@@ -134,7 +134,7 @@ Returns the number of contacts that someone spreading the disease will make on a
 method uses the default contactfactors for the current spreader.
 """
 @inline function numcontacts(density_factor, gammashape, agegrp, cond, contactfactors)::Int 
-    @inbounds @fastmath scale = density_factor * contactfactors[mapcontact(cond), mapage(agegrp)]
+    @inbounds @fastmath scale = density_factor * contactfactors[mapcondition(cond), mapagegrp(agegrp)]
     @fastmath round(Int,rand(Gamma(gammashape, scale)))
 end
 
@@ -145,7 +145,7 @@ Returns the number of contacts that someone spreading the disease will make on a
 method uses the spreadcase applicable to the current spreader.
 """
 @inline function numcontacts(density_factor, gammashape, agegrp, cond, acase::Spreadcase)::Int
-    @inbounds @fastmath scale = density_factor * acase.cfcase[mapcontact(cond), mapage(agegrp)]  
+    @inbounds @fastmath scale = density_factor * acase.cfcase[mapcondition(cond), mapagegrp(agegrp)]  
     @fastmath round(Int,rand(Gamma(gammashape, scale)))
 end
 
@@ -159,13 +159,13 @@ First method uses the default touchfactors for the current recipient.
 Second method uses the spreadcase for the recipient.
 """
 @inline function istouched(agegrp, lookup, touchfactors)::Bool
-    return @inbounds @fastmath rand(Binomial(1, touchfactors[maptouch(lookup), mapage(agegrp)])) == 1
+    return @inbounds @fastmath rand(Binomial(1, touchfactors[maptouch(lookup), mapagegrp(agegrp)])) == 1
 end
 
 
 
 @inline function istouched(agegrp, lookup, acase::Spreadcase)::Bool
-    return @inbounds @fastmath rand(Binomial(1, acase.tfcase[maptouch(lookup), mapage(agegrp)])) == 1
+    return @inbounds @fastmath rand(Binomial(1, acase.tfcase[maptouch(lookup), mapagegrp(agegrp)])) == 1
 end
 
 
@@ -390,7 +390,7 @@ columns in the population table. Runs social distancing cases.
     # initialization before spreading loop
     shuffle!(contactable_idx)
     taken = pos = 0
-    mx = length(contactable_idx)
+    num_contactable = length(contactable_idx)
 
     # assign contacts, do touches, do new infections
     @inbounds for spr in infect_idx      # spr is the person who is the spreader
@@ -401,22 +401,22 @@ columns in the population table. Runs social distancing cases.
         # step through shuffled contactable_idx as selected and wrap around
         pos = taken + 1
         taken = taken + nc
-        if taken <= mx
+        if taken <= num_contactable
             selected = pos:taken
         else
-            selected = Iterators.flatten((pos:mx, 1:(taken - mx)))
-            taken = taken - mx
+            selected = Iterators.flatten((pos:num_contactable, 1:(taken - num_contactable)))
+            taken = taken - num_contactable
         end
 
         # TODO we could keep track of contacts for contact tracing
         # target is the outbound contact reached by the spr (spreader)
-        # @inbounds @fastmath for target in sample(contactable_idx, nc, replace=true) # people can get contacted more than once
         @inbounds @fastmath for i in selected
             target = contactable_idx[i]
 
             if in(c_status[target], (unexposed, recovered))  # only conditions that can get infected   
+                # choose the touch_param for the social distancing case or the input social parameters
                 touch_param = c_sdcomply[target] == :none ? touchfactors : sdcases[c_sdcomply[target]]
-                touched = istouched(c_agegrp[target], unexposed, touch_param)   
+                touched = istouched(c_agegrp[target], unexposed, touch_param)   # is the contact significant?
 
                 # infection outcome
                 if touched       
@@ -623,8 +623,8 @@ end
 #=
 approximate r0 values from model
 using default age distribution
-model selects a c_f based on age and infectious case
-model selects a t_f based on age and condition (includes unexposed and recovered)
+model selects a contact_factor, c_f, based on age and infectious case
+model selects a touch_factor, t_f, based on age and condition (includes unexposed and recovered)
 r0 depends on the selection of both c_f and t_f
 Note: simulation uses samples so generated values will vary
 

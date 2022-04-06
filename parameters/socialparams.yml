@@ -6,9 +6,13 @@ gammashape: 1.0
 # contactfactors: gamma distribution size parameter for spreaders determines number of
 #         contacts per day
 #
+# stored as part of the model as an array:
+#     condition (4) x agegrp (5)
+#
+#
 contactfactors:                                        # loads as dict
   age0_19:                                            # loads as String, converted to enum agegrp
-    {nil: 1.1, mild: 1.1, sick: 0.7, severe: 0.5}       # loads as dict{any, any} with String, Float values
+    {nil: 1.1, mild: 1.1, sick: 0.7, severe: 0.5}       # loads as dict{Symbol, any} with String, Float values
   age20_39:
     {nil: 2.1, mild: 2.0, sick: 1.0, severe: 0.6}
   age40_59:

@@ -132,14 +132,6 @@ end
     age80_up
 end
 
-@enum shift begin
-    torecover=1
-    tonil
-    tomild
-    tosick
-    tosevere
-    todead
-end
 
 const statuses = collect(instances(status))
 const infectious_cases = [nil, mild, sick, severe]
@@ -155,10 +147,6 @@ const totinfected       = 9
 const travelers         = 10
 const isolated          = 11
 
-# setup condition and shift to use as indices to transition arrays
-Base.to_index(s::condition) = Int(s)
-Base.to_index(s::shift) = Int(s)
-
 
 const condnames  = Dict(:unexposed=>"unexposed", :infectious=>"infectious", :recovered=>"recovered", :dead=>"dead",
                     :nil=>"nil", :mild=>"mild", :sick=>"sick", :severe=>"severe", 9=>"totinfected", 
@@ -171,6 +159,7 @@ const totalcol = 6
 const travprobs = [1.0, 2.0, 3.0, 3.0, 0.4] # by age group
 
 # order matters for these includes!
+include("data_mapping.jl")
 include("dec_tree.jl")
 include("setup.jl")
 include("tracking.jl")
@@ -344,8 +333,7 @@ export
     same,
     worse,
     worseplus,
-    die,
-    symtoshift
+    die
 
 
 end # module CovidSim

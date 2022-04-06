@@ -104,13 +104,6 @@ function pop_data(pop; age_dist=age_dist)
 end
 
 
-# columns of history series: traits by agegrp and total:  first 5 cols are agegrps, 6th is total
-# const map2series = (unexposed=1:6, infectious=7:12, recovered=13:18, dead=19:24,          # status
-#                     nil=25:30, mild=31:36, sick=37:42, severe=43:48, totinfected=49:54,   # conditions
-#                     Pfizer=55:60, Moderna=61:66, JnJ=67:72, totvaccinated=73:78,          # vaccines
-#                     base=79:84, alpha=85:90, delta=91:96, omicron=97:102)                 # variants
-
-
 Base.@kwdef struct Series
     cum::Matrix{Int}
     new::Matrix{Int}
@@ -119,13 +112,15 @@ Base.@kwdef struct Series
 end
 
 
-function build_series(locales, n_days)
-    map2dict = OrderedDict{Symbol, UnitRange{Int64}}(
-        :unexposed=>1:6, :infectious=>7:12, :recovered=>13:18, :dead=>19:24,            # status
-        :nil=>25:30, :mild=>31:36, :sick=>37:42, :severe=>43:48, :totinfected=>49:54,   # condition
-        :Pfizer=>55:60, :Moderna=>61:66, :JnJ=>67:72, :totvaccinated=>73:78,            # vaccine
-        :base=>79:84, :alpha=>85:90, :delta=>91:96, :omicron=>97:102                    # variant
-        )   
+function build_series(locales, n_days, map2dict=Dict())
+    if isempty(map2dict)
+        map2dict = OrderedDict{Symbol, UnitRange{Int64}}(
+            :unexposed=>1:6, :infectious=>7:12, :recovered=>13:18, :dead=>19:24,            # status
+            :nil=>25:30, :mild=>31:36, :sick=>37:42, :severe=>43:48, :totinfected=>49:54,   # condition
+            :Pfizer=>55:60, :Moderna=>61:66, :JnJ=>67:72, :totvaccinated=>73:78,            # vaccine
+            :base=>79:84, :alpha=>85:90, :delta=>91:96, :omicron=>97:102                    # variant
+            )   
+    end
     group = collect(keys(map2dict))  
 
     tmpdict = Dict{Int, Series}()   # dict of locales to Series
@@ -313,6 +308,8 @@ function build_socialparams(socialfilename, paramdir)
         @assert has_all "required keys: $lacking not in $(infectfilename)"
 
         # build arrays for contactfactors and touchfactors
+            # keys are agegrps
+            # values are a dict of conditions with values = probabilities
         cfarr = zeros(length(keys(first(values(social_inputs[:contactfactors])))), length(keys(social_inputs[:contactfactors])))
         tfarr = zeros(length(keys(first(values(social_inputs[:touchfactors])))), length(keys(social_inputs[:touchfactors])))
 
@@ -334,144 +331,6 @@ end
 
 
 
-#####################################################################################
-# Data mapping: for types and values
-#####################################################################################
-
-function mapcontact(x::condition)
-    Int(x)-4
-end
-
-function mapage(x::agegrp)
-    Int(x)
-end
-
-function maptouch(x::Union{condition, status})
-    if x == unexposed
-        1
-    elseif x == recovered
-        2
-    elseif x == nil
-        3
-    elseif x == mild
-        4
-    elseif x == sick
-        5
-    elseif x == severe
-        6
-    else
-        @assert false "invalid index to touchfactors $x"
-    end
-end
-
-function tup2vec(maptup, vals)
-    [getfield(maptup, x) for x in vals]
-end
-
-
-#= 
-lookup tables for enum values: 
-- don't need lookup for Int or Symbol: just use Symbol(nil) and Int(nil)-->these are faster than any lookup
-- for symbol use symcond[:nil] => nil::condition = 5
-- for string use symcond[Symbol("nil")] => nil::condition = 5
-=#
-
-"""
-    symboltoagegrp(x::Union{Symbol, String})
-Lookup a string or symbol that matches an enum value of Enum agegrp.
-Generates an error if the string or symbol does not match.
-
-Examples:
-- symbol2agegrp(:age0_19) result:  agegrp::age0_19 = 1
-- symbol2agegrp("age0_19") result: agegrp::age0_19 = 1
-    
-"""
-function symbol2agegrp(x::Union{Symbol, String})::agegrp
-    x = Symbol(x)
-    inst_a = instances(agegrp)
-    symtoage = freeze(Dict(zip(Symbol.(inst_a), inst_a))) # .5x time of regular dict
-    @assert in(x, keys(symtoage)) "Error: input symbol $x is not an agegrp value."
-
-    symtoage[x]
-end
-
-
-"""
-    symbol2condition(x::Union{Symbol String})::condition  
-Lookup a string or symbol that matches an enum value of Enum condition.
-Generates an error if the string or symbol does not match.
-
-Examples:
-- symbol2cond(:nil)  result: nil::condition = 5
-- symbol2cond("nil") result: nil::condition = 5
-    
-"""
-function symbol2condition(x::Union{Symbol, String})::condition  
-    x = Symbol(x) 
-    inst_cond = instances(condition)
-    symtocond = freeze(Dict(zip(Symbol.(inst_cond), inst_cond)))
-
-    symtocond[x]
-end
-
-
-"""
-    symbol2status(x::Union{Symbol String})::status  
-Lookup a string or symbol that matches an enum value of Enum status.
-Generates an error if the string or symbol does not match.
-
-Examples:
-- symbol2cond(:recovered)  result: recovered::status = 3
-- symbol2cond("recovered") result: recovered::status = 3
-    
-"""
-function symbol2status(x::Union{Symbol, String})::status  
-    x = Symbol(x) 
-    inst_status = instances(status)
-    symtostatus = freeze(Dict(zip(Symbol.(inst_status), inst_status)))
-
-    symtostatus[x]
-end
-
-
-"""
-    symbol2allconds(x::Union{Symbol String})::Union{condition, status}  
-Lookup a string or symbol that matches an enum value of Enum condition or status.
-Generates an error if the string or symbol does not match.
-
-Examples:
-- symbol2allconds(:nil)  result: nil::condition = 5
-- symbol2allconds("nil") result: nil::condition = 5
-- symbol2allconds(:dead) result: dead::status = 4
-    
-"""
-function symbol2allconds(x::Union{Symbol, String})::Union{condition, status}  
-    x = Symbol(x) 
-    inst_status = instances(status)
-    inst_cond = instances(condition)
-
-    symtostatus = freeze(Dict(zip(Symbol.(inst_status), inst_status)))
-    symtocond = freeze(Dict(zip(Symbol.(inst_cond), inst_cond)))
-    symtoallconds = merge(symtostatus, symtocond)
-
-    symtoallconds[x]
-end
-
-
-
-# lookup table for shift
-inst_shift = instances(shift)
-
-"""
-    symtoshift[sh::Symbol]
-Dict used as lookup table to convert symbol or string to enum value for an shift.
-
-Examples:
-- for symbol use symtoshift[:recover] returns shift::recover = 1
-- for string use symtoshift[Symbol("recover")] returns shift::recover = 1
-    
-"""
-const symtoshift = freeze(Dict(zip(Symbol.(inst_shift), inst_shift))) # .5x time of regular dict
 
 
 #####################################################################################

@@ -73,7 +73,7 @@ end
 @inline function has(agetr, sickday::Int, p_cond::condition, trvec)::Union{Vector{Float64}, Nothing}
     for trdef in agetr
         if trdef.sickday == sickday
-            trvec[:] = trdef.transition[mapit(p_cond, infectious_cases, 1:4), :]
+            trvec[:] = trdef.transition[mapcondition(p_cond), :]
             if sum(trvec) > 0.0
                 return trvec
             end
@@ -94,7 +94,7 @@ end
     riskfactor = squashfunc(combinedfactor)  
 
     for c in (sick, severe, dead)
-        transvec[mapit(c, transition_cases, 1:6)] *= riskfactor
+        transvec[maptransition(c)] *= riskfactor
     end
 
     correction = 1.0 / sum(transvec)  # normalize to sum to 1.0
@@ -127,7 +127,7 @@ the number of days the person has been sick.
         # debugging
         @assert choice != 0 "Error in transvec $transvec resulted in choice = 0"
 
-        tocond = mapit(choice, 1:6, transition_cases)
+        tocond = maptransition(choice)
 
         # debugging
         # if locdat.sickday[p] >= 25
@@ -211,30 +211,7 @@ Immunity from recovery for a single person.
     return factor
 end
 
-"""
-    mapit(x, sourcearr, targetarr)
 
-For an input value x, find the value from the target array where x 
-is in the source array. x must match a value in the source array, which 
-are semantically keys. The matching value returns an integer index, which selects
-the value from the target array. Conceptually, the sourcearr is like keys to a Dict and
-the target array are the values of the Dict. For a small number of items, mapit will generally 
-be slower than a dict, and may be faster depending on which key is accessed.
-
-Much of the benefit is from not creating a Dict as a mapping. However, if the Dict only
-is created once for many accesses then the advantage is small.
-
-Ex:
-    x = "three"
-    sourcearr = ["one", "two", "three", "four"]
-    targetarr = [150, 225, 325, 471]
-    mapit(x, sourcearr, targetarr) # returns 325
-"""
-function mapit(x, sourcearr, targetarr)
-    # @assert length(sourcearr) == length(targetarr) "Length of sourcearr not equal length of targetarr"
-    idx = findfirst(isequal(x), sourcearr)
-    targetarr[idx]
-end
 
 
 """

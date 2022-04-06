@@ -71,6 +71,8 @@ function runsim(model;
     ######################
     # simulation loop
     ######################
+    
+    # timing begin block
     totalsimtime += @elapsed begin
 
     for loc in locales     
@@ -81,6 +83,8 @@ function runsim(model;
         locdat = popdat[loc]  
         locseries = series[loc]
         age_idx_loc = agegrp_idx[loc]  # indices by agegrp
+        density_factor = geodf[geodf[!, :fips] .== loc, :density_factor][]  # for the loc
+
 
         # Deref columns once per locale and not in the deeper loops. Pass these columns to spread! and transition!
         c_cond       = locdat.cond
@@ -101,8 +105,6 @@ function runsim(model;
             inc!(day_ctr, :day)  # increment the simulation day counter
             silent || println("simulation day: ", day_ctr[:day])
 
-                density_factor = geodf[geodf[!, :fips] .== loc, :density_factor][]  # TODO not a good place for this
-                
                 for case in runcases  # cases that run at the beginning of the day
                     case(locdat, socialparams, infectset, sdcases, age_idx_loc; day=day_ctr[:day], startofday=true, locale=loc)  # TODO extend ages to be any filter for 
                 end                                                 # who participates in a given case
@@ -114,9 +116,10 @@ function runsim(model;
                     contactable_idx = findall(locdat.status .!= dead)
                 end
 
-                # if dovax give shots
-                dovax && (vaxtime += @elapsed vaccinate!(locdat, vaxschedset, contactable_idx, vaxset))
-                # @show size(contactable_idx), vaxset
+                # if dovax vaccinate (e.g., give shots)
+                dovax && (
+                            vaxtime += @elapsed vaccinate!(locdat, vaxschedset, contactable_idx, vaxset)
+                         )
 
                 # two fundamental steps of the simulation: spread! and transition!
                 sprtime += @elapsed spread!(infect_idx, contactable_idx, sdcases, socialparams, 

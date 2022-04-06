@@ -382,7 +382,3 @@ omicron:
         JnJ:        0.5
         Pfizer:     0.8
         Moderna:    0.9
-  # these are unused from an earlier version of the parameters file format
-  # infect_fname:     omicron_spread.yml
-  # transition_fname: omicron_transition_array.yml
-  # directory_name:   omicron_variant
