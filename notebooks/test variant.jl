@@ -6,7 +6,7 @@
 #       extension: .jl
 #       format_name: percent
 #       format_version: '1.3'
-#       jupytext_version: 1.13.2
+#       jupytext_version: 1.13.7
 #   kernelspec:
 #     display_name: Julia 1.7.0
 #     language: julia
@@ -72,6 +72,24 @@ countmap(locdat.agegrp)
 countmap(locdat.status)  # everyone begins as unexposed
 
 # %% [markdown]
+# ### Series
+
+# %%
+fieldnames(typeof(model.series))
+
+# %%
+model.series.cols
+
+# %%
+model.series.new
+
+# %%
+model.series.cum
+
+# %%
+model.series.cum[locale]
+
+# %% [markdown]
 # ### Social Parameters
 
 # %%
@@ -81,7 +99,7 @@ fieldnames(typeof(model.social))
 typeof(model.social.gammashape)
 
 # %%
-model.social.contactfactors
+model.social.contactfactors 
 
 # %%
 model.social.contactfactors[Int(sick)-4, Int(age0_19)]
@@ -159,6 +177,15 @@ println("sickday ",age80tree[breakday_idx].sickday)
 println("transition \n", age80tree[breakday_idx].transition)
 
 # %% [markdown]
+# ## Vaccines and Vaccination Schedule
+
+# %%
+pprintln(model.vaxset)
+
+# %%
+pprintln(model.vaxschedset)
+
+# %% [markdown]
 # ### Sanity check the transition tree
 
 # %%
@@ -207,6 +234,19 @@ popdat, series = runsim(model;
             runcases=[seed20_39_day1, seed40_59_day1, seed20_39_omicron, seed40_59_omicron]   # or seed_1_6 if using old way
             );
 
+# %%
+map2series = series.cols
+series.cum[locale][700:720, map2series[:totvaccinated]]
+
+# %%
+filt_vaccinated = findall(last.(popdat[38015].vaxrcvd) .!= :none)
+if length(filt_vaccinated) > 0
+    vax_today = @inbounds countmap(last.(popdat[38015].vaxrcvd[filt_vaccinated]))  # keys are symbol
+else
+    vax_today = Dict()
+end
+vax_today
+
 # %% [markdown]
 # ### Plot results
 
@@ -215,6 +255,9 @@ cumplot(series, locale)
 
 # %% [markdown]
 # Note that the orange line labeled Infectious, which shows the current number of infected people, is *not* what you see in newspaper accounts. In this plot Infectious shows the net infected people: There were some sick people as of the day before. Some more people got sick today. Some people got better: they're not infectious any more--they recovered and are on the blue line. Sadly, some people died--they're not infectious either--they're dead and are on the green line. So net infected is yesterday + new today - recovered today - died today. Newspaper tracking shows the new infections of each day--who got sick today? Tomorrow, if no one new got sick the line would be at zero--even though the people who got sick yesterday aren't better yet. So, the newspaper line goes up and down faster. Yet another approach is to show the cumulative number of infected people: This keeps going up until no one new gets infected--then the line is high but levels off. 
+
+# %%
+cumplot(series, locale, [:Pfizer, :Moderna, :JnJ, :totvaccinated])
 
 # %%
 cumplot(series, locale, [:nil, :mild, :sick, :severe])
@@ -250,11 +293,11 @@ keys(series)
 model.dat
 
 # %%
-popdat[locale]
+locdat = popdat[locale]
+@btime countmap($locdat.cond)
 
 # %%
-locdat = popdat[locale]
-countmap(locdat.cond)
+@btime cnt_cond($locdat.cond)
 
 # %%
 countmap(locdat.status)

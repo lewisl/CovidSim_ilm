@@ -19,6 +19,7 @@ function setup(ndays, locales;  # must provide following inputs
         datadict = build_data(locales, geodata, ndays)
 
     # history series
+        @show typeof(locales)
         series = build_series(locales, ndays)
 
     # social parameters
@@ -37,9 +38,11 @@ function setup(ndays, locales;  # must provide following inputs
         vaxschedset = nothing
     end
 
-    return (ndays=ndays, locales=locales, dat=datadict, series=series, geo=geodata, 
+    model = (ndays=ndays, locales=locales, dat=datadict, series=series, geo=geodata, 
             transitionset=transitionset, vaxset=vaxset, vaxschedset=vaxschedset, infectset=infectset, 
             social=socialparams, trvec=trvec)  
+
+    return model
 end
 
 
@@ -105,8 +108,8 @@ end
 
 
 Base.@kwdef struct Series
-    cum::Matrix{Int}
-    new::Matrix{Int}
+    cum::Dict{Int, Matrix{Int}} # locale as Int, matrix of cum history columns
+    new::Dict{Int, Matrix{Int}} # locale as Int, matrix of new (each day) history columns
     groups::Vector{Symbol}
     cols::OrderedDict{Symbol, UnitRange{Int64}}
 end
@@ -125,16 +128,13 @@ function build_series(locales, n_days, map2dict=Dict())
 
     tmpdict = Dict{Int, Series}()   # dict of locales to Series
 
-    for loc in locales
-        tmpdict[loc] = Series(
-            cum = zeros(Int, n_days, map2dict[last(group)][end]), 
-            new = zeros(Int, n_days, map2dict[last(group)][end]), 
-            groups = group,
-            cols = map2dict
-            )
-    end
+    series = Series(groups = group,
+                    cols = map2dict,
+                    cum = Dict(loc => zeros(Int, n_days, map2dict[last(group)][end]) for loc in locales),
+                    new = Dict(loc => zeros(Int, n_days, map2dict[last(group)][end]) for loc in locales)              
+                )
 
-    return tmpdict       
+    return series       
 end
 
 

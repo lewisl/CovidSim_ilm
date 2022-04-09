@@ -6,7 +6,7 @@
 # data structures for vaccination
 ###################################################
 
-@Base.kwdef mutable struct Vaccineparams
+@Base.kwdef struct Vaccineparams  # mutable  ??
     reqdshots::Int
     delay2ndshot::Union{Int, Nothing}   # days until 2nd shot (probability less important)
     halflife::Int  # days to 50% decline in effect
@@ -33,14 +33,15 @@ end
 
 
 """
-    mutable struct Vaxinclude
+    struct Vaxinclude
 
 Describes one vaccine included in a vaccination schedule. A dict holds instances of
 this struct for each vaccine type included in a vaccination schedule.
 """
-@Base.kwdef mutable struct Vaxinclude
+@Base.kwdef mutable struct Vaxinclude   
     mix::Float64
-    doses::Int
+    starting_doses::Int
+    doses::Int=0
     pct2ndshot::Float64
     alternate::Array{String}
     booster::Bool
@@ -50,17 +51,17 @@ end
         Method for converting a dict loaded from YAML to this struct
         """
         function Vaxinclude(vi::Dict)
-            mix         = vi[:mix]
-            doses       = vi[:doses]
-            pct2ndshot  = vi[:pct2ndshot]
-            alternate   = vi[:alternate]
-            booster     = vi[:booster]
+            mix             = vi[:mix]
+            starting_doses  = vi[:starting_doses]
+            pct2ndshot      = vi[:pct2ndshot]
+            alternate       = vi[:alternate]
+            booster         = vi[:booster]
 
-            Vaxinclude(mix=mix, doses=doses, pct2ndshot=pct2ndshot, alternate=alternate, booster=booster)
+            Vaxinclude(mix=mix, starting_doses=starting_doses, pct2ndshot=pct2ndshot, alternate=alternate, booster=booster)
         end
 
 
-@Base.kwdef mutable struct Vaxsched
+@Base.kwdef struct Vaxsched  # mutable
     vaxesincluded::Dict{Symbol, Vaxinclude}
     dayrange::UnitRange{Int64}
     targetpct::Float64
@@ -134,28 +135,24 @@ function build_vaxset(vaccinefilename; paramdir="../parameters")
 end
 
 
-function build_vaxschedset(schedfiles; paramdir="../parameters", scheddir="vaccine_schedule")
-
-    schedpath = joinpath(paramdir, scheddir)
-    vaxschedset = Dict{Symbol, Vaxsched}()
-
-    for schedfile in schedfiles
-        schedname = first(splitext(schedfile))
-        vaxscheddict = YAML.load_file(joinpath(schedpath, schedfile), dicttype=Dict{Symbol, Any})
-        vaxschedset[Symbol(schedname)] = Vaxsched(vaxscheddict)
-    end
-
-    return vaxschedset
-end
-
-
 function build_vaxschedset(; paramdir="../parameters", scheddir="vaccine_schedule")
     fnames = readdir(joinpath(paramdir, scheddir), join=true)
     fnames = filter(isfile, fnames)
     fnames = filter(fn -> (splitext(fn)[2] == ".yml"), fnames)
     fnames = map(fn->last(splitpath(fn)), fnames)  # get rid of the path--keep only filename
 
-    build_vaxschedset(fnames, paramdir=paramdir, scheddir=scheddir)
+    # build_vaxschedset(fnames, paramdir=paramdir, scheddir=scheddir)
+    schedpath = joinpath(paramdir, scheddir)
+    vaxschedset = Dict{Symbol, Vaxsched}()
+
+    for schedfile in fnames
+        schedname = first(splitext(schedfile))
+        vaxscheddict = YAML.load_file(joinpath(schedpath, schedfile), dicttype=Dict{Symbol, Any})
+        vaxschedset[Symbol(schedname)] = Vaxsched(vaxscheddict)
+    end
+
+    return vaxschedset
+
 end
 
 
@@ -240,7 +237,7 @@ end
                   vaxprops, vaxesincluded, reqdshots, pct2ndshot, mix, delay2ndshot,  # vaccine characteristics
                   contactable_idx, people_today, today)                               # people and simulation today
 
-    for p in contactable_idx  # loop across people who are not dead
+    for p in shuffle(contactable_idx)  # loop across people who are not dead. Mix up the agegrps
 
         # break out if all the people in this schedule today have been fully vaccinated
         people_today < 1 && break  

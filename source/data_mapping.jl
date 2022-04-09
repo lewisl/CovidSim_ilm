@@ -25,7 +25,7 @@ Ex:
     mapit(x, sourcearr, targetarr) # returns 325
 """
 function mapit(x, keyarr, valuearr)
-    # @assert length(sourcearr) == length(targetarr) "Length of sourcearr not equal length of targetarr"
+    @assert length(sourcearr) == length(targetarr) "Length of sourcearr not equal length of targetarr"
     idx = findfirst(isequal(x), keyarr)
     valuearr[idx]
 end
@@ -43,14 +43,14 @@ end
 function mapcondition(x::Integer) # from int to enum
     if 0 <= x <= 4
         if x == 0
-            0
+            uninfected
         elseif x == 1
             nil
         elseif x == 2
             mild
         elseif x == 3
             sick
-        else
+        else # last condition 4
             severe
         end
     else

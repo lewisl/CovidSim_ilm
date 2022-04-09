@@ -201,7 +201,7 @@ because this function only represents the time-based change.
 The second method is curried to only require days_since_shot as
 input. The other arguments to this method are: 14, 0.0, 1.0
 """
-function riseup(days_since_shot, delay_days, lower, upper)
+@fastmath function riseup(days_since_shot, delay_days, lower, upper)
     clamp(days_since_shot * (1.0 / delay_days), lower, upper)
 end
 
@@ -211,7 +211,7 @@ riseup14(t) = riseup(t, 14, 0.0, 1.0)  # curried to only input the day as time t
 
 # gradual decay of vaccine infectreduce based on assumed half-life
 
-function lindecay(t, h, lower)
+@fastmath function lindecay(t, h, lower)
     y = 0.5 ./ -h * t  + 1.0
     y = y < lower ? lower : y
 end
@@ -249,7 +249,7 @@ function lindecayarr(t::AbstractVector{T} where T, hl, lower1, lower2)
 end
 
 
-@inline function vaxmodifier(full_effect_days, today, lastshotday, halflife; rise_lower=0.5, decay_lower=0.05)
+@inline @fastmath function vaxmodifier(full_effect_days, today, lastshotday, halflife; rise_lower=0.5, decay_lower=0.05)
     # combines the effect of the rise to full infectreduce post shot with
         # the decay in infectreduce over time: based on current date
     @assert today >= lastshotday "today's date must be >= to day of most recent shot"
@@ -283,7 +283,7 @@ squashfunc = simpleclamp
 
 Immunity from vaccination for a single person.
 """
-@inline function spr_vaxeffect(infectset, vaxset, vaxstatus, spr_variant, vaxrcvd, vaxday)
+@inline @fastmath function spr_vaxeffect(infectset, vaxset, vaxstatus, spr_variant, vaxrcvd, vaxday)
 
     today = day_ctr[:day]
     oneshotfactor = 0.85   # TODO yet another parameter to put somewhere...!
@@ -392,7 +392,7 @@ columns in the population table. Runs social distancing cases.
     taken = pos = 0
     num_contactable = length(contactable_idx)
 
-    # assign contacts, do touches, do new infections
+    # for everyone who is infectious
     @inbounds for spr in infect_idx      # spr is the person who is the spreader
         # determine number of outbound contacts 
         contact_param = c_sdcomply[spr] == :none ? contactfactors : sdcases[c_sdcomply[spr]]
@@ -404,39 +404,42 @@ columns in the population table. Runs social distancing cases.
         if taken <= num_contactable
             selected = pos:taken
         else
-            selected = Iterators.flatten((pos:num_contactable, 1:(taken - num_contactable)))
             taken = taken - num_contactable
+            selected = Iterators.flatten((pos:num_contactable, 1:taken))
         end
 
         # TODO we could keep track of contacts for contact tracing
-        # target is the outbound contact reached by the spr (spreader)
+        # for each person who is contacted by the spreader
         @inbounds @fastmath for i in selected
             target = contactable_idx[i]
+            target_status = c_status[target]
 
-            if in(c_status[target], (unexposed, recovered))  # only conditions that can get infected   
+            if in(target_status, (unexposed, recovered))  # only conditions that can get infected   
                 # choose the touch_param for the social distancing case or the input social parameters
                 touch_param = c_sdcomply[target] == :none ? touchfactors : sdcases[c_sdcomply[target]]
                 touched = istouched(c_agegrp[target], unexposed, touch_param)   # is the contact significant?
 
                 # infection outcome
-                if touched       
+                if touched  # if the contact is consequential
+                    # gather characteristics of target and spreader
                         recovday = c_recovday[target][end]
                         targ_variant = c_variant[target][end]
                         spr_variant = c_variant[spr][end]
-                    recovfactor = c_status[target] == recovered ? spr_recoveffect(recovday, targ_variant, spr_variant, infectset) : 1.0
+                        recovfactor = target_status == recovered ? spr_recoveffect(recovday, targ_variant, spr_variant, infectset) : 1.0
 
                         vaxstatus = c_vaxstatus[target]
                         vaxrcvd = c_vaxrcvd[target][end]
                         vaxday = c_vaxday[target][end]
-                    vaxfactor = vaxstatus != :none ? spr_vaxeffect(infectset, vaxset, vaxstatus, spr_variant, vaxrcvd, vaxday) : 1.0
+                        vaxfactor = vaxstatus != :none ? spr_vaxeffect(infectset, vaxset, vaxstatus, spr_variant, vaxrcvd, vaxday) : 1.0
 
                         spr_sickday = c_sickday[spr]
                         targ_agegrp = c_agegrp[target]
+
                     risk = infectrisk(infectset, spr_variant, spr_sickday, targ_agegrp, recovfactor, vaxfactor)
 
                     if isinfected(risk)
                         tovariant = dovariant ? c_variant[spr][end] : :base
-                        set_infected!(target, c_cond, nil, c_status, infectious, c_sickday, 1, c_variant, tovariant)
+                        @inbounds set_infected!(target, c_cond, nil, c_status, infectious, c_sickday, 1, c_variant, tovariant)
                         n_newly_infected += 1
                     end
                 end  # if (touched ...)
@@ -449,10 +452,12 @@ end
 
 function set_infected!(target, condcol, condval, statcol, statval, sickdaycol, sickdayval, variantcol, variantval)
     # wrapping args in some containers and deref'ing the containers will take too much time in the hottest loop of the simulation
-    condcol[target]=condval
-    statcol[target] = statval
-    sickdaycol[target] = sickdayval
-    push!(variantcol[target], variantval)
+    begin
+        condcol[target]=condval
+        statcol[target] = statval
+        sickdaycol[target] = sickdayval
+        push!(variantcol[target], variantval)
+    end
 end
 
 

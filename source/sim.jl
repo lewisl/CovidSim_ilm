@@ -37,7 +37,7 @@ function runsim(model;
 
     empty_all_caches!() # from previous runs
 
-    # split up some members of model
+    # split up  members of model and initialize
         ndays = model.ndays
         locales = model.locales
         transitionset = model.transitionset  # transition arrays
@@ -45,11 +45,19 @@ function runsim(model;
         popdat = deepcopy(model.dat["popdat"])   # Copy the population data so model can be reused!!!
         agegrp_idx = model.dat["agegrp_idx"]   # first key is locale
         series = deepcopy(model.series)
+        seriescols = series.cols
         geodf = model.geo
         infectset = model.infectset
         socialparams = model.social
         vaxset = model.vaxset
         vaxschedset = model.vaxschedset
+        for (k1,v1) in vaxschedset # k1 is name of a schedule, v1 is instance of struct Vaxsched,
+                                    #   vaxesincluded in a field in Vaxsched, which is a dict
+            for (k2, v2) in v1.vaxesincluded # k2 is the key for a vaccine, v2 is the value= an instance of struct Vaxinclude
+                v2.doses = v2.starting_doses   # fields of Vaxinclude
+            end
+        end
+
 
     # restart the day counter to zero
     reset!(day_ctr, :day)  # return and reset key to 0 :day leftover from prior runs
@@ -81,7 +89,8 @@ function runsim(model;
         
         # this should be the first and only place to deref the locale (as loc)
         locdat = popdat[loc]  
-        locseries = series[loc]
+        newhist = series.new[loc]
+        cumhist = series.cum[loc]
         age_idx_loc = agegrp_idx[loc]  # indices by agegrp
         density_factor = geodf[geodf[!, :fips] .== loc, :density_factor][]  # for the loc
 
@@ -122,7 +131,7 @@ function runsim(model;
                          )
 
                 # two fundamental steps of the simulation: spread! and transition!
-                sprtime += @elapsed spread!(infect_idx, contactable_idx, sdcases, socialparams, 
+                sprtime += @elapsed spread!(infect_idx, contactable_idx, sdcases,  socialparams, 
                                             infectset, vaxset, density_factor, dovax, dovariant;
                                             c_cond       = c_cond,
                                             c_status     = c_status,
@@ -160,19 +169,22 @@ function runsim(model;
                 end
 
                 # accumulate simulation statistics in series for plotting: arrays NOT dataframes
-                histtime += @elapsed do_history!(locdat, locseries, age_idx_loc)
+                histtime += @elapsed do_history!(locdat, newhist, cumhist, age_idx_loc, seriescols)
 
         end # for i in 1:n_days
 
         histtime += @elapsed begin
-            hist_total_agegrps!(locseries) # sum agegrps to total for all series groups (by agegrp)
-            add_totinfected_series!(locseries) # we might need a totvaccinated series
+            hist_total_agegrps!(newhist, cumhist, seriescols) # sum agegrps to total for all series groups (by agegrp)
+            add_totinfected_series!(newhist, cumhist, seriescols) 
+            add_totvaccinated_series!(newhist, cumhist, seriescols)
         end
+
         silent || println("Simulation completed for $(day_ctr[:day]) days for locale $loc.")
+
     end # for loc in locales
     end # totalsimtime
 
-    @show idxtime, vaxtime, sprtime, trtime, histtime, totalsimtime
+    print_timings(idxtime, vaxtime, sprtime, trtime, histtime, totalsimtime)
 
     return popdat, series
 end
@@ -183,24 +195,18 @@ end
 #  Update daily history series
 ################################################################################
 
-@views function do_history!(locdat, locseries, age_idx_loc)  # cumhist, newhist,
-    thisday = day_ctr[:day]
-    map2series = locseries.cols
-        
-    cumdat = locseries.cum   # sink
-    newdat = locseries.new   # sink
+@views function do_history!(locdat, newhist, cumhist, age_idx_loc, seriescols)  # cumhist, newhist,
 
     @inbounds for age in instances(agegrp)
-        int_age = Int(age)
 
         # get the source data: status
         dat_age = locdat[age_idx_loc][age]
-        status_today = countmap(dat_age.status)    # cumulative position for thisday, keys are Enum status
+        status_today = @inbounds countmap(dat_age.status)    # cumulative position for thisday, keys are Enum status
 
         # get the source data: conditions in (nil, mild, sick, severe)
         filt_infectious = findall(dat_age.status .== infectious)
         if length(filt_infectious) > 0
-            sick_today = countmap(dat_age.cond[filt_infectious])  # keys are enum condition
+            sick_today = @inbounds countmap(dat_age.cond[filt_infectious])  # keys are enum condition
         else   # there can be days when no one is infected
             sick_today = Dict()
         end
@@ -208,14 +214,14 @@ end
         # get the source data: vaccination
         filt_vaccinated = findall(last.(dat_age.vaxrcvd) .!= :none)
         if length(filt_vaccinated) > 0
-            vax_today = countmap(last.(dat_age.vaxrcvd[filt_vaccinated]))  # keys are symbol
+            vax_today = @inbounds countmap(last.(dat_age.vaxrcvd[filt_vaccinated]))  # keys are symbol
         else
             vax_today = Dict()
         end
 
         # get the source data: variants: use filt_infectious from above...
         if length(filt_infectious) > 0
-            variant_today = countmap(last.(dat_age.variant[filt_infectious]))
+            variant_today = @inbounds countmap(last.(dat_age.variant[filt_infectious]))
         else
             variant_today = Dict()
         end
@@ -224,67 +230,85 @@ end
         # cumulative and new series
         #
 
-        function saveseries!(cumdat, newdat, items, sourcemap, filt)
-            for item in items
-                if thisday == 1
-                    cumdat[thisday, map2series[Symbol(item)][filt]] = get(sourcemap, item, 0)
-                    newdat[thisday, map2series[Symbol(item)][filt]] = get(sourcemap, item, 0)  # initialize 1st day of new
-                else
-                    cumdat[thisday, map2series[Symbol(item)][filt]] = get(sourcemap, item, 0)
-                    newdat[thisday, map2series[Symbol(item)][filt]] = (    # day 2... do cum(day n) - cum(day n-1)
-                        cumdat[thisday, map2series[Symbol(item)][filt]]
-                        - cumdat[thisday - 1, map2series[Symbol(item)][filt]]
-                    )
-                end
-            end
-        end
-
-        saveseries!(cumdat, newdat, statuses, status_today, int_age)
-        saveseries!(cumdat, newdat, infectious_cases, sick_today, int_age)
-        saveseries!(cumdat, newdat, vaxlist, vax_today, int_age)
-        saveseries!(cumdat, newdat, variantlist, variant_today, int_age)
+        int_age = Int(age)
+        thisday = day_ctr[:day]
+    
+        saveseries!(cumhist, newhist, statuses, status_today, int_age, seriescols, thisday)
+        saveseries!(cumhist, newhist, infectious_cases, sick_today, int_age, seriescols, thisday)
+        saveseries!(cumhist, newhist, vaxlist, vax_today, int_age, seriescols, thisday)
+        saveseries!(cumhist, newhist, variantlist, variant_today, int_age, seriescols, thisday)
         
     end # for age in agegrps
 
 end # function
 
 
-function hist_total_agegrps!(locseries)
-    cols = locseries.cols
-    for kind in [:cum, :new]
-        loc_arr = getproperty(locseries, kind)   
+function saveseries!(cumdat, newdat, categories, countsdict, int_age, seriescols, thisday)
 
-        for cond in allconds  # infectious cases and statuses
-            colgroup = cols[Symbol(cond)]
-            loc_arr[:, colgroup[totalcol]] = sum(loc_arr[:, colgroup[collect(Int.(agegrps))]], dims=2)
+    @inbounds for item in categories
+        seriescol = seriescols[Symbol(item)][int_age]
+        itemcount = get(countsdict, item, 0)
+        if thisday == 1
+            cumdat[thisday, seriescol] = itemcount
+            newdat[thisday, seriescol] = itemcount  # initialize 1st day of new
+        else
+            cumdat[thisday, seriescol] = itemcount
+            newdat[thisday, seriescol] = (    # day 2... do cum(day n) - cum(day n-1)
+                cumdat[thisday, seriescol]
+                - cumdat[thisday - 1, seriescol]
+                )
         end
-
-        for vax in vaxlist
-            colgroup = cols[Symbol(vax)]
-            loc_arr[:, colgroup[totalcol]] = sum(loc_arr[:, colgroup[collect(Int.(agegrps))]], dims=2)
-        end
-
-        for variant in variantlist
-            colgroup = cols[Symbol(variant)]
-            loc_arr[:, colgroup[totalcol]] = sum(loc_arr[:, colgroup[collect(Int.(agegrps))]], dims=2)
-        end
-
     end
 end
 
 
+function hist_total_agegrps!(newhist, cumhist, seriescols)
+    cols = seriescols
+
+    @inbounds for cond in allconds  # infectious cases and statuses
+        colgroup = cols[Symbol(cond)]
+        newhist[:, colgroup[totalcol]] = sum(newhist[:, colgroup[collect(Int.(agegrps))]], dims=2)
+        cumhist[:, colgroup[totalcol]] = sum(cumhist[:, colgroup[collect(Int.(agegrps))]], dims=2)
+    end
+
+    @inbounds for vax in vaxlist
+        colgroup = cols[Symbol(vax)]
+        newhist[:, colgroup[totalcol]] = sum(newhist[:, colgroup[collect(Int.(agegrps))]], dims=2)
+        cumhist[:, colgroup[totalcol]] = sum(cumhist[:, colgroup[collect(Int.(agegrps))]], dims=2)
+    end
+
+    @inbounds for variant in variantlist
+        colgroup = cols[Symbol(variant)]
+        newhist[:, colgroup[totalcol]] = sum(newhist[:, colgroup[collect(Int.(agegrps))]], dims=2)
+        cumhist[:, colgroup[totalcol]] = sum(cumhist[:, colgroup[collect(Int.(agegrps))]], dims=2)
+    end
+    
+end
+
+
 # a single locale that already has both new and cum series
-function add_totinfected_series!(locseries)
-    cols = locseries.cols
+function add_totinfected_series!(newhist, cumhist, seriescols)
+    cols = seriescols
     # for new
     @views begin
-        n = size(locseries.new,1)
-        # locseries.new = hcat(locseries.new, zeros(Int, n, 6))
-        locseries.new[:,cols[:totinfected]] = ( (locseries.new[:,cols[:unexposed]] .< 0 ) .*
-                                                          abs.(locseries.new[:,cols[:unexposed]]) ) 
-        cumsum!(locseries.cum[:, cols[:totinfected]], locseries.new[:, cols[:totinfected]], dims=1)  
+        n = size(newhist,1)
+        newhist[:,cols[:totinfected]] = ( (newhist[:,cols[:unexposed]] .< 0 ) .*
+                                                          abs.(newhist[:,cols[:unexposed]]) ) 
+        cumsum!(cumhist[:, cols[:totinfected]], newhist[:, cols[:totinfected]], dims=1)  
     end
-    return nothing
+    
+end
+
+
+function add_totvaccinated_series!(newhist, cumhist, seriescols)
+    cols = seriescols
+    @views begin
+        n = size(newhist, 1)
+        newhist[:, cols[:totvaccinated]] = (newhist[:, cols[:JnJ]] .+ newhist[:, cols[:Pfizer]] .+ 
+                                                    newhist[:, cols[:Moderna]])
+        cumhist[:, cols[:totvaccinated]] = (cumhist[:, cols[:JnJ]] .+ cumhist[:, cols[:Pfizer]] .+ 
+                                                    cumhist[:, cols[:Moderna]])
+    end
 end
 
 
@@ -292,6 +316,16 @@ end
 #####################################################################################
 #  other functions used in simulation
 #####################################################################################
+
+function print_timings(idxtime, vaxtime, sprtime, trtime, histtime, totalsimtime)
+    println("\nExecution Times")
+    @printf "Indexing    %.3f\n" idxtime
+    @printf "Vaccination %.3f\n" vaxtime
+    @printf "Spread      %.3f\n" sprtime
+    @printf "Transition  %.3f\n" trtime
+    @printf "History     %.3f\n" histtime
+    @printf "Total       %.3f\n" totalsimtime
+end
 
 
 function cleanup_stash(stash)
