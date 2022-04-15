@@ -252,8 +252,11 @@ popdat, series = runsim(model;
 locdat = popdat[locale];
 
 # %%
-map2series = series.cols
-series.cum[locale][700:720, map2series[:omicron_ba1]]
+model.series.mapper
+
+# %%
+map2series = model.series.mapper
+series.data[locale].cum[700:720, map2series.omicron_ba1]
 
 # %%
 filt_vaccinated = findall(last.(popdat[38015].vaxrcvd) .!= :none)
@@ -291,7 +294,7 @@ cumplot(series, locale, [:nil, :mild, :sick, :severe])
 newplot(series, locale, [:totvaccinated], days=160:300)
 
 # %%
-cumplot(series, locale, [:base, :omicron])
+cumplot(series, locale, [:base, :omicron_ba1, :omicron_ba2])
 
 # %%
 colmap = series[locale].cols

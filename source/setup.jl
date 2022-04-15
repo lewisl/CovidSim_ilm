@@ -114,7 +114,32 @@ Base.@kwdef struct Series
 end
 
 
+function build_series_mapper(map2dict=Dict())
+    if isempty(map2dict)
+        map2dict = OrderedDict{Symbol, UnitRange{Int64}}(
+            :unexposed=>1:6, :infectious=>7:12, :recovered=>13:18, :dead=>19:24,            # status
+            :nil=>25:30, :mild=>31:36, :sick=>37:42, :severe=>43:48, :totinfected=>49:54,   # condition
+            :Pfizer=>55:60, :Moderna=>61:66, :JnJ=>67:72, :totvaccinated=>73:78,            # vaccine
+            :base=>79:84, :alpha=>85:90, :delta=>91:96, :omicron_ba1=>97:102, :omicron_ba2=>103:108                # variant
+            )   
+    end
+    cols = Tuple(keys(map2dict))
+    colvals = collect(collect((i * 6 + 1):(i * 6 + 1 + 5)) for i in (0:length(cols)-1))
+    dat = Table(; zip(cols,colvals)...)
+end
+
+
 function build_series(locales, n_days, map2dict=Dict())
+    mapper = build_series_mapper(map2dict)
+    lastcol = last(mapper)[end]
+    series = Dict(loc => (cum = zeros(Int, n_days, lastcol), new = zeros(Int, n_days, lastcol)) 
+                  for loc in locales)
+    return (mapper=mapper, data=series)
+end
+
+
+
+function build_series_oldway(locales, n_days, map2dict=Dict())
     if isempty(map2dict)
         map2dict = OrderedDict{Symbol, UnitRange{Int64}}(
             :unexposed=>1:6, :infectious=>7:12, :recovered=>13:18, :dead=>19:24,            # status

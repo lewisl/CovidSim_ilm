@@ -23,6 +23,12 @@ function buildsim(ndays, locales;
         variantfilename=variantfilename
         )
 
+        #=
+        model = (ndays=ndays, locales=locales, dat=datadict, series=series, geo=geodata, 
+                transitionset=transitionset, vaxset=vaxset, vaxschedset=vaxschedset, infectset=infectset, 
+                social=socialparams, trvec=trvec)  
+        =#    
+
     return model
 end
 
@@ -44,8 +50,8 @@ function runsim(model;
         trvec = model.trvec # preallocated small vector
         popdat = deepcopy(model.dat["popdat"])   # Copy the population data so model can be reused!!!
         agegrp_idx = model.dat["agegrp_idx"]   # first key is locale
-        series = deepcopy(model.series)
-        seriescols = series.cols
+        series = deepcopy(model.series)  # contains series.mapper and series.data, which is a dict of locales, each local includes .cum and .new
+        seriescols = model.series.mapper
         geodf = model.geo
         infectset = model.infectset
         socialparams = model.social
@@ -89,8 +95,8 @@ function runsim(model;
         
         # this should be the first and only place to deref the locale (as loc)
         locdat = popdat[loc]  
-        newhist = series.new[loc]
-        cumhist = series.cum[loc]
+        newhist = series.data[loc].new
+        cumhist = series.data[loc].cum
         age_idx_loc = agegrp_idx[loc]  # indices by agegrp
         density_factor = geodf[geodf[!, :fips] .== loc, :density_factor][]  # for the loc
 
@@ -246,7 +252,7 @@ end # function
 function saveseries!(cumdat, newdat, categories, countsdict, int_age, seriescols, thisday)
 
     @inbounds for item in categories
-        seriescol = seriescols[Symbol(item)][int_age]
+        seriescol = getproperty(seriescols, Symbol(item))[int_age]  # seriescols[Symbol(item)][int_age]
         itemcount = get(countsdict, item, 0)
         if thisday == 1
             cumdat[thisday, seriescol] = itemcount
@@ -266,19 +272,19 @@ function hist_total_agegrps!(newhist, cumhist, seriescols)
     cols = seriescols
 
     @inbounds for cond in allconds  # infectious cases and statuses
-        colgroup = cols[Symbol(cond)]
+        colgroup = getproperty(cols, Symbol(cond))   # cols[Symbol(cond)]
         newhist[:, colgroup[totalcol]] = sum(newhist[:, colgroup[collect(Int.(agegrps))]], dims=2)
         cumhist[:, colgroup[totalcol]] = sum(cumhist[:, colgroup[collect(Int.(agegrps))]], dims=2)
     end
 
     @inbounds for vax in vaxlist
-        colgroup = cols[Symbol(vax)]
+        colgroup = getproperty(cols, Symbol(vax))  # cols[Symbol(vax)]
         newhist[:, colgroup[totalcol]] = sum(newhist[:, colgroup[collect(Int.(agegrps))]], dims=2)
         cumhist[:, colgroup[totalcol]] = sum(cumhist[:, colgroup[collect(Int.(agegrps))]], dims=2)
     end
 
     @inbounds for variant in variantlist
-        colgroup = cols[Symbol(variant)]
+        colgroup = getproperty(cols, Symbol(variant))    # cols[Symbol(variant)]
         newhist[:, colgroup[totalcol]] = sum(newhist[:, colgroup[collect(Int.(agegrps))]], dims=2)
         cumhist[:, colgroup[totalcol]] = sum(cumhist[:, colgroup[collect(Int.(agegrps))]], dims=2)
     end
@@ -292,9 +298,9 @@ function add_totinfected_series!(newhist, cumhist, seriescols)
     # for new
     @views begin
         n = size(newhist,1)
-        newhist[:,cols[:totinfected]] = ( (newhist[:,cols[:unexposed]] .< 0 ) .*
-                                                          abs.(newhist[:,cols[:unexposed]]) ) 
-        cumsum!(cumhist[:, cols[:totinfected]], newhist[:, cols[:totinfected]], dims=1)  
+        newhist[:, cols.totinfected] = ( (newhist[:, cols.unexposed] .< 0 ) .*
+                                                          abs.(newhist[:, cols.unexposed]) ) 
+        cumsum!(cumhist[:, cols.totinfected], newhist[:, cols.totinfected], dims=1)  
     end
     
 end
@@ -304,10 +310,10 @@ function add_totvaccinated_series!(newhist, cumhist, seriescols)
     cols = seriescols
     @views begin
         n = size(newhist, 1)
-        newhist[:, cols[:totvaccinated]] = (newhist[:, cols[:JnJ]] .+ newhist[:, cols[:Pfizer]] .+ 
-                                                    newhist[:, cols[:Moderna]])
-        cumhist[:, cols[:totvaccinated]] = (cumhist[:, cols[:JnJ]] .+ cumhist[:, cols[:Pfizer]] .+ 
-                                                    cumhist[:, cols[:Moderna]])
+        newhist[:, cols.totvaccinated] = (newhist[:, cols.JnJ] .+ newhist[:, cols.Pfizer] .+ 
+                                                    newhist[:, cols.Moderna])
+        cumhist[:, cols.totvaccinated] = (cumhist[:, cols.JnJ] .+ cumhist[:, cols.Pfizer] .+ 
+                                                    cumhist[:, cols.Moderna])
     end
 end
 

@@ -109,30 +109,29 @@ function cumplot(series, locale, plotcols=[:unexposed, :infectious, :recovered, 
 
     !(typeof(plotcols) <: Array) && (plotcols = [plotcols])
 
-    map2series = series.cols
+    map2series = series.mapper
 
     # the data is the 2d array cumseries
-    n = size(series.cum[locale], 1)
+    n = size(series.data[locale].cum, 1)
     days = days == "all" ? (1:n) : days
-    cumseries = series.cum[locale][days, [map2series[col][totalcol] for col in plotcols]]
+    cumseries = series.data[locale].cum[days, [getproperty(map2series, col)[totalcol] for col in plotcols]]
 
     # labels and annotations
-    labels = [titlecase(condnames[col]) for col in plotcols]
+    labels = [titlecase(string(col)) for col in plotcols]
     labels = reshape([labels...], 1, length(labels))
     people = if !isempty(geo)
                 geo[geo[:,fips] .== locale, popsize][1]
              else # this will off by a tiny bit because of rounding
-                series.cum[locale][1, map2series[:unexposed][totalcol]] + series.cum[locale][1,map2series[:infectious][totalcol]]
+                series.data[locale].cum[1, map2series.unexposed[totalcol]] + series.data[locale].cum[1,map2series.infectious[totalcol]]
              end   
     cityname = !isempty(geo) ? geo[geo[:,fips] .== locale, city][1] : ""
-    died = series.cum[locale][end, map2series[:dead][totalcol]]
-    # infected = series[locale][:cum][1,map2series[unexposed][totalcol]] - series[locale][:cum][end,map2series[unexposed][totalcol]]
-    infected = people - series.cum[locale][end,map2series[:unexposed][totalcol]]
-    recovered = series.cum[locale][end, map2series[:recovered][totalcol]]
+    died = series.data[locale].cum[end, map2series.dead[totalcol]]
+    infected = people - series.data[locale].cum[end, map2series.unexposed[totalcol]]
+    recovered = series.data[locale].cum[end, map2series.recovered[totalcol]]
     unexp = people - infected
 
     firstseries = plotcols[1]
-    half_yscale = floor(Int, maximum(series.cum[locale][:,map2series[firstseries][totalcol]]) * 0.7)
+    half_yscale = floor(Int, maximum(series.data[locale].cum[:,getproperty(map2series, firstseries)[totalcol]]) * 0.7)
     co_pal = length(plotcols) == 2 ? [theme_palette(thm)[2], theme_palette(thm)[4]] : theme_palette(thm)
  
 
@@ -161,15 +160,15 @@ function newplot(series, locale, plcols=[:infectious]; days="all")
 
     !(typeof(plcols) <: Array) && (plcols = [plcols])
 
-    map2series = series.cols
+    map2series = series.mapper
 
     # the data and labels
-    n = size(series.new[locale],1)
+    n = size(series.data[locale].new, 1)
     days = days == "all" ? (1:n) : days
-    newseries = series.new[locale][days, [map2series[i][totalcol] for i in plcols]]
+    newseries = series.data[locale].new[days, [getproperty(map2series, i)[totalcol] for i in plcols]]
     labels = [titlecase(condnames[i]) for i in plcols]
     labels = reshape([labels...], 1, length(labels))
-    people = series.cum[locale][1, map2series[:unexposed][totalcol]] + series.cum[locale][1,map2series[:infectious][totalcol]]
+    people = series.data[locale].cum[1, map2series.unexposed[totalcol]] + series.data[locale].cum[1, map2series.infectious[totalcol]]
 
     # the plot
     groupedbar( days, newseries[1:end, 1:end], 
