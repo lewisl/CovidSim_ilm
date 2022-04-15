@@ -41,7 +41,7 @@ this struct for each vaccine type included in a vaccination schedule.
 @Base.kwdef mutable struct Vaxinclude   
     mix::Float64
     starting_doses::Int
-    doses::Int=0
+    doses::Int=0   # set equal to starting doses when initializing beginning of simulation run
     pct2ndshot::Float64
     alternate::Array{String}
     booster::Bool
@@ -201,8 +201,6 @@ Give people shots!
             continue
         end
 
-        # @show "we got here"
-
         # schedule or vaccine parameters
         filterfunc = vxsched.filterfunc  # NOT USING YET
         shotmode = vxsched.shotmode # values in :first, :second, :all, :booster   TODO we are not using this yet
@@ -219,10 +217,12 @@ Give people shots!
         agegrpcol = locdat.agegrp
 
         # how people get shots (up to fully vaccinated) today?
+        available_people_doses = mapreduce(vi->(vaxprops[vi].starting_doses / reqdshots[vi]), +, keys(vaxprops))
+
         people_today = floor(Int, pctfunc(today) * length(contactable_idx))   # pct times accessible population
-
-
-        # @show people_today, pctfunc(today), length(contactable_idx)
+        print("$(day_ctr[:day]) allocate by people: ", people_today)
+        people_today = floor(Int, pctfunc(today) * available_people_doses)   # pct times accessible population
+        println("   allocate by doses available: ", people_today)
 
 
         doshots!(vaxrcvdcol, vaxdaycol, vaxstatuscol, fullvaxdaycol,  
@@ -249,8 +249,8 @@ end
 
             # which vaccine to give?
             vxnum = categorical_sim(mix)  # our first choice, if available
-            
             vaxchoice = vaxesincluded[vxnum]
+
             if vaxprops[vaxchoice].doses < 1  # out of first choice!
                 for alt in vaxprops[vaxchoice].alternate
                     alt = Symbol(alt)

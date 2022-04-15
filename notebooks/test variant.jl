@@ -41,7 +41,7 @@ cd(joinpath(homedir(),"Dropbox/Covid Modeling/Covid-ILM/source"))
 # %% tags=[]
 ndays = 180
 locale = 38015
-model = buildsim(ndays, locale;  
+model180 = buildsim(ndays, locale;  
     dovax = true,
     paramdir = "../parameters",
     geofilename = "../data/geo2data.csv", 
@@ -51,16 +51,16 @@ model = buildsim(ndays, locale;
 );
 
 # %%
-keys(model)
+keys(model180)
 
 # %% [markdown]
 # ### Data tables
 
 # %%
-locdat = model.dat["popdat"][locale]
+locdat = model180.dat["popdat"][locale]
 
 # %%
-ages = model.dat["agegrp_idx"][locale]
+ages = model180.dat["agegrp_idx"][locale]
 
 # %%
 columnnames(locdat)
@@ -75,56 +75,65 @@ countmap(locdat.status)  # everyone begins as unexposed
 # ### Series
 
 # %%
-fieldnames(typeof(model.series))
+fieldnames(typeof(model180.series))
 
 # %%
-model.series.cols
+model180.series.cols
 
 # %%
-model.series.new
+model180.series.new
 
 # %%
-model.series.cum
+model180.series.cum
 
 # %%
-model.series.cum[locale]
+model180.series.cum[locale]
 
 # %% [markdown]
 # ### Social Parameters
 
 # %%
-fieldnames(typeof(model.social))
+fieldnames(typeof(model180.social))
 
 # %%
-typeof(model.social.gammashape)
+typeof(model180.social.gammashape)
 
 # %%
-model.social.contactfactors 
+model180.social.contactfactors 
 
 # %%
-model.social.contactfactors[Int(sick)-4, Int(age0_19)]
+model180.social.contactfactors[Int(sick)-4, Int(age0_19)]
 
 # %%
-touchfactors = model.social.touchfactors
+touchfactors = model180.social.touchfactors
+
+# %% [markdown]
+# ## Infectset
+
+# %%
+model180.infectset
 
 # %% [markdown]
 # ### Parameters for infection based on variant
 
 # %%
-fieldnames(typeof(model.infectset[:omicron]))
+model180.infectset
 
 # %%
-model.infectset
+fieldnames(typeof(model180.infectset[:omicron_ba1]))
 
 # %%
-pprintln(model.infectset)
+CovidSim_ilm.variantlist
 
 # %%
-pprintln(model.infectset[:base])
+pprintln(model180.infectset)
 
 # %%
-sendbase = model.infectset[:base].sendrisk
-recvbase = model.infectset[:base].recvrisk
+pprintln(model180.infectset[:base])
+
+# %%
+sendbase = model180.infectset[:base].sendrisk
+recvbase = model180.infectset[:base].recvrisk
 
 # %%
 newomisend = zeros(25)
@@ -132,20 +141,20 @@ newomisend[1:11] = 1.5 .* sendbase[1:11]
 newomisend
 
 # %%
-pprint(model.infectset[:alpha])
+pprint(model180.infectset[:alpha])
 
 # %%
-pprintln(model.infectset[:omicron])
+pprintln(model180.infectset[:omicron_ba1])
 
 # %%
 # is shifter working?
 shifter(touchfactors, (.18, .3)...)[:, Int(age40_59)]
 
 # %%
-model.transitionset # the decision transition matrices for all age groups are loaded
+model180.transitionset # the decision transition matrices for all age groups are loaded
 
 # %%
-basetransition = model.transitionset[:base]
+basetransition = model180.transitionset[:base]
 
 # %%
 fieldnames(typeof(basetransition))
@@ -180,10 +189,10 @@ println("transition \n", age80tree[breakday_idx].transition)
 # ## Vaccines and Vaccination Schedule
 
 # %%
-pprintln(model.vaxset)
+pprintln(model180.vaxset)
 
 # %%
-pprintln(model.vaxschedset)
+pprintln(model180.vaxschedset)
 
 # %% [markdown]
 # ### Sanity check the transition tree
@@ -219,10 +228,16 @@ seed40_59_day1 = makesickseedfunc(; cond=nil, variant=:base, sickday=1, filter=[
                             cnt=3, forlocale=0, forday=1, forstartofday=true)                            
 
 # %%
-seed20_39_omicron = makesickseedfunc(; cond=nil, variant=:omicron, sickday=1, filter=[Term(:agegrp, age20_39), Term(:status, unexposed)], 
+seed20_39_omicron = makesickseedfunc(; cond=nil, variant=:omicron_ba1, sickday=1, filter=[Term(:agegrp, age20_39), Term(:status, unexposed)], 
                             cnt=3, forlocale=0, forday=360, forstartofday=true)
-seed40_59_omicron = makesickseedfunc(; cond=nil, variant=:omicron, sickday=1, filter=[Term(:agegrp, age40_59), Term(:status, unexposed)], 
+seed40_59_omicron = makesickseedfunc(; cond=nil, variant=:omicron_ba1, sickday=1, filter=[Term(:agegrp, age40_59), Term(:status, unexposed)], 
                             cnt=3, forlocale=0, forday=360, forstartofday=true)                            
+
+# %%
+seed20_39_omicron_ba2 = makesickseedfunc(; cond=nil, variant=:omicron_ba2, sickday=1, filter=[Term(:agegrp, age20_39), Term(:status, unexposed)], 
+                            cnt=3, forlocale=0, forday=460, forstartofday=true)
+seed40_59_omicron_ba2 = makesickseedfunc(; cond=nil, variant=:omicron_ba2, sickday=1, filter=[Term(:agegrp, age40_59), Term(:status, unexposed)], 
+                            cnt=3, forlocale=0, forday=460, forstartofday=true)                            
 
 # %% [markdown]
 # ### Run the simulation model
@@ -231,12 +246,14 @@ seed40_59_omicron = makesickseedfunc(; cond=nil, variant=:omicron, sickday=1, fi
 popdat, series = runsim(model;
             dovax=true,
             dovariant = true,
-            runcases=[seed20_39_day1, seed40_59_day1, seed20_39_omicron, seed40_59_omicron]   # or seed_1_6 if using old way
+            runcases=[seed20_39_day1, seed40_59_day1, seed20_39_omicron, seed40_59_omicron,
+                      seed20_39_omicron_ba2, seed40_59_omicron_ba2]   # or seed_1_6 if using old way
             );
+locdat = popdat[locale];
 
 # %%
 map2series = series.cols
-series.cum[locale][700:720, map2series[:totvaccinated]]
+series.cum[locale][700:720, map2series[:omicron_ba1]]
 
 # %%
 filt_vaccinated = findall(last.(popdat[38015].vaxrcvd) .!= :none)
@@ -245,7 +262,15 @@ if length(filt_vaccinated) > 0
 else
     vax_today = Dict()
 end
-vax_today
+println(vax_today)
+println("Doses given: ",sum(values(vax_today)))
+
+
+# %%
+vaxsym = :Moderna
+dose1 = count(length.(locdat.vaxrcvd[last.(locdat.vaxrcvd) .== vaxsym]) .== 1)
+dose2 = count(length.(locdat.vaxrcvd[last.(locdat.vaxrcvd) .== vaxsym]) .== 2)
+println(vaxsym, " 1 dose cnt: ", dose1, " 2 dose cnt: ", dose2, " total ", 2*dose2 + dose1, " people cnt: ", dose1 + dose2)
 
 # %% [markdown]
 # ### Plot results
@@ -257,13 +282,13 @@ cumplot(series, locale)
 # Note that the orange line labeled Infectious, which shows the current number of infected people, is *not* what you see in newspaper accounts. In this plot Infectious shows the net infected people: There were some sick people as of the day before. Some more people got sick today. Some people got better: they're not infectious any more--they recovered and are on the blue line. Sadly, some people died--they're not infectious either--they're dead and are on the green line. So net infected is yesterday + new today - recovered today - died today. Newspaper tracking shows the new infections of each day--who got sick today? Tomorrow, if no one new got sick the line would be at zero--even though the people who got sick yesterday aren't better yet. So, the newspaper line goes up and down faster. Yet another approach is to show the cumulative number of infected people: This keeps going up until no one new gets infected--then the line is high but levels off. 
 
 # %%
-cumplot(series, locale, [:Pfizer, :Moderna, :JnJ, :totvaccinated])
+cumplot(series, locale, [:Pfizer, :Moderna, :JnJ, :totvaccinated], days=160:300)
 
 # %%
 cumplot(series, locale, [:nil, :mild, :sick, :severe])
 
 # %%
-newplot(series, locale)
+newplot(series, locale, [:totvaccinated], days=160:300)
 
 # %%
 cumplot(series, locale, [:base, :omicron])

@@ -19,7 +19,6 @@ function setup(ndays, locales;  # must provide following inputs
         datadict = build_data(locales, geodata, ndays)
 
     # history series
-        @show typeof(locales)
         series = build_series(locales, ndays)
 
     # social parameters
@@ -121,7 +120,7 @@ function build_series(locales, n_days, map2dict=Dict())
             :unexposed=>1:6, :infectious=>7:12, :recovered=>13:18, :dead=>19:24,            # status
             :nil=>25:30, :mild=>31:36, :sick=>37:42, :severe=>43:48, :totinfected=>49:54,   # condition
             :Pfizer=>55:60, :Moderna=>61:66, :JnJ=>67:72, :totvaccinated=>73:78,            # vaccine
-            :base=>79:84, :alpha=>85:90, :delta=>91:96, :omicron=>97:102                    # variant
+            :base=>79:84, :alpha=>85:90, :delta=>91:96, :omicron_ba1=>97:102, :omicron_ba2=>103:108                # variant
             )   
     end
     group = collect(keys(map2dict))  
@@ -200,7 +199,10 @@ This is the method model building actually uses!
 """
 function build_spread_params(infectdict::Dict)
     infectset = LittleDict{Symbol, Infectparams}()
-    loadvariants = keys(infectdict) 
+    loadvariants = collect(keys(infectdict))
+    if isempty(variantlist)
+        append!(variantlist, loadvariants) 
+    end
 
     for variant in loadvariants
         newdict = merge(infectdict[variant][:spread], infectdict[variant][:immunity])
@@ -208,11 +210,6 @@ function build_spread_params(infectdict::Dict)
         infectset[Symbol(variant)] = Infectparams(newdict)
     end
 
-    if isempty(variantlist)
-        for variant in loadvariants
-            push!(variantlist, Symbol(variant))   # this is a module global variable. Forgive me for I have sinned--except it makes sense...
-        end
-    end
 
     # set recvrisk and sendrisk
     for variant in loadvariants

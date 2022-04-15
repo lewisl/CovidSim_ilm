@@ -25,13 +25,16 @@ Ex:
     mapit(x, sourcearr, targetarr) # returns 325
 """
 function mapit(x, keyarr, valuearr)
-    @assert length(sourcearr) == length(targetarr) "Length of sourcearr not equal length of targetarr"
-    idx = findfirst(isequal(x), keyarr)
-    valuearr[idx]
-end
+    @assert length(keyarr) == length(valuearr) "Length of sourcearr not equal length of targetarr"
+    for i in 1:length(keyarr)
+        if x == keyarr[i]
+            return valuearr[i]
+        end
+    end
+    return nothing
+end  # not used as hardwired if-test mapping is WAY faster
 
-
-function mapcondition(x::condition) # from enum to int
+function mapcondition(x::condition) # from enum to ordinal int
     if x == uninfected
         0
     else
@@ -40,7 +43,7 @@ function mapcondition(x::condition) # from enum to int
 end
 
 
-function mapcondition(x::Integer) # from int to enum
+function mapcondition(x::Integer) # from ordinal int to enum
     if 0 <= x <= 4
         if x == 0
             uninfected

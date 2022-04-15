@@ -137,7 +137,7 @@ function cumplot(series, locale, plotcols=[:unexposed, :infectious, :recovered, 
  
 
     # the plot
-    plot(   days, cumseries[days,1:end], 
+    plot(   days, cumseries[1:end,1:end], 
             size = (700,500),
             label = labels, 
             lw=2.3,
@@ -164,15 +164,15 @@ function newplot(series, locale, plcols=[:infectious]; days="all")
     map2series = series.cols
 
     # the data and labels
-    n = size(series[locale].new,1)
+    n = size(series.new[locale],1)
     days = days == "all" ? (1:n) : days
     newseries = series.new[locale][days, [map2series[i][totalcol] for i in plcols]]
     labels = [titlecase(condnames[i]) for i in plcols]
     labels = reshape([labels...], 1, length(labels))
-    people = series.cum[locale][1, map2series[:unexposed][totalcol]] + series[locale].cum[1,map2series[:infectious][totalcol]]
+    people = series.cum[locale][1, map2series[:unexposed][totalcol]] + series.cum[locale][1,map2series[:infectious][totalcol]]
 
     # the plot
-    groupedbar( days, newseries[days,1:end], 
+    groupedbar( days, newseries[1:end, 1:end], 
                 size = (700,500),
                 label = labels, 
                 lw=0.2,

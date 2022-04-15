@@ -16,17 +16,20 @@ Pfizer:  # will convert to symbol at load time
       base:     0.90
       alpha:    0.90
       delta:    0.84
-      omicron:  0.2
+      omicron_ba1:  0.2
+      omicron_ba2:  0.2
     full:
       base:     0.94
       alpha:    0.94
       delta:    0.88
-      omicron:  0.3
+      omicron_ba1:  0.3
+      omicron_ba2: 0.3
     booster:
       base:     0.94
       alpha:    0.94
       delta:    0.88
-      omicron:  0.5
+      omicron_ba1:  0.5
+      omicron_ba2: 0.5
 
 Moderna:  # will convert to symbol at load time
   halflife:         280
@@ -45,17 +48,20 @@ Moderna:  # will convert to symbol at load time
       base:     0.92
       alpha:    0.92
       delta:    0.85
-      omicron:  0.25
+      omicron_ba1:  0.25
+      omicron_ba2: 0.25
     full:
       base:     0.95
       alpha:    0.95
       delta:    0.88
-      omicron:  0.35
+      omicron_ba1:  0.35
+      omicron_ba2: 0.35
     booster:
       base:     0.95
       alpha:    0.95
       delta:    0.88
-      omicron:  0.55
+      omicron_ba1:  0.55
+      omicron_ba2: 0.55
 
 JnJ:  # will convert to symbol at load time
   halflife:         240
@@ -74,14 +80,17 @@ JnJ:  # will convert to symbol at load time
       base:     0.88
       alpha:    0.88
       delta:    0.80
-      omicron:  0.1
+      omicron_ba1:  0.2
+      omicron_ba2:  0.2
     full:
       base:     0.88
       alpha:    0.88
       delta:    0.80
-      omicron:  0.25
+      omicron_ba1:  0.2
+      omicron_ba2: 0.2
     booster:
       base:     0.88
       alpha:    0.88
       delta:    0.80
-      omicron:  0.35
+      omicron_ba1:  0.35
+      omicron_ba2: 0.35

@@ -51,10 +51,10 @@ function runsim(model;
         socialparams = model.social
         vaxset = model.vaxset
         vaxschedset = model.vaxschedset
-        for (k1,v1) in vaxschedset # k1 is name of a schedule, v1 is instance of struct Vaxsched,
+        for sched in values(vaxschedset) # k1 is name of a schedule, v1 is instance of struct Vaxsched,
                                     #   vaxesincluded in a field in Vaxsched, which is a dict
-            for (k2, v2) in v1.vaxesincluded # k2 is the key for a vaccine, v2 is the value= an instance of struct Vaxinclude
-                v2.doses = v2.starting_doses   # fields of Vaxinclude
+            for vax in values(sched.vaxesincluded) # k2 is the key for a vaccine, v2 is the value= an instance of struct Vaxinclude
+                vax.doses = vax.starting_doses   # fields of Vaxinclude
             end
         end
 

@@ -23,7 +23,7 @@ variant:
   - base
   - alpha
   - delta
-  - omicron
+  - omicron_ba1
 sickdays: 
   maxsickday: 25
 vaccine:
