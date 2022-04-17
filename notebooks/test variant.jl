@@ -243,7 +243,7 @@ seed40_59_omicron_ba2 = makesickseedfunc(; cond=nil, variant=:omicron_ba2, sickd
 # ### Run the simulation model
 
 # %%
-popdat, series = runsim(model;
+@time popdat, series = runsim(model;
             dovax=true,
             dovariant = true,
             runcases=[seed20_39_day1, seed40_59_day1, seed20_39_omicron, seed40_59_omicron,

@@ -33,8 +33,8 @@ function setup(ndays, locales;  # must provide following inputs
         vaxset = build_vaxset(vaccinefilename, paramdir=paramdir)
         vaxschedset = build_vaxschedset()
     else
-        vaxset = nothing
-        vaxschedset = nothing
+        vaxset = Dict()  # nothing
+        vaxschedset = Dict()  # nothing
     end
 
     model = (ndays=ndays, locales=locales, dat=datadict, series=series, geo=geodata, 

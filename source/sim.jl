@@ -63,12 +63,11 @@ function runsim(model;
                 vax.doses = vax.starting_doses   # fields of Vaxinclude
             end
         end
+        contact_vector = zeros(Int, 10)    # TODO this is bigger than necessary
 
 
     # restart the day counter to zero
     reset!(day_ctr, :day)  # return and reset key to 0 :day leftover from prior runs
-
-    locales = locales   # force local scope to be visible in the loop
 
     sdcases = Dict{Symbol, Spreadcase}()  # hold definitions of spreadcases
 
@@ -79,14 +78,13 @@ function runsim(model;
     trtime = 0      # transition infected population through stages of illness
     idxtime = 0     # calculate indices for infectious and susceptible
     histtime = 0    # update history time series
+    misc_time = 0
     totalsimtime = 0
 
 
     ######################
     # simulation loop
     ######################
-    
-    # timing begin block
     totalsimtime += @elapsed begin
 
     for loc in locales     
@@ -102,6 +100,7 @@ function runsim(model;
 
 
         # Deref columns once per locale and not in the deeper loops. Pass these columns to spread! and transition!
+        c_pid        = locdat.pid
         c_cond       = locdat.cond
         c_status     = locdat.status
         c_agegrp     = locdat.agegrp
@@ -116,68 +115,82 @@ function runsim(model;
         c_deadday    = locdat.deadday
 
 
-        for i = 1:ndays
+        # day loop
+        for i = 1:ndays  
             inc!(day_ctr, :day)  # increment the simulation day counter
             silent || println("simulation day: ", day_ctr[:day])
 
-                for case in runcases  # cases that run at the beginning of the day
-                    case(locdat, socialparams, infectset, sdcases, age_idx_loc; day=day_ctr[:day], startofday=true, locale=loc)  # TODO extend ages to be any filter for 
-                end                                                 # who participates in a given case
+            for case in runcases  # cases that run at the beginning of the day
+                case(locdat, socialparams, infectset, sdcases, age_idx_loc; day=day_ctr[:day], startofday=true, locale=loc)  # TODO extend ages to be any filter for 
+            end                                                 # who participates in a given case
 
-                # filter for key people
-                idxtime += @elapsed begin
-                    # @bp
-                    infect_idx = findall(locdat.status .== infectious)
-                    contactable_idx = findall(locdat.status .!= dead)
-                end
+            # filter for key people
+            idxtime += @elapsed begin
+                infect_idx = findall(locdat.status .== infectious)
+                contactable_idx = findall(locdat.status .!= dead)
+            end
 
-                # if dovax vaccinate (e.g., give shots)
-                dovax && (
-                            vaxtime += @elapsed vaccinate!(locdat, vaxschedset, contactable_idx, vaxset)
-                         )
+            # if dovax vaccinate (e.g., give shots)
+            dovax && (
+                        vaxtime += @elapsed vaccinate!(locdat, vaxschedset, contactable_idx, vaxset)
+                        )
 
-                # two fundamental steps of the simulation: spread! and transition!
-                sprtime += @elapsed spread!(infect_idx, contactable_idx, sdcases,  socialparams, 
-                                            infectset, vaxset, density_factor, dovax, dovariant;
-                                            c_cond       = c_cond,
-                                            c_status     = c_status,
-                                            c_agegrp     = c_agegrp,
-                                            c_sickday    = c_sickday,
-                                            c_sdcomply   = c_sdcomply,
-                                            c_variant    = c_variant,
-                                            c_vaxstatus  = c_vaxstatus,
-                                            c_recovday   = c_recovday,
-                                            c_vaxrcvd    = c_vaxrcvd,
-                                            c_vaxday     = c_vaxday
+            # person loop
+            for p in infect_idx    
+                    
+                # is this person ACTIVELY infectious
+                spr_sickday = @inbounds c_sickday[p]
+                spr_variant = @inbounds c_variant[p][end]
+                sendrisk = @inbounds infectset[spr_variant].sendrisk[spr_sickday]
+                if sendrisk > 0.0     
+                                                    
+                sprtime += @elapsed spread!(p, contact_vector, sdcases,  socialparams, 
+                                            infectset, vaxset, density_factor, dovax, dovariant, 
+                                            c_pid,
+                                            c_cond,
+                                            c_status,
+                                            c_agegrp,
+                                            c_sickday,
+                                            c_sdcomply,
+                                            c_variant,
+                                            c_vaxstatus,
+                                            c_recovday,
+                                            c_vaxrcvd,
+                                            c_vaxday,
                                             )   
-                trtime += @elapsed transition!(infect_idx, infectset, transitionset, vaxset, dovax, dovariant; trvec=trvec,
-                                               c_cond       = c_cond,
-                                               c_status     = c_status,
-                                               c_agegrp     = c_agegrp,
-                                               c_sickday    = c_sickday,
-                                               c_sdcomply   = c_sdcomply,
-                                               c_variant    = c_variant,
-                                               c_vaxstatus  = c_vaxstatus,
-                                               c_recovday   = c_recovday,
-                                               c_vaxrcvd    = c_vaxrcvd,
-                                               c_vaxday     = c_vaxday,
-                                               c_deadday    = c_deadday
-                                                )                        
-
-                for case in runcases  # cases that run at the end of the day
-                    case(locdat, socialparams, infectset, sdcases, age_idx_loc; day=day_ctr[:day], startofday=false, locale=loc)  # TODO extend ages to be any filter for 
-                end                                                 # who participates in a given case
-
-                # r0 displayed every 10 days
-                if showr0 && (mod(day_ctr[:day],10) == 0)   # do we ever want to do this by locale -- maybe
-                    current_r0 = r0_sim(locdat, age_dist=age_dist, dectree=dectree, socialparams=socialparams, infectparams=infectparams, sdcases=sdcases)
-                    println("day $(day_ctr[:day]), locale $loc: rt = $current_r0")
                 end
 
-                # accumulate simulation statistics in series for plotting: arrays NOT dataframes
-                histtime += @elapsed do_history!(locdat, newhist, cumhist, age_idx_loc, seriescols)
+                trtime += @elapsed transition!(p, infectset, transitionset, vaxset, dovax, dovariant, noop, trvec,
+                                            c_cond,
+                                            c_status,
+                                            c_agegrp,
+                                            c_sickday,
+                                            c_sdcomply,
+                                            c_variant,
+                                            c_vaxstatus,
+                                            c_recovday,
+                                            c_vaxrcvd,
+                                            c_vaxday,
+                                            c_deadday
+                                            )        
 
-        end # for i in 1:n_days
+            end # people loop         
+            
+            for case in runcases  # cases that run at the end of the day
+                case(locdat, socialparams, infectset, sdcases, age_idx_loc; day=day_ctr[:day], startofday=false, locale=loc)  # TODO extend ages to be any filter for 
+            end                                                 # who participates in a given case
+
+            # r0 displayed every 10 days
+            if showr0 && (mod(day_ctr[:day],10) == 0)   # do we ever want to do this by locale -- maybe
+                current_r0 = r0_sim(locdat, age_dist=age_dist, dectree=dectree, socialparams=socialparams, infectparams=infectparams, sdcases=sdcases)
+                println("day $(day_ctr[:day]), locale $loc: rt = $current_r0")
+            end
+
+            # accumulate simulation statistics in series for plotting: arrays NOT dataframes
+            histtime += @elapsed do_history!(locdat, newhist, cumhist, age_idx_loc, seriescols)
+
+        end # day loop
+
 
         histtime += @elapsed begin
             hist_total_agegrps!(newhist, cumhist, seriescols) # sum agegrps to total for all series groups (by agegrp)
@@ -187,10 +200,10 @@ function runsim(model;
 
         silent || println("Simulation completed for $(day_ctr[:day]) days for locale $loc.")
 
-    end # for loc in locales
-    end # totalsimtime
+    end # locale loop
+    end # for totalsimtime
 
-    print_timings(idxtime, vaxtime, sprtime, trtime, histtime, totalsimtime)
+    print_timings(idxtime, vaxtime, sprtime, trtime, histtime, totalsimtime, misc_time)
 
     return popdat, series
 end
@@ -323,13 +336,14 @@ end
 #  other functions used in simulation
 #####################################################################################
 
-function print_timings(idxtime, vaxtime, sprtime, trtime, histtime, totalsimtime)
+function print_timings(idxtime, vaxtime, sprtime, trtime, histtime, totalsimtime, misc_time)
     println("\nExecution Times")
     @printf "Indexing    %.3f\n" idxtime
     @printf "Vaccination %.3f\n" vaxtime
     @printf "Spread      %.3f\n" sprtime
     @printf "Transition  %.3f\n" trtime
     @printf "History     %.3f\n" histtime
+    @printf "Misc Time   %.3f\n" misc_time
     @printf "Total       %.3f\n" totalsimtime
 end
 

@@ -16,18 +16,18 @@ they move to recovered or dead.
 
 locdat must be a population table for a single locale.
 """
-@inline function transition!(infect_idx, infectset, transitionset, vaxset, dovax, dovariant; vaxfn! = noop, trvec = zeros(6),
-        c_cond,
-        c_status,
-        c_agegrp,
-        c_sickday,
-        c_sdcomply,
-        c_variant,
-        c_vaxstatus,
-        c_recovday,
-        c_vaxrcvd,
-        c_vaxday,
-        c_deadday
+@inline function transition!(p, infectset, transitionset, vaxset, dovax, dovariant, vaxfn!, trvec,
+    c_cond,
+    c_status,
+    c_agegrp,
+    c_sickday,
+    c_sdcomply,
+    c_variant,
+    c_vaxstatus,
+    c_recovday,
+    c_vaxrcvd,
+    c_vaxday,
+    c_deadday
     )
 
     if dovax
@@ -38,7 +38,8 @@ locdat must be a population table for a single locale.
     # TODO based on variant use adjustment of :base or :base
     transarray = transitionset[:base].tree   
 
-    for p in infect_idx  # p for infected person    
+    # for p in infect_idx  # p for infected person    
+    @inbounds begin
         p_sickday = c_sickday[p]
         p_cond = c_cond[p]
         p_status = c_status[p]
@@ -48,6 +49,7 @@ locdat must be a population table for a single locale.
         p_vaxrcvd = c_vaxrcvd[p][end]
         p_vaxday = c_vaxday[p][end]
         p_recovday = c_recovday[p][end]
+    end
 
 
         # if person's agegrp, sickday, and condition match a transition stage
@@ -66,7 +68,7 @@ locdat must be a population table for a single locale.
                 c_cond      = c_cond,
                 c_recovday  = c_recovday
             )
-    end  
+    # end  
 end
 
 

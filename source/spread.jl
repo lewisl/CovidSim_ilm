@@ -366,8 +366,9 @@ altrisk(risk) = sigmoid(spreadin(risk))
 Infectious people spread the virus to susceptible people for a single locale. Changes attribute
 columns in the population table. Runs social distancing cases.
 """
-@inline function spread!(infect_idx, contactable_idx, sdcases, socialparams,
-     infectset, vaxset, density_factor, dovax, dovariant;
+@inline function spread!(spr::Int, contact_vector::Vector{Int}, sdcases, socialparams,
+     infectset, vaxset, density_factor, dovax, dovariant,     
+        c_pid,
         c_cond,
         c_status,
         c_agegrp,
@@ -387,65 +388,53 @@ columns in the population table. Runs social distancing cases.
     touchfactors   = socialparams.touchfactors
     gammashape     = socialparams.gammashape
 
-    # initialization before spreading loop
-    shuffle!(contactable_idx)
-    taken = pos = 0
-    num_contactable = length(contactable_idx)
-
-    # for everyone who is infectious
-    @inbounds for spr in infect_idx      # spr is the person who is the spreader
-        # determine number of outbound contacts 
-        contact_param = c_sdcomply[spr] == :none ? contactfactors : sdcases[c_sdcomply[spr]]
-        nc = numcontacts(density_factor, gammashape, c_agegrp[spr], c_cond[spr], contact_param)  
-
-        # step through shuffled contactable_idx as selected and wrap around
-        pos = taken + 1
-        taken = taken + nc
-        if taken <= num_contactable
-            selected = pos:taken
+    # determine number of outbound contacts 
+    contact_param = c_sdcomply[spr] == :none ? contactfactors : sdcases[c_sdcomply[spr]]
+    nc = numcontacts(density_factor, gammashape, c_agegrp[spr], c_cond[spr], contact_param)  
+    sample!(c_pid, contact_vector)
+    sel = 0
+    for i = 1:nc
+        if sel >= length(contact_vector)
+            sample!(c_pid, contact_vector)  # draw another sample
+            sel = 1
         else
-            taken = taken - num_contactable
-            selected = Iterators.flatten((pos:num_contactable, 1:taken))
+            sel += 1
         end
+    
+        target = contact_vector[sel]
+        target_status = c_status[target]
 
-        # TODO we could keep track of contacts for contact tracing
-        # for each person who is contacted by the spreader
-        @inbounds @fastmath for i in selected
-            target = contactable_idx[i]
-            target_status = c_status[target]
+        @inbounds if in(target_status, (unexposed, recovered))  # only conditions that can get infected   
+            # choose the touch_param for the social distancing case or the input social parameters
+            touch_param = c_sdcomply[target] == :none ? touchfactors : sdcases[c_sdcomply[target]]
+            touched = istouched(c_agegrp[target], unexposed, touch_param)   # is the contact significant?
 
-            if in(target_status, (unexposed, recovered))  # only conditions that can get infected   
-                # choose the touch_param for the social distancing case or the input social parameters
-                touch_param = c_sdcomply[target] == :none ? touchfactors : sdcases[c_sdcomply[target]]
-                touched = istouched(c_agegrp[target], unexposed, touch_param)   # is the contact significant?
+            # infection outcome
+            if touched  # if the contact is consequential
+                # gather characteristics of target and spreader
+                    recovday = c_recovday[target][end]
+                    targ_variant = c_variant[target][end]
+                    spr_variant = c_variant[spr][end]
+                    recovfactor = target_status == recovered ? spr_recoveffect(recovday, targ_variant, spr_variant, infectset) : 1.0
 
-                # infection outcome
-                if touched  # if the contact is consequential
-                    # gather characteristics of target and spreader
-                        recovday = c_recovday[target][end]
-                        targ_variant = c_variant[target][end]
-                        spr_variant = c_variant[spr][end]
-                        recovfactor = target_status == recovered ? spr_recoveffect(recovday, targ_variant, spr_variant, infectset) : 1.0
+                    vaxstatus = c_vaxstatus[target]
+                    vaxrcvd = c_vaxrcvd[target][end]
+                    vaxday = c_vaxday[target][end]
+                    vaxfactor = vaxstatus != :none ? spr_vaxeffect(infectset, vaxset, vaxstatus, spr_variant, vaxrcvd, vaxday) : 1.0
 
-                        vaxstatus = c_vaxstatus[target]
-                        vaxrcvd = c_vaxrcvd[target][end]
-                        vaxday = c_vaxday[target][end]
-                        vaxfactor = vaxstatus != :none ? spr_vaxeffect(infectset, vaxset, vaxstatus, spr_variant, vaxrcvd, vaxday) : 1.0
+                    spr_sickday = c_sickday[spr]
+                    targ_agegrp = c_agegrp[target]
 
-                        spr_sickday = c_sickday[spr]
-                        targ_agegrp = c_agegrp[target]
+                risk = infectrisk(infectset, spr_variant, spr_sickday, targ_agegrp, recovfactor, vaxfactor)
 
-                    risk = infectrisk(infectset, spr_variant, spr_sickday, targ_agegrp, recovfactor, vaxfactor)
-
-                    if isinfected(risk)
-                        tovariant = dovariant ? c_variant[spr][end] : :base
-                        @inbounds set_infected!(target, c_cond, nil, c_status, infectious, c_sickday, 1, c_variant, tovariant)
-                        n_newly_infected += 1
-                    end
-                end  # if (touched ...)
-            end  # if contactstatus
-        end  # for target in sample(...) or for i in selected
-    end  # for p in infect_idx
+                if isinfected(risk)
+                    tovariant = dovariant ? c_variant[spr][end] : :base
+                    @inbounds set_infected!(target, c_cond, nil, c_status, infectious, c_sickday, 1, c_variant, tovariant)
+                    n_newly_infected += 1
+                end
+            end  # if (touched ...)
+        end  # if contactstatus
+    end # for i = 1:nc
 
     return n_newly_infected # n_contacts, n_touched, n_newly_infected
 end

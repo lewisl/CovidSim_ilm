@@ -220,9 +220,9 @@ Give people shots!
         available_people_doses = mapreduce(vi->(vaxprops[vi].starting_doses / reqdshots[vi]), +, keys(vaxprops))
 
         people_today = floor(Int, pctfunc(today) * length(contactable_idx))   # pct times accessible population
-        print("$(day_ctr[:day]) allocate by people: ", people_today)
+        # print("$(day_ctr[:day]) allocate by people: ", people_today)
         people_today = floor(Int, pctfunc(today) * available_people_doses)   # pct times accessible population
-        println("   allocate by doses available: ", people_today)
+        # println("   allocate by doses available: ", people_today)
 
 
         doshots!(vaxrcvdcol, vaxdaycol, vaxstatuscol, fullvaxdaycol,  
