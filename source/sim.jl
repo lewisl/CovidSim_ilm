@@ -148,7 +148,7 @@ function runsim(model;
                 if sendrisk > 0.0     
                                                     
                     sprtime += @elapsed begin 
-                        spread!(p, contact_vector, sdcases,  socialparams,   # to_agegrp, history_changes = 
+                        spread!(p, contact_vector, sdcases,  socialparams,   
                                             infectset, vaxset, density_factor, dovax, dovariant, 
                                             c_pid,
                                             c_cond,
@@ -163,8 +163,6 @@ function runsim(model;
                                             c_vaxday,
                                             )   
                         end
-
-                    # histtime += @elapsed insert_history!(cumhist, newhist, seriescols, thisday, history_changes, to_agegrp)
                 end
 
                 trtime += @elapsed begin 
@@ -182,8 +180,6 @@ function runsim(model;
                                             c_deadday
                                             )    
                     end    
-
-                    # histtime += @elapsed insert_history!(cumhist, newhist, seriescols, thisday, history_changes, to_agegrp)
             end # people loop         
             
             for case in runcases  # cases that run at the end of the day
@@ -203,9 +199,6 @@ function runsim(model;
 
 
         histtime += @elapsed begin
-            # if thisday < ndays
-            #     transfercumcols(cumhist, seriescols, thisday)
-            # end
             hist_total_agegrps!(newhist, cumhist, seriescols) # sum agegrps to total for all series groups (by agegrp)
             add_totinfected_series!(newhist, cumhist, seriescols) 
             add_totvaccinated_series!(newhist, cumhist, seriescols)
@@ -345,47 +338,6 @@ function add_totvaccinated_series!(newhist, cumhist, seriescols)
 end
 
 
-function insert_history!(cumhist, newhist, seriescols, thisday, history_changes, to_agegrp)
-    
-    # if !isempty(history_changes)
-    #     println(thisday, " ", history_changes)
-    # end
-
-    # transfer cumulative values from previous day
-    # if thisday > 1
-    #     for col in columnnames(seriescols)
-    #         for subcol in 1:6
-    #             ttcol = getproperty(seriescols, col)[subcol]
-    #             if cumhist[thisday, ttcol] == 0
-    #                 cumhist[thisday, ttcol] = cumhist[thisday-1, ttcol]
-    #             end
-    #         end
-    #     end
-    # end
-
-    # process the changes for thisday
-    for change in history_changes
-        tocol = getproperty(seriescols, Symbol(change[1]))[Int(to_agegrp)]
-        # if cumhist[thisday, tocol] == 0
-        #     cumhist[thisday, tocol] = cumhist[thisday-1, tocol] + change[2]
-        # else
-        #     cumhist[thisday, tocol] += change[2]
-        # end
-        cumhist[thisday, tocol] += change[2]
-        newhist[thisday, tocol] += change[2]
-    end
-end
-
-
-function transfercumcols(cumhist, seriescols, thisday)
-    for col in columnnames(seriescols)
-        for subcol in 1:6
-            ttcol = getproperty(seriescols, col)[subcol]
-            cumhist[thisday+1, ttcol] = cumhist[thisday, ttcol]
-        
-        end
-    end
-end
 #####################################################################################
 #  other functions used in simulation
 #####################################################################################

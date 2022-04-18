@@ -438,13 +438,12 @@ columns in the population table. Runs social distancing cases.
                     tocond = nil
                     tostatus = infectious
                     @inbounds set_infected!(target, c_cond, tocond, c_status, tostatus, c_sickday, 1, c_variant, tovariant)
-                    # history_changes = ((tocond, 1), (tovariant, 1), (infectious, 1), (target_status, -1))
                 end
             end  # if (touched ...)
         end  # if contactstatus
     end # for i = 1:nc
 
-    return  # targ_agegrp, history_changes # n_contacts, n_touched, n_newly_infected
+    return  # n_contacts, n_touched, n_newly_infected
 end       
 
 function set_infected!(target, condcol, condval, statcol, statval, sickdaycol, sickdayval, variantcol, variantval)

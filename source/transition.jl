@@ -61,7 +61,7 @@ locdat must be a population table for a single locale.
 
         vaxfn!(transvec, recoveff, vaxeff) #vaxfn! will be function noop or function vaxtransitioneffect
 
-        dotransition!(p, p_cond, transvec; # perform transition logic and update population table  # changes =
+        dotransition!(p, p_cond, transvec; # perform transition logic and update population table  
                 c_sickday   = c_sickday,
                 c_deadday   = c_deadday,
                 c_status    = c_status,
@@ -69,7 +69,7 @@ locdat must be a population table for a single locale.
                 c_recovday  = c_recovday
             )
     
-    return    # p_agegrp, changes
+    return    
     
 end
 
@@ -135,22 +135,17 @@ the number of days the person has been sick.
         tocond = maptransition(choice)
 
         @inbounds if tocond == dead  
-            # statuschange = ((infectious, -1), (dead, 1))
             c_deadday[p] = day_ctr[:day]
             c_status[p] = dead  # change the status
             c_cond[p] = uninfected # change the condition--> kept to know what cause of death was
-            # return (infectious, -1), (dead, 1), (p_cond, -1)
         elseif tocond == recovered
-            # statuschange = ((infectious, -1), (recovered, 1))
             push!(c_recovday[p], day_ctr[:day])
             c_status[p] = recovered
             c_cond[p] = uninfected   # TODO decide if this makes sense--using this to maintain a history of past infection
-            # return (infectious, -1), (recovered, 1), (p_cond, -1)
         else   
             condchange = (tocond, 1)
             c_cond[p] = tocond   # change the condition = degree of sickness
             c_sickday[p] += 1    # advance number of days person has been sick
-            # return (tocond, 1), (p_cond, -1)
         end    
     end
 end
