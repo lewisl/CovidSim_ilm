@@ -64,6 +64,7 @@ function runsim(model;
             end
         end
         contact_vector = zeros(Int, 10)    # TODO this is bigger than necessary
+        thisday = 0
 
 
     # restart the day counter to zero
@@ -95,6 +96,7 @@ function runsim(model;
         locdat = popdat[loc]  
         newhist = series.data[loc].new
         cumhist = series.data[loc].cum
+        seriescols = series.mapper
         age_idx_loc = agegrp_idx[loc]  # indices by agegrp
         density_factor = geodf[geodf[!, :fips] .== loc, :density_factor][]  # for the loc
 
@@ -118,10 +120,11 @@ function runsim(model;
         # day loop
         for i = 1:ndays  
             inc!(day_ctr, :day)  # increment the simulation day counter
-            silent || println("simulation day: ", day_ctr[:day])
+            thisday = day_ctr[:day]
+            silent || println("simulation day: ", thisday)
 
             for case in runcases  # cases that run at the beginning of the day
-                case(locdat, socialparams, infectset, sdcases, age_idx_loc; day=day_ctr[:day], startofday=true, locale=loc)  # TODO extend ages to be any filter for 
+                case(locdat, socialparams, infectset, sdcases, age_idx_loc; day=thisday, startofday=true, locale=loc)  # TODO extend ages to be any filter for 
             end                                                 # who participates in a given case
 
             # filter for key people
@@ -144,7 +147,8 @@ function runsim(model;
                 sendrisk = @inbounds infectset[spr_variant].sendrisk[spr_sickday]
                 if sendrisk > 0.0     
                                                     
-                sprtime += @elapsed spread!(p, contact_vector, sdcases,  socialparams, 
+                    sprtime += @elapsed begin 
+                        spread!(p, contact_vector, sdcases,  socialparams,   # to_agegrp, history_changes = 
                                             infectset, vaxset, density_factor, dovax, dovariant, 
                                             c_pid,
                                             c_cond,
@@ -158,9 +162,13 @@ function runsim(model;
                                             c_vaxrcvd,
                                             c_vaxday,
                                             )   
+                        end
+
+                    # histtime += @elapsed insert_history!(cumhist, newhist, seriescols, thisday, history_changes, to_agegrp)
                 end
 
-                trtime += @elapsed transition!(p, infectset, transitionset, vaxset, dovax, dovariant, noop, trvec,
+                trtime += @elapsed begin 
+                    transition!(p, infectset, transitionset, vaxset, dovax, dovariant, noop, trvec,  # to_agegrp, history_changes = 
                                             c_cond,
                                             c_status,
                                             c_agegrp,
@@ -172,8 +180,10 @@ function runsim(model;
                                             c_vaxrcvd,
                                             c_vaxday,
                                             c_deadday
-                                            )        
+                                            )    
+                    end    
 
+                    # histtime += @elapsed insert_history!(cumhist, newhist, seriescols, thisday, history_changes, to_agegrp)
             end # people loop         
             
             for case in runcases  # cases that run at the end of the day
@@ -193,6 +203,9 @@ function runsim(model;
 
 
         histtime += @elapsed begin
+            # if thisday < ndays
+            #     transfercumcols(cumhist, seriescols, thisday)
+            # end
             hist_total_agegrps!(newhist, cumhist, seriescols) # sum agegrps to total for all series groups (by agegrp)
             add_totinfected_series!(newhist, cumhist, seriescols) 
             add_totvaccinated_series!(newhist, cumhist, seriescols)
@@ -218,8 +231,9 @@ end
 
     @inbounds for age in instances(agegrp)
 
-        # get the source data: status
         dat_age = locdat[age_idx_loc][age]
+
+        # get the source data: status
         status_today = @inbounds countmap(dat_age.status)    # cumulative position for thisday, keys are Enum status
 
         # get the source data: conditions in (nil, mild, sick, severe)
@@ -331,7 +345,47 @@ function add_totvaccinated_series!(newhist, cumhist, seriescols)
 end
 
 
+function insert_history!(cumhist, newhist, seriescols, thisday, history_changes, to_agegrp)
+    
+    # if !isempty(history_changes)
+    #     println(thisday, " ", history_changes)
+    # end
 
+    # transfer cumulative values from previous day
+    # if thisday > 1
+    #     for col in columnnames(seriescols)
+    #         for subcol in 1:6
+    #             ttcol = getproperty(seriescols, col)[subcol]
+    #             if cumhist[thisday, ttcol] == 0
+    #                 cumhist[thisday, ttcol] = cumhist[thisday-1, ttcol]
+    #             end
+    #         end
+    #     end
+    # end
+
+    # process the changes for thisday
+    for change in history_changes
+        tocol = getproperty(seriescols, Symbol(change[1]))[Int(to_agegrp)]
+        # if cumhist[thisday, tocol] == 0
+        #     cumhist[thisday, tocol] = cumhist[thisday-1, tocol] + change[2]
+        # else
+        #     cumhist[thisday, tocol] += change[2]
+        # end
+        cumhist[thisday, tocol] += change[2]
+        newhist[thisday, tocol] += change[2]
+    end
+end
+
+
+function transfercumcols(cumhist, seriescols, thisday)
+    for col in columnnames(seriescols)
+        for subcol in 1:6
+            ttcol = getproperty(seriescols, col)[subcol]
+            cumhist[thisday+1, ttcol] = cumhist[thisday, ttcol]
+        
+        end
+    end
+end
 #####################################################################################
 #  other functions used in simulation
 #####################################################################################

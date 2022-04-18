@@ -147,12 +147,6 @@ const totinfected       = 9
 const travelers         = 10
 const isolated          = 11
 
-
-const condnames  = Dict(:unexposed=>"unexposed", :infectious=>"infectious", :recovered=>"recovered", :dead=>"dead",
-                    :nil=>"nil", :mild=>"mild", :sick=>"sick", :severe=>"severe", :totinfected=>"totinfected", 
-                    :JnJ=>"JnJ", :Pfizer=>"Pfizer", :Moderna=>"Moderna", :totvaccinated=>"totvaccinated", 
-                    :omicron=>"omicron", :base=>"base", :alpha=>"alpha", :delta=>"delta")
-        # slightly faster than string(:unexposed) because the string is created when the Dict is created
 const totalcol = 6
 
 
@@ -305,7 +299,6 @@ export
     statuses,
     conditions,
     allconds,
-    condnames,
     infectious_cases,
     transition_cases,
     series_colnames,
@@ -317,7 +310,6 @@ export
     age60_79, 
     age80_up, 
     agegrps,
-    
     n_agegrps,
     recvrisk,
     totalcol,

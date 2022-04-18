@@ -296,7 +296,7 @@ Immunity from vaccination for a single person.
     halflife = vaxset[vaxrcvd].halflife
     full_effect_days = vaxset[vaxrcvd].full_effect_days
     infectfactor = vaxset[vaxrcvd].infectfactor
-    vaxeffect = vaxset[vaxrcvd].infectreduce[vaxstatus][spr_variant]
+    vaxeffect = @inbounds vaxset[vaxrcvd].infectreduce[vaxstatus][spr_variant]
 
     # rise and decay of vaccine effectiveness
     rise_lower=0.5    # TODO need to make these inputs somewhere
@@ -343,10 +343,10 @@ end
 @inline @fastmath function infectrisk(infectset, spr_variant, spr_sickday, targ_agegrp, recovfactor, vaxfactor)
 
     # spreader person characteristics
-    sendrisk = infectset[spr_variant].sendrisk[spr_sickday]
+    sendrisk = @inbounds infectset[spr_variant].sendrisk[spr_sickday]
 
     # target person characteristics
-    recvrisk = infectset[spr_variant].recvrisk[Int(targ_agegrp)]
+    recvrisk = @inbounds infectset[spr_variant].recvrisk[Int(targ_agegrp)]
 
     combinedfactor = recvrisk * sendrisk * min(recovfactor, vaxfactor)
     riskfactor = squashfunc(combinedfactor)  
@@ -381,16 +381,22 @@ columns in the population table. Runs social distancing cases.
         c_vaxday
      )
 
-    n_newly_infected = 0
-
     # retrieve params
     contactfactors = socialparams.contactfactors
     touchfactors   = socialparams.touchfactors
     gammashape     = socialparams.gammashape
 
+    # initialize
+    tocond = nil
+    n_newly_infected = 0
+    tovariant = :base
+    targ_agegrp = age0_19
+    history_changes = ()
+    target_status = unexposed
+
     # determine number of outbound contacts 
     contact_param = c_sdcomply[spr] == :none ? contactfactors : sdcases[c_sdcomply[spr]]
-    nc = numcontacts(density_factor, gammashape, c_agegrp[spr], c_cond[spr], contact_param)  
+    nc = @inbounds numcontacts(density_factor, gammashape, c_agegrp[spr], c_cond[spr], contact_param)  
     sample!(c_pid, contact_vector)
     sel = 0
     for i = 1:nc
@@ -401,48 +407,50 @@ columns in the population table. Runs social distancing cases.
             sel += 1
         end
     
-        target = contact_vector[sel]
-        target_status = c_status[target]
+        target = @inbounds contact_vector[sel]
+        target_status = @inbounds c_status[target]
 
         @inbounds if in(target_status, (unexposed, recovered))  # only conditions that can get infected   
             # choose the touch_param for the social distancing case or the input social parameters
             touch_param = c_sdcomply[target] == :none ? touchfactors : sdcases[c_sdcomply[target]]
-            touched = istouched(c_agegrp[target], unexposed, touch_param)   # is the contact significant?
+            touched = @inbounds istouched(c_agegrp[target], unexposed, touch_param)   # is the contact significant?
 
             # infection outcome
             if touched  # if the contact is consequential
                 # gather characteristics of target and spreader
-                    recovday = c_recovday[target][end]
-                    targ_variant = c_variant[target][end]
-                    spr_variant = c_variant[spr][end]
+                    recovday = @inbounds c_recovday[target][end]
+                    targ_variant = @inbounds c_variant[target][end]
+                    spr_variant = @inbounds c_variant[spr][end]
                     recovfactor = target_status == recovered ? spr_recoveffect(recovday, targ_variant, spr_variant, infectset) : 1.0
 
-                    vaxstatus = c_vaxstatus[target]
-                    vaxrcvd = c_vaxrcvd[target][end]
-                    vaxday = c_vaxday[target][end]
+                    vaxstatus = @inbounds c_vaxstatus[target]
+                    vaxrcvd = @inbounds c_vaxrcvd[target][end]
+                    vaxday = @inbounds c_vaxday[target][end]
                     vaxfactor = vaxstatus != :none ? spr_vaxeffect(infectset, vaxset, vaxstatus, spr_variant, vaxrcvd, vaxday) : 1.0
 
-                    spr_sickday = c_sickday[spr]
-                    targ_agegrp = c_agegrp[target]
+                    spr_sickday = @inbounds c_sickday[spr]
+                    targ_agegrp = @inbounds c_agegrp[target]
 
                 risk = infectrisk(infectset, spr_variant, spr_sickday, targ_agegrp, recovfactor, vaxfactor)
 
                 if isinfected(risk)
-                    tovariant = dovariant ? c_variant[spr][end] : :base
-                    @inbounds set_infected!(target, c_cond, nil, c_status, infectious, c_sickday, 1, c_variant, tovariant)
-                    n_newly_infected += 1
+                    tovariant = @inbounds dovariant ? c_variant[spr][end] : :base
+                    tocond = nil
+                    tostatus = infectious
+                    @inbounds set_infected!(target, c_cond, tocond, c_status, tostatus, c_sickday, 1, c_variant, tovariant)
+                    # history_changes = ((tocond, 1), (tovariant, 1), (infectious, 1), (target_status, -1))
                 end
             end  # if (touched ...)
         end  # if contactstatus
     end # for i = 1:nc
 
-    return n_newly_infected # n_contacts, n_touched, n_newly_infected
-end
+    return  # targ_agegrp, history_changes # n_contacts, n_touched, n_newly_infected
+end       
 
 function set_infected!(target, condcol, condval, statcol, statval, sickdaycol, sickdayval, variantcol, variantval)
     # wrapping args in some containers and deref'ing the containers will take too much time in the hottest loop of the simulation
-    begin
-        condcol[target]=condval
+    @inbounds begin
+        condcol[target] = condval
         statcol[target] = statval
         sickdaycol[target] = sickdayval
         push!(variantcol[target], variantval)
@@ -452,10 +460,10 @@ end
 
 # simple make_sick! for a single person. Assumes that caller doesn't invoke structure of population data
 function make_sick!(locdat, target::Int; cond, variant, sickday)
-    locdat.condition[target] = cond
-    locdat.status[target] = infectious
+    @inbounds locdat.condition[target] = cond
+    @inbounds locdat.status[target] = infectious
     push!(locdat.variant, variant)
-    locdat.sickday[target] = sickday
+    @inbounds locdat.sickday[target] = sickday
 end
 
 # complex make sick

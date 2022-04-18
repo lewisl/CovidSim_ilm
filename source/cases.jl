@@ -17,11 +17,11 @@ Two of the inputs may refer to multiple items and must match in number of items.
 
 Returns a function that can be used in runcases input to run_a_sim.
 """
-function seed_case_gen_old(cnt, sickday, cond, variant, agegrp; forlocale, forday, forstartofday) # these args go into the returned seed! case
+function seed_case_gen_old(cnt, sickday, cond, variant, agegrp; forlocale, triggerdate, forstartofday) # these args go into the returned seed! case
     # caserunner gets returned; assign it a value at the cmdline; use as an input to run_a_sim
 
     function caserunner(locdat, socialparams, infectset, sdcases, age_idx_loc; startofday, locale, day)  # args must match runcases loop in run_a_sim
-        if (day == forday) & (startofday == forstartofday) 
+        if (day == triggerdate) & (startofday == forstartofday) 
             if (forlocale == 0) | (forlocale == locale)
                 seed!(cnt, sickday, cond, variant, agegrp, locdat)  # payload: this is what the function will do when run
             end
@@ -139,6 +139,11 @@ function settraits!(locdat, s::Seedset)
 end
 
 
+function settraits!(locseries, )
+end
+
+
+
 """
     makesickseedset( ; cond=nil, variant=:base, sickday=1, filter::Vector{Term}, cnt)
 
@@ -154,17 +159,17 @@ end
 
 
 """
-    makesickseedfunc( ; cond=nil, variant=:base, sickday=1, filter::Vector{Term}, cnt, forlocale=0, forday, startofday)
+    makesickseedfunc( ; cond=nil, variant=:base, sickday=1, filter::Vector{Term}, cnt, forlocale=0, triggerdate, startofday)
 
 Create a Seedset that contains the filter for whom to make sick, the traits to be set, and the cnt of people to be changed. 
 
 **And** call seed\\_case\\_gen for you to return the callback function that encloses this Seedset.
 """
-function makesickseedfunc( ; cond=nil, variant=:base, sickday=1, filter::Vector{Term}, cnt, forlocale=0, forday, forstartofday)
+function makesickseedfunc( ; cond=nil, variant=:base, sickday=1, filter::Vector{Term}, cnt, forlocale=0, triggerdate, forstartofday)
     ss = Seedset(filter=filter, cnt=cnt, 
             change=[Term(:status, infectious), Term(:cond, cond), Term(:variant, variant), Term(:sickday, sickday)])
 
-    seed_case_gen(ss; forlocale=forlocale, forday=forday, forstartofday=forstartofday)
+    seed_case_gen(ss; forlocale=forlocale, triggerdate=triggerdate, forstartofday=forstartofday)
 end
 
 
@@ -187,13 +192,13 @@ end
 
 
 """
-    makenotsickseedfunc( ; status, filter::Vector{Term}, cnt, forlocale=0, forday, startofday)
+    makenotsickseedfunc( ; status, filter::Vector{Term}, cnt, forlocale=0, triggerdate, startofday)
 
 Create a Seedset that contains the filter for whom to change from sick to either recovered or dead, and the cnt of people to be changed. 
 
 **And** call seed\\_case\\_gen for you to return the callback function that encloses this Seedset.
 """
-function makenotsickseedfunc( ; status, filter::Vector{Term}, cnt, forlocale=0, forday, forstartofday)
+function makenotsickseedfunc( ; status, filter::Vector{Term}, cnt, forlocale=0, triggerdate, forstartofday)
     if !in(status, [recovered, dead])
         throw(DomainError(status, "Status must be either recovered or dead"))
     end
@@ -201,7 +206,7 @@ function makenotsickseedfunc( ; status, filter::Vector{Term}, cnt, forlocale=0, 
     ss = Seedset(filter=filter, cnt=cnt,
             change=[Term(:status, status), Term(:cond, uninfected)])
 
-    seed_case_gen(ss; forlocale=forlocale, forday=forday, forstartofday=forstartofday)
+    seed_case_gen(ss; forlocale=forlocale, triggerdate=triggerdate, forstartofday=forstartofday)
 end
 
 """
@@ -238,10 +243,10 @@ Example:
 
 Returns a function that can be used in runcases input to run_a_sim.
 """
-function seed_case_gen(ss::Seedset; forlocale=0, forday, forstartofday) # these args go into the called/returned seed! case
+function seed_case_gen(ss::Seedset; forlocale=0, triggerdate, forstartofday) # these args go into the called/returned seed! case
 
     function caserunner(locdat, socialparams, infectset, sdcases, age_idx_loc; day, startofday, locale)  # args must match runcases loop in run_a_sim
-        if (day == forday) & (startofday == forstartofday) 
+        if (day == triggerdate) & (startofday == forstartofday) 
             if (forlocale == 0) | (forlocale == locale)
                 settraits!(locdat, ss::Seedset)
             end

@@ -223,21 +223,21 @@ model = buildsim(ndays, locale;
 
 # %%
 seed20_39_day1 = makesickseedfunc(; cond=nil, variant=:base, sickday=1, filter=[Term(:agegrp, age20_39), Term(:status, unexposed)], 
-                            cnt=3, forlocale=0, forday=1, forstartofday=true)
+                            cnt=3, forlocale=0, triggerdate=1, forstartofday=true)
 seed40_59_day1 = makesickseedfunc(; cond=nil, variant=:base, sickday=1, filter=[Term(:agegrp, age40_59), Term(:status, unexposed)], 
-                            cnt=3, forlocale=0, forday=1, forstartofday=true)                            
+                            cnt=3, forlocale=0, triggerdate=1, forstartofday=true)                            
 
 # %%
 seed20_39_omicron = makesickseedfunc(; cond=nil, variant=:omicron_ba1, sickday=1, filter=[Term(:agegrp, age20_39), Term(:status, unexposed)], 
-                            cnt=3, forlocale=0, forday=360, forstartofday=true)
+                            cnt=3, forlocale=0, triggerdate=360, forstartofday=true)
 seed40_59_omicron = makesickseedfunc(; cond=nil, variant=:omicron_ba1, sickday=1, filter=[Term(:agegrp, age40_59), Term(:status, unexposed)], 
-                            cnt=3, forlocale=0, forday=360, forstartofday=true)                            
+                            cnt=3, forlocale=0, triggerdate=360, forstartofday=true)                            
 
 # %%
 seed20_39_omicron_ba2 = makesickseedfunc(; cond=nil, variant=:omicron_ba2, sickday=1, filter=[Term(:agegrp, age20_39), Term(:status, unexposed)], 
-                            cnt=3, forlocale=0, forday=460, forstartofday=true)
+                            cnt=3, forlocale=0, triggerdate=460, forstartofday=true)
 seed40_59_omicron_ba2 = makesickseedfunc(; cond=nil, variant=:omicron_ba2, sickday=1, filter=[Term(:agegrp, age40_59), Term(:status, unexposed)], 
-                            cnt=3, forlocale=0, forday=460, forstartofday=true)                            
+                            cnt=3, forlocale=0, triggerdate=460, forstartofday=true)                            
 
 # %% [markdown]
 # ### Run the simulation model
@@ -255,8 +255,16 @@ locdat = popdat[locale];
 model.series.mapper
 
 # %%
+for col in propertynames(model.series.mapper)
+    println(col)
+end
+
+# %%
+propertynames(model.series.mapper)
+
+# %%
 map2series = model.series.mapper
-series.data[locale].cum[700:720, map2series.omicron_ba1]
+series.data[locale].cum[1, map2series.unexposed]
 
 # %%
 filt_vaccinated = findall(last.(popdat[38015].vaxrcvd) .!= :none)
@@ -291,7 +299,7 @@ cumplot(series, locale, [:Pfizer, :Moderna, :JnJ, :totvaccinated], days=160:300)
 cumplot(series, locale, [:nil, :mild, :sick, :severe])
 
 # %%
-newplot(series, locale, [:totvaccinated], days=160:300)
+newplot(series, locale, [:unexposed])
 
 # %%
 cumplot(series, locale, [:base, :omicron_ba1, :omicron_ba2])

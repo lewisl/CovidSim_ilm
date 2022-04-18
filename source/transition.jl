@@ -61,19 +61,21 @@ locdat must be a population table for a single locale.
 
         vaxfn!(transvec, recoveff, vaxeff) #vaxfn! will be function noop or function vaxtransitioneffect
 
-        dotransition!(p, p_cond, transvec; # perform transition logic and update population table
+        dotransition!(p, p_cond, transvec; # perform transition logic and update population table  # changes =
                 c_sickday   = c_sickday,
                 c_deadday   = c_deadday,
                 c_status    = c_status,
                 c_cond      = c_cond,
                 c_recovday  = c_recovday
             )
-    # end  
+    
+    return    # p_agegrp, changes
+    
 end
 
 
 @inline function has(agetr, sickday::Int, p_cond::condition, trvec)::Union{Vector{Float64}, Nothing}
-    for trdef in agetr
+    @inbounds for trdef in agetr
         if trdef.sickday == sickday
             trvec[:] = trdef.transition[mapcondition(p_cond), :]
             if sum(trvec) > 0.0
@@ -96,7 +98,7 @@ end
     riskfactor = squashfunc(combinedfactor)  
 
     for c in (sick, severe, dead)
-        transvec[maptransition(c)] *= riskfactor
+        @inbounds transvec[maptransition(c)] *= riskfactor
     end
 
     correction = 1.0 / sum(transvec)  # normalize to sum to 1.0
@@ -118,10 +120,11 @@ the number of days the person has been sick.
                 c_cond,
                 c_recovday
             )
-   
+
     if isnothing(trvec)
 
         c_sickday[p] += 1  
+        return ()
 
     else
         choice = categorical_sim(trvec) # which outcome based on probability...?
@@ -131,22 +134,23 @@ the number of days the person has been sick.
 
         tocond = maptransition(choice)
 
-        # debugging
-        # if locdat.sickday[p] >= 25
-        #     println("$(day_ctr[:day]): agegrp: $(locdat.agegrp[p]) sickday: $(locdat.sickday[p]) from cond: $p_cond to cond: $tocond")
-        # end
-
-        if tocond == dead  
+        @inbounds if tocond == dead  
+            # statuschange = ((infectious, -1), (dead, 1))
             c_deadday[p] = day_ctr[:day]
             c_status[p] = dead  # change the status
             c_cond[p] = uninfected # change the condition--> kept to know what cause of death was
+            # return (infectious, -1), (dead, 1), (p_cond, -1)
         elseif tocond == recovered
+            # statuschange = ((infectious, -1), (recovered, 1))
             push!(c_recovday[p], day_ctr[:day])
             c_status[p] = recovered
             c_cond[p] = uninfected   # TODO decide if this makes sense--using this to maintain a history of past infection
+            # return (infectious, -1), (recovered, 1), (p_cond, -1)
         else   
+            condchange = (tocond, 1)
             c_cond[p] = tocond   # change the condition = degree of sickness
             c_sickday[p] += 1    # advance number of days person has been sick
+            # return (tocond, 1), (p_cond, -1)
         end    
     end
 end
@@ -232,7 +236,7 @@ function travelout!(fromloc, locales, rules=[])    # TODO THIS WON'T WORK ANY MO
     bins = lim = length(travdests) + 1
     for agegrp in agegrps
         for cond in [unexposed, infectious, recovered]
-            name = condnames[cond]
+            name = string(cond)
             for sickday in sickdays
                 numfolks = sum(grab(cond, agegrp, sickday, fromloc)) # the from locale, all sickdays
                 travcnt = floor(Int, gamma_prob(travprobs[agegrp]) * numfolks)  # interpret as fraction of people who will travel

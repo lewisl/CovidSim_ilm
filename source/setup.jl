@@ -19,7 +19,7 @@ function setup(ndays, locales;  # must provide following inputs
         datadict = build_data(locales, geodata, ndays)
 
     # history series
-        series = build_series(locales, ndays)
+        series = build_series(locales, ndays, datadict)
 
     # social parameters
         socialparams = build_socialparams(socialfilename, paramdir)
@@ -68,6 +68,16 @@ function build_data(locales, geodata, n_days)
     agegrp_idx = Dict(loc => precalc_agegrp_filt(popdat[loc]).idx for loc in locales)
     
     return Dict("popdat"=>popdat, "agegrp_idx"=>agegrp_idx)
+end
+
+
+"""
+    precalculate agegrp indices--these do not change during the simulation
+"""
+function precalc_agegrp_filt(dat)  # dat for a single locale
+    agegrp_filt_bit = Dict(age => dat.agegrp .== age for age in agegrps)
+    agegrp_filt_idx = Dict(age => findall(agegrp_filt_bit[age]) for age in agegrps)
+    return (boolean=agegrp_filt_bit, idx=agegrp_filt_idx)
 end
 
 
@@ -129,11 +139,22 @@ function build_series_mapper(map2dict=Dict())
 end
 
 
-function build_series(locales, n_days, map2dict=Dict())
+function build_series(locales, n_days, datadict, map2dict=Dict())
     mapper = build_series_mapper(map2dict)
     lastcol = last(mapper)[end]
     series = Dict(loc => (cum = zeros(Int, n_days, lastcol), new = zeros(Int, n_days, lastcol)) 
                   for loc in locales)
+    for loc in locales
+        locdat = datadict["popdat"][loc]
+        age_idx = datadict["agegrp_idx"][loc]
+
+        for age in agegrps
+            series[loc].cum[1, mapper.unexposed[Int(age)]] = length(age_idx[age])
+            series[loc].new[1, mapper.unexposed[Int(age)]] = length(age_idx[age])
+        end
+        series[loc].cum[1, mapper.unexposed[6]] = sum(series[loc].cum[1, mapper.unexposed[1:5]])
+        series[loc].new[1, mapper.unexposed[6]] = sum(series[loc].new[1, mapper.unexposed[1:5]])
+    end
     return (mapper=mapper, data=series)
 end
 
@@ -472,13 +493,4 @@ function apportion(x::Int, splits::Array)
 end
 
 
-######################################################################################
-# precalculate agegrp indices--these do not change during the simulation
-######################################################################################
 
-
-function precalc_agegrp_filt(dat)  # dat for a single locale
-    agegrp_filt_bit = Dict(age => dat.agegrp .== age for age in agegrps)
-    agegrp_filt_idx = Dict(age => findall(agegrp_filt_bit[age]) for age in agegrps)
-    return (boolean=agegrp_filt_bit, idx=agegrp_filt_idx)
-end

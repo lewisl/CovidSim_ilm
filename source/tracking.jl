@@ -166,7 +166,7 @@ function newplot(series, locale, plcols=[:infectious]; days="all")
     n = size(series.data[locale].new, 1)
     days = days == "all" ? (1:n) : days
     newseries = series.data[locale].new[days, [getproperty(map2series, i)[totalcol] for i in plcols]]
-    labels = [titlecase(condnames[i]) for i in plcols]
+    labels = [titlecase(string(col)) for col in plcols]
     labels = reshape([labels...], 1, length(labels))
     people = series.data[locale].cum[1, map2series.unexposed[totalcol]] + series.data[locale].cum[1, map2series.infectious[totalcol]]
 
