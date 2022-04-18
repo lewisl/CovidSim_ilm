@@ -201,7 +201,7 @@ because this function only represents the time-based change.
 The second method is curried to only require days_since_shot as
 input. The other arguments to this method are: 14, 0.0, 1.0
 """
-@fastmath function riseup(days_since_shot, delay_days, lower, upper)
+@inline @fastmath function riseup(days_since_shot, delay_days, lower, upper)
     clamp(days_since_shot * (1.0 / delay_days), lower, upper)
 end
 
@@ -211,7 +211,7 @@ riseup14(t) = riseup(t, 14, 0.0, 1.0)  # curried to only input the day as time t
 
 # gradual decay of vaccine infectreduce based on assumed half-life
 
-@fastmath function lindecay(t, h, lower)
+@inline @fastmath function lindecay(t, h, lower)
     y = 0.5 ./ -h * t  + 1.0
     y = y < lower ? lower : y
 end
@@ -237,7 +237,7 @@ end
 function lindecayarr(t::AbstractVector{T} where T, hl, lower1, lower2)
     arr = zeros(size(t,1))
     icept = intercept(tbrk(hl, lower1), hl, lower1)
-    for i = eachindex(arr)
+    @inbounds for i = eachindex(arr)
         f1 = -t[i] * 0.5 / hl + 1.0
         if  f1 >= lower1
             arr[i] = f1
@@ -322,7 +322,7 @@ Immunity from recovery for a single person.
         today = day_ctr[:day]
         days_post_recov = today - recovday 
 
-        if days_post_recov > 0   # TODO should be an assert: does this run day of or day after recovery?
+        @inbounds if days_post_recov > 0   # TODO should be an assert: does this run day of or day after recovery?
             # get the max immunity
             immstrength = infectset[targ_variant].recovery_immunity[spr_variant]
 
@@ -446,7 +446,7 @@ columns in the population table. Runs social distancing cases.
     return  # n_contacts, n_touched, n_newly_infected
 end       
 
-function set_infected!(target, condcol, condval, statcol, statval, sickdaycol, sickdayval, variantcol, variantval)
+@inline function set_infected!(target, condcol, condval, statcol, statval, sickdaycol, sickdayval, variantcol, variantval)
     # wrapping args in some containers and deref'ing the containers will take too much time in the hottest loop of the simulation
     @inbounds begin
         condcol[target] = condval
@@ -472,7 +472,7 @@ function make_sick!(dat; cnt, ages, tocond, tovariant, tosickday=1)
 
     filt_unexp = optfindall(==(unexposed), dat.status, 1) # must be unexposed
 
-    for i in 1:size(ages, 1)  # by target age groups
+    @inbounds for i in 1:size(ages, 1)  # by target age groups
 
         filt_age = dat.agegrp[filt_unexp] .== ages[i] # age of the unexposed
         rowrange = 1:cnt[i]

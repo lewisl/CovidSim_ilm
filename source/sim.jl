@@ -63,7 +63,7 @@ function runsim(model;
                 vax.doses = vax.starting_doses   # fields of Vaxinclude
             end
         end
-        contact_vector = zeros(Int, 10)    # TODO this is bigger than necessary
+        contact_vector = zeros(Int, 10)    
         thisday = 0
 
 
@@ -101,7 +101,7 @@ function runsim(model;
         density_factor = geodf[geodf[!, :fips] .== loc, :density_factor][]  # for the loc
 
 
-        # Deref columns once per locale and not in the deeper loops. Pass these columns to spread! and transition!
+        # Deref columns once per locale and not in the deeper loops. Pass needed columns to spread! and transition!
         c_pid        = locdat.pid
         c_cond       = locdat.cond
         c_status     = locdat.status
@@ -166,7 +166,7 @@ function runsim(model;
                 end
 
                 trtime += @elapsed begin 
-                    transition!(p, infectset, transitionset, vaxset, dovax, dovariant, noop, trvec,  # to_agegrp, history_changes = 
+                    transition!(p, infectset, transitionset, vaxset, dovax, dovariant, noop, trvec,   
                                             c_cond,
                                             c_status,
                                             c_agegrp,
@@ -220,19 +220,19 @@ end
 #  Update daily history series
 ################################################################################
 
-@views function do_history!(locdat, newhist, cumhist, age_idx_loc, seriescols)  # cumhist, newhist,
+@inline @views function do_history!(locdat, newhist, cumhist, age_idx_loc, seriescols)  # cumhist, newhist,
 
     @inbounds for age in instances(agegrp)
 
         dat_age = locdat[age_idx_loc][age]
 
         # get the source data: status
-        status_today = @inbounds countmap(dat_age.status)    # cumulative position for thisday, keys are Enum status
+        status_today = countmap(dat_age.status)    # cumulative position for thisday, keys are Enum status
 
         # get the source data: conditions in (nil, mild, sick, severe)
         filt_infectious = findall(dat_age.status .== infectious)
         if length(filt_infectious) > 0
-            sick_today = @inbounds countmap(dat_age.cond[filt_infectious])  # keys are enum condition
+            sick_today = countmap(dat_age.cond[filt_infectious])  #         keys are enum condition
         else   # there can be days when no one is infected
             sick_today = Dict()
         end
@@ -240,14 +240,14 @@ end
         # get the source data: vaccination
         filt_vaccinated = findall(last.(dat_age.vaxrcvd) .!= :none)
         if length(filt_vaccinated) > 0
-            vax_today = @inbounds countmap(last.(dat_age.vaxrcvd[filt_vaccinated]))  # keys are symbol
+            vax_today = countmap(last.(dat_age.vaxrcvd[filt_vaccinated]))  #         keys are symbol
         else
             vax_today = Dict()
         end
 
         # get the source data: variants: use filt_infectious from above...
         if length(filt_infectious) > 0
-            variant_today = @inbounds countmap(last.(dat_age.variant[filt_infectious]))
+            variant_today = countmap(last.(dat_age.variant[filt_infectious]))    #  
         else
             variant_today = Dict()
         end
@@ -269,7 +269,7 @@ end
 end # function
 
 
-function saveseries!(cumdat, newdat, categories, countsdict, int_age, seriescols, thisday)
+@inline function saveseries!(cumdat, newdat, categories, countsdict, int_age, seriescols, thisday)
 
     @inbounds for item in categories
         seriescol = getproperty(seriescols, Symbol(item))[int_age]  # seriescols[Symbol(item)][int_age]
@@ -288,22 +288,22 @@ function saveseries!(cumdat, newdat, categories, countsdict, int_age, seriescols
 end
 
 
-function hist_total_agegrps!(newhist, cumhist, seriescols)
+@inline function hist_total_agegrps!(newhist, cumhist, seriescols)
     cols = seriescols
 
-    @inbounds for cond in allconds  # infectious cases and statuses
+     @views for cond in allconds  # infectious cases and statuses  
         colgroup = getproperty(cols, Symbol(cond))   # cols[Symbol(cond)]
         newhist[:, colgroup[totalcol]] = sum(newhist[:, colgroup[collect(Int.(agegrps))]], dims=2)
         cumhist[:, colgroup[totalcol]] = sum(cumhist[:, colgroup[collect(Int.(agegrps))]], dims=2)
     end
 
-    @inbounds for vax in vaxlist
+    @views for vax in vaxlist   
         colgroup = getproperty(cols, Symbol(vax))  # cols[Symbol(vax)]
         newhist[:, colgroup[totalcol]] = sum(newhist[:, colgroup[collect(Int.(agegrps))]], dims=2)
         cumhist[:, colgroup[totalcol]] = sum(cumhist[:, colgroup[collect(Int.(agegrps))]], dims=2)
     end
 
-    @inbounds for variant in variantlist
+    @views for variant in variantlist   
         colgroup = getproperty(cols, Symbol(variant))    # cols[Symbol(variant)]
         newhist[:, colgroup[totalcol]] = sum(newhist[:, colgroup[collect(Int.(agegrps))]], dims=2)
         cumhist[:, colgroup[totalcol]] = sum(cumhist[:, colgroup[collect(Int.(agegrps))]], dims=2)
@@ -313,7 +313,7 @@ end
 
 
 # a single locale that already has both new and cum series
-function add_totinfected_series!(newhist, cumhist, seriescols)
+@inline function add_totinfected_series!(newhist, cumhist, seriescols)
     cols = seriescols
     # for new
     @views begin
@@ -326,7 +326,7 @@ function add_totinfected_series!(newhist, cumhist, seriescols)
 end
 
 
-function add_totvaccinated_series!(newhist, cumhist, seriescols)
+@inline function add_totvaccinated_series!(newhist, cumhist, seriescols)
     cols = seriescols
     @views begin
         n = size(newhist, 1)

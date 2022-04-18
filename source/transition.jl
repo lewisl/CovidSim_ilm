@@ -123,7 +123,7 @@ the number of days the person has been sick.
 
     if isnothing(trvec)
 
-        c_sickday[p] += 1  
+        @inbounds c_sickday[p] += 1  
         return ()
 
     else
