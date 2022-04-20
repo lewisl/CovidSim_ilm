@@ -78,16 +78,12 @@ countmap(locdat.status)  # everyone begins as unexposed
 fieldnames(typeof(model180.series))
 
 # %%
-model180.series.cols
+model180.series[locale].cum
 
 # %%
-model180.series.new
-
-# %%
-model180.series.cum
-
-# %%
-model180.series.cum[locale]
+for col in columnnames(model180.series[locale].cum)
+    println(col)
+end
 
 # %% [markdown]
 # ### Social Parameters
@@ -243,28 +239,13 @@ seed40_59_omicron_ba2 = makesickseedfunc(; cond=nil, variant=:omicron_ba2, sickd
 # ### Run the simulation model
 
 # %%
-@time popdat, series = runsim(model;
+popdat, series = runsim(model;
             dovax=true,
             dovariant = true,
             runcases=[seed20_39_day1, seed40_59_day1, seed20_39_omicron, seed40_59_omicron,
                       seed20_39_omicron_ba2, seed40_59_omicron_ba2]   # or seed_1_6 if using old way
             );
 locdat = popdat[locale];
-
-# %%
-model.series.mapper
-
-# %%
-for col in propertynames(model.series.mapper)
-    println(col)
-end
-
-# %%
-propertynames(model.series.mapper)
-
-# %%
-map2series = model.series.mapper
-series.data[locale].cum[1, map2series.unexposed]
 
 # %%
 filt_vaccinated = findall(last.(popdat[38015].vaxrcvd) .!= :none)

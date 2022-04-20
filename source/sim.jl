@@ -51,7 +51,6 @@ function runsim(model;
         popdat = deepcopy(model.dat["popdat"])   # Copy the population data so model can be reused!!!
         agegrp_idx = model.dat["agegrp_idx"]   # first key is locale
         series = deepcopy(model.series)  # contains series.mapper and series.data, which is a dict of locales, each local includes .cum and .new
-        seriescols = model.series.mapper
         geodf = model.geo
         infectset = model.infectset
         socialparams = model.social
@@ -94,12 +93,10 @@ function runsim(model;
         
         # this should be the first and only place to deref the locale (as loc)
         locdat = popdat[loc]  
-        newhist = series.data[loc].new
-        cumhist = series.data[loc].cum
-        seriescols = series.mapper
+        newhist = series[loc].new
+        cumhist = series[loc].cum
         age_idx_loc = agegrp_idx[loc]  # indices by agegrp
         density_factor = geodf[geodf[!, :fips] .== loc, :density_factor][]  # for the loc
-
 
         # Deref columns once per locale and not in the deeper loops. Pass needed columns to spread! and transition!
         c_pid        = locdat.pid
@@ -193,15 +190,15 @@ function runsim(model;
             end
 
             # accumulate simulation statistics in series for plotting: arrays NOT dataframes
-            histtime += @elapsed do_history!(locdat, newhist, cumhist, age_idx_loc, seriescols)
+            histtime += @elapsed do_history!(locdat, newhist, cumhist, age_idx_loc)
 
         end # day loop
 
 
         histtime += @elapsed begin
-            hist_total_agegrps!(newhist, cumhist, seriescols) # sum agegrps to total for all series groups (by agegrp)
-            add_totinfected_series!(newhist, cumhist, seriescols) 
-            add_totvaccinated_series!(newhist, cumhist, seriescols)
+            hist_total_agegrps!(newhist, cumhist) # sum agegrps to total for all series groups (by agegrp)
+            add_totinfected_series!(newhist, cumhist) 
+            add_totvaccinated_series!(newhist, cumhist)
         end
 
         silent || println("Simulation completed for $(day_ctr[:day]) days for locale $loc.")
@@ -220,14 +217,15 @@ end
 #  Update daily history series
 ################################################################################
 
-@inline @views function do_history!(locdat, newhist, cumhist, age_idx_loc, seriescols)  # cumhist, newhist,
+@inline function do_history!(locdat, newhist, cumhist, age_idx_loc)  
 
     @inbounds for age in instances(agegrp)
 
-        dat_age = locdat[age_idx_loc][age]
+        dat_age = locdat[age_idx_loc[age]]
 
         # get the source data: status
         status_today = countmap(dat_age.status)    # cumulative position for thisday, keys are Enum status
+    
 
         # get the source data: conditions in (nil, mild, sick, severe)
         filt_infectious = findall(dat_age.status .== infectious)
@@ -247,93 +245,89 @@ end
 
         # get the source data: variants: use filt_infectious from above...
         if length(filt_infectious) > 0
-            variant_today = countmap(last.(dat_age.variant[filt_infectious]))    #  
+            variant_today = countmap(last.(dat_age.variant[filt_infectious]))    #  keys are symbol
         else
             variant_today = Dict()
         end
-        
+
+
         #
-        # cumulative and new series
+        # insert results into cumulative and new series
         #
 
-        int_age = Int(age)
         thisday = day_ctr[:day]
     
-        saveseries!(cumhist, newhist, statuses, status_today, int_age, seriescols, thisday)
-        saveseries!(cumhist, newhist, infectious_cases, sick_today, int_age, seriescols, thisday)
-        saveseries!(cumhist, newhist, vaxlist, vax_today, int_age, seriescols, thisday)
-        saveseries!(cumhist, newhist, variantlist, variant_today, int_age, seriescols, thisday)
+        saveseries!(cumhist, newhist, statuses, status_today, age, thisday)
+        saveseries!(cumhist, newhist, infectious_cases, sick_today, age, thisday)
+        saveseries!(cumhist, newhist, vaxlist, vax_today, age, thisday)
+        saveseries!(cumhist, newhist, variantlist, variant_today, age, thisday)
         
     end # for age in agegrps
 
-end # function
+end 
 
 
-@inline function saveseries!(cumdat, newdat, categories, countsdict, int_age, seriescols, thisday)
+@inline function saveseries!(cumhist, newhist, categories, countsdict, age, thisday)
 
     @inbounds for item in categories
-        seriescol = getproperty(seriescols, Symbol(item))[int_age]  # seriescols[Symbol(item)][int_age]
+        colname = Symbol(item, "_", age)
         itemcount = get(countsdict, item, 0)
         if thisday == 1
-            cumdat[thisday, seriescol] = itemcount
-            newdat[thisday, seriescol] = itemcount  # initialize 1st day of new
+            getproperty(cumhist, colname)[thisday] = itemcount
+            getproperty(newhist, colname)[thisday] = itemcount
         else
-            cumdat[thisday, seriescol] = itemcount
-            newdat[thisday, seriescol] = (    # day 2... do cum(day n) - cum(day n-1)
-                cumdat[thisday, seriescol]
-                - cumdat[thisday - 1, seriescol]
-                )
+            getproperty(cumhist, colname)[thisday] = itemcount
+            getproperty(newhist, colname)[thisday] = (getproperty(cumhist, colname)[thisday] -  
+                    getproperty(cumhist, colname)[thisday-1])
         end
     end
 end
 
 
-@inline function hist_total_agegrps!(newhist, cumhist, seriescols)
-    cols = seriescols
-
-     @views for cond in allconds  # infectious cases and statuses  
-        colgroup = getproperty(cols, Symbol(cond))   # cols[Symbol(cond)]
-        newhist[:, colgroup[totalcol]] = sum(newhist[:, colgroup[collect(Int.(agegrps))]], dims=2)
-        cumhist[:, colgroup[totalcol]] = sum(cumhist[:, colgroup[collect(Int.(agegrps))]], dims=2)
-    end
-
-    @views for vax in vaxlist   
-        colgroup = getproperty(cols, Symbol(vax))  # cols[Symbol(vax)]
-        newhist[:, colgroup[totalcol]] = sum(newhist[:, colgroup[collect(Int.(agegrps))]], dims=2)
-        cumhist[:, colgroup[totalcol]] = sum(cumhist[:, colgroup[collect(Int.(agegrps))]], dims=2)
-    end
-
-    @views for variant in variantlist   
-        colgroup = getproperty(cols, Symbol(variant))    # cols[Symbol(variant)]
-        newhist[:, colgroup[totalcol]] = sum(newhist[:, colgroup[collect(Int.(agegrps))]], dims=2)
-        cumhist[:, colgroup[totalcol]] = sum(cumhist[:, colgroup[collect(Int.(agegrps))]], dims=2)
+@inline function hist_total_agegrps!(newhist, cumhist)
+        # runs once per locale
+    for item in seriesgroups
+        for age in instances(agegrp)
+            getproperty(newhist, Symbol(item, "_", "total"))[:] .+= getproperty(newhist, Symbol(item, "_", age))
+            getproperty(cumhist, Symbol(item, "_", "total"))[:] .+= getproperty(cumhist, Symbol(item, "_", age))
+        end
     end
     
 end
 
 
 # a single locale that already has both new and cum series
-@inline function add_totinfected_series!(newhist, cumhist, seriescols)
-    cols = seriescols
-    # for new
-    @views begin
-        n = size(newhist,1)
-        newhist[:, cols.totinfected] = ( (newhist[:, cols.unexposed] .< 0 ) .*
-                                                          abs.(newhist[:, cols.unexposed]) ) 
-        cumsum!(cumhist[:, cols.totinfected], newhist[:, cols.totinfected], dims=1)  
+@inline function add_totinfected_series!(newhist, cumhist)
+
+    for cond in infectious_cases
+        for age in instances(agegrp)
+            getproperty(newhist, Symbol(:totinfected, "_", age))[:] .+= getproperty(newhist, Symbol(cond, "_", age))
+            getproperty(cumhist, Symbol(:totinfected, "_", age))[:] .+= getproperty(cumhist, Symbol(cond, "_", age))
+
+        end
+        getproperty(newhist, Symbol(:totinfected, "_", "total"))[:] .+= getproperty(newhist, Symbol(cond, "_", "total"))
+        getproperty(cumhist, Symbol(:totinfected, "_", "total"))[:] .+= getproperty(cumhist, Symbol(cond, "_", "total"))
     end
     
 end
 
 
-@inline function add_totvaccinated_series!(newhist, cumhist, seriescols)
-    cols = seriescols
-    @views begin
-        n = size(newhist, 1)
-        newhist[:, cols.totvaccinated] = (newhist[:, cols.JnJ] .+ newhist[:, cols.Pfizer] .+ 
-                                                    newhist[:, cols.Moderna])
-        cumhist[:, cols.totvaccinated] = (cumhist[:, cols.JnJ] .+ cumhist[:, cols.Pfizer] .+ 
-                                                    cumhist[:, cols.Moderna])
+@inline function add_totvaccinated_series!(newhist, cumhist)
+    for vax in vaxlist
+        for age in instances(agegrp)
+            getproperty(newhist, Symbol(:totvaccinated, "_", age))[:] .+= getproperty(newhist, Symbol(vax, "_", age))
+            getproperty(cumhist, Symbol(:totvaccinated, "_", age))[:] .+= getproperty(cumhist, Symbol(vax, "_", age))
+
+        end
+        getproperty(newhist, Symbol(:totvaccinated, "_", "total"))[:] .+= getproperty(newhist, Symbol(vax, "_", "total"))
+        getproperty(cumhist, Symbol(:totvaccinated, "_", "total"))[:] .+= getproperty(cumhist, Symbol(vax, "_", "total"))
+    end
+end
+
+
+function setx(series, x, cols, rows)
+    for col in cols
+        getproperty(series, col)[rows] .= x
     end
 end
 

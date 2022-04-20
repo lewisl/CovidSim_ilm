@@ -19,7 +19,7 @@ function setup(ndays, locales;  # must provide following inputs
         datadict = build_data(locales, geodata, ndays)
 
     # history series
-        series = build_series(locales, ndays, datadict)
+        series = build_series_table(locales, agegrp, ndays)
 
     # social parameters
         socialparams = build_socialparams(socialfilename, paramdir)
@@ -124,41 +124,16 @@ Base.@kwdef struct Series
 end
 
 
-function build_series_mapper(map2dict=Dict())
-    if isempty(map2dict)
-        map2dict = OrderedDict{Symbol, UnitRange{Int64}}(
-            :unexposed=>1:6, :infectious=>7:12, :recovered=>13:18, :dead=>19:24,            # status
-            :nil=>25:30, :mild=>31:36, :sick=>37:42, :severe=>43:48, :totinfected=>49:54,   # condition
-            :Pfizer=>55:60, :Moderna=>61:66, :JnJ=>67:72, :totvaccinated=>73:78,            # vaccine
-            :base=>79:84, :alpha=>85:90, :delta=>91:96, :omicron_ba1=>97:102, :omicron_ba2=>103:108                # variant
-            )   
-    end
-    cols = Tuple(keys(map2dict))
-    colvals = collect(collect((i * 6 + 1):(i * 6 + 1 + 5)) for i in (0:length(cols)-1))
-    dat = Table(; zip(cols,colvals)...)
+function build_series_table(locales, agegrp, n_days)
+
+    cols = [Symbol(col,"_", age) for col in seriesgroups for age in vcat(collect(string.(instances(agegrp))),"total")]
+    colvals = [zeros(Int,n_days) for _ in 1:length(cols)]
+    series = Dict(loc => (cum = Table(; zip(cols,[zeros(Int,n_days) for _ in 1:length(cols)])...), 
+                          new = Table(; zip(cols,[zeros(Int,n_days) for _ in 1:length(cols)])...))
+             for loc in locales)
+
+    return series
 end
-
-
-function build_series(locales, n_days, datadict, map2dict=Dict())
-    mapper = build_series_mapper(map2dict)
-    lastcol = last(mapper)[end]
-    series = Dict(loc => (cum = zeros(Int, n_days, lastcol), new = zeros(Int, n_days, lastcol)) 
-                  for loc in locales)
-    for loc in locales
-        locdat = datadict["popdat"][loc]
-        age_idx = datadict["agegrp_idx"][loc]
-
-        for age in agegrps
-            series[loc].cum[1, mapper.unexposed[Int(age)]] = length(age_idx[age])
-            series[loc].new[1, mapper.unexposed[Int(age)]] = length(age_idx[age])
-        end
-        series[loc].cum[1, mapper.unexposed[6]] = sum(series[loc].cum[1, mapper.unexposed[1:5]])
-        series[loc].new[1, mapper.unexposed[6]] = sum(series[loc].new[1, mapper.unexposed[1:5]])
-    end
-    return (mapper=mapper, data=series)
-end
-
-
 
 function build_series_oldway(locales, n_days, map2dict=Dict())
     if isempty(map2dict)

@@ -103,18 +103,19 @@ end
 function cumplot(series, locale, plotcols=[:unexposed, :infectious, :recovered, :dead]; 
     days="all", geo=[], thm=:wong2)
 
+    cumhist = series[locale].cum
+    newhist = series[locale].new
+
     # theme(:ggplot2, foreground_color_border =:black, reuse = false)
     theme(thm, foreground_color_border=:black, 
           tickfontsize=9, gridlinewidth=1)
 
     !(typeof(plotcols) <: Array) && (plotcols = [plotcols])
 
-    map2series = series.mapper
-
     # the data is the 2d array cumseries
-    n = size(series.data[locale].cum, 1)
+    n = size(cumhist, 1)
     days = days == "all" ? (1:n) : days
-    cumseries = series.data[locale].cum[days, [getproperty(map2series, col)[totalcol] for col in plotcols]]
+    cumseries = hcat(columns(getproperties(cumhist,Tuple(Symbol(plcol,"_","total") for plcol in plotcols)))...)
 
     # labels and annotations
     labels = [titlecase(string(col)) for col in plotcols]
@@ -122,16 +123,13 @@ function cumplot(series, locale, plotcols=[:unexposed, :infectious, :recovered, 
     people = if !isempty(geo)
                 geo[geo[:,fips] .== locale, popsize][1]
              else # this will off by a tiny bit because of rounding
-                series.data[locale].cum[1, map2series.unexposed[totalcol]] + series.data[locale].cum[1,map2series.infectious[totalcol]]
+                getproperty(cumhist, :unexposed_total)[1] + getproperty(cumhist, :infectious_total)[1]
              end   
     cityname = !isempty(geo) ? geo[geo[:,fips] .== locale, city][1] : ""
-    died = series.data[locale].cum[end, map2series.dead[totalcol]]
-    infected = people - series.data[locale].cum[end, map2series.unexposed[totalcol]]
-    recovered = series.data[locale].cum[end, map2series.recovered[totalcol]]
-    unexp = people - infected
-
-    firstseries = plotcols[1]
-    half_yscale = floor(Int, maximum(series.data[locale].cum[:,getproperty(map2series, firstseries)[totalcol]]) * 0.7)
+    died =  getproperty(cumhist, :dead_total)[end]   #      series.data[locale].cum[end, map2series.dead[totalcol]]
+    unexp = getproperty(cumhist, :unexposed_total)[end]
+    infected = people - unexp    #series.data[locale].cum[end, map2series.unexposed[totalcol]]
+    recovered = infected - died  # series.data[locale].cum[end, map2series.recovered[totalcol]]
     co_pal = length(plotcols) == 2 ? [theme_palette(thm)[2], theme_palette(thm)[4]] : theme_palette(thm)
  
 
@@ -146,10 +144,11 @@ function cumplot(series, locale, plotcols=[:unexposed, :infectious, :recovered, 
             legendfontsize = 10,
             color_palette = co_pal,
             reuse = false,
-            annotate = ((6, half_yscale,
-                Plots.text("Died: $died\nInfected: $infected\nRecovered: $recovered\nUnexposed: $unexp", 
-                    11, :left)))
+            legend_position = :right
         )
+    plot!(annotate = ((6, 0.51 * ylims()[2],              # half_yscale,
+            Plots.text("Died: $died\nInfected: $infected\nRecovered: $recovered\nUnexposed: $unexp", 
+                11, :left))))
 end
 
 

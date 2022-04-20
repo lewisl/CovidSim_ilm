@@ -142,7 +142,14 @@ const n_agegrps = length(instances(agegrp))
 const vaxlist = Symbol[]  # filled by vax.jl
 const variantlist = Symbol[]  # filled by setup.jl
 
-# other columns used only in series dataframes
+# trait columns used in history series
+const seriesgroups = [:unexposed, :infectious, :recovered, :dead,         # status
+                      :nil, :mild, :sick, :severe, :totinfected,          # infectious cases
+                      :Pfizer, :Moderna, :JnJ, :totvaccinated,            # vaccines
+                     :base, :alpha, :delta, :omicron_ba1, :omicron_ba2]   # virus variants
+
+
+# other columns used only in series 
 const totinfected       = 9
 const travelers         = 10
 const isolated          = 11
@@ -241,7 +248,8 @@ export
     virus_outcome
 
 # queues and caches (variables) for tracking
-export            
+export     
+    seriesgroups,       
     travelq,
     spreadq,
     transq,
@@ -301,7 +309,6 @@ export
     allconds,
     infectious_cases,
     transition_cases,
-    series_colnames,
     # enum and enum values for age groups
     agegrp,
     age0_19,
