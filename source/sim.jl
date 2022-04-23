@@ -37,7 +37,6 @@ function runsim(model;
             runcases=[], 
             showr0 = false, 
             silent=true, 
-            dovariant=false,
             dovax=false
             )
 
@@ -56,15 +55,12 @@ function runsim(model;
         socialparams = model.social
         vaxset = model.vaxset
         vaxschedset = model.vaxschedset
-        for sched in values(vaxschedset) # k1 is name of a schedule, v1 is instance of struct Vaxsched,
-                                    #   vaxesincluded in a field in Vaxsched, which is a dict
-            for vax in values(sched.vaxesincluded) # k2 is the key for a vaccine, v2 is the value= an instance of struct Vaxinclude
-                vax.doses = vax.starting_doses   # fields of Vaxinclude
+        for sched in values(vaxschedset) 
+            for vax in values(sched.vaxesincluded) 
+                vax.doses = vax.starting_doses   
             end
         end
         contact_vector = zeros(Int, 10)    
-        thisday = 0
-
 
     # restart the day counter to zero
     reset!(day_ctr, :day)  # return and reset key to 0 :day leftover from prior runs
@@ -99,7 +95,6 @@ function runsim(model;
         density_factor = geodf[geodf[!, :fips] .== loc, :density_factor][]  # for the loc
 
         # Deref columns once per locale and not in the deeper loops. Pass needed columns to spread! and transition!
-        c_pid        = locdat.pid
         c_cond       = locdat.cond
         c_status     = locdat.status
         c_agegrp     = locdat.agegrp
@@ -113,6 +108,8 @@ function runsim(model;
         c_vaxday     = locdat.vaxday
         c_deadday    = locdat.deadday
 
+        # other per locale initialization
+        poprange = 1:length(locdat)
 
         # day loop
         for i = 1:ndays  
@@ -144,39 +141,36 @@ function runsim(model;
                 sendrisk = @inbounds infectset[spr_variant].sendrisk[spr_sickday]
                 if sendrisk > 0.0     
                                                     
-                    sprtime += @elapsed begin 
+                    sprtime += @elapsed (
                         spread!(p, contact_vector, sdcases,  socialparams,   
-                                            infectset, vaxset, density_factor, dovax, dovariant, 
-                                            c_pid,
-                                            c_cond,
-                                            c_status,
-                                            c_agegrp,
-                                            c_sickday,
-                                            c_sdcomply,
-                                            c_variant,
-                                            c_vaxstatus,
-                                            c_recovday,
-                                            c_vaxrcvd,
-                                            c_vaxday,
-                                            )   
-                        end
+                                    infectset, vaxset, density_factor, dovax, poprange, 
+                                    c_cond,
+                                    c_status,
+                                    c_agegrp,
+                                    c_sickday,
+                                    c_sdcomply,
+                                    c_variant,
+                                    c_vaxstatus,
+                                    c_recovday,
+                                    c_vaxrcvd,
+                                    c_vaxday,
+                                    ))        
                 end
 
-                trtime += @elapsed begin 
-                    transition!(p, infectset, transitionset, vaxset, dovax, dovariant, noop, trvec,   
-                                            c_cond,
-                                            c_status,
-                                            c_agegrp,
-                                            c_sickday,
-                                            c_sdcomply,
-                                            c_variant,
-                                            c_vaxstatus,
-                                            c_recovday,
-                                            c_vaxrcvd,
-                                            c_vaxday,
-                                            c_deadday
-                                            )    
-                    end    
+                trtime += @elapsed (
+                    transition!(p, infectset, transitionset, vaxset, dovax, noop, trvec,   
+                                    c_cond,
+                                    c_status,
+                                    c_agegrp,
+                                    c_sickday,
+                                    c_sdcomply,
+                                    c_variant,
+                                    c_vaxstatus,
+                                    c_recovday,
+                                    c_vaxrcvd,
+                                    c_vaxday,
+                                    c_deadday
+                                    ))
             end # people loop         
             
             for case in runcases  # cases that run at the end of the day
@@ -218,66 +212,55 @@ end
 ################################################################################
 
 @inline function do_history!(locdat, newhist, cumhist, age_idx_loc)  
+    thisday = day_ctr[:day]
 
-    @inbounds for age in instances(agegrp)
+    @inbounds for age in agegrps
 
         dat_age = locdat[age_idx_loc[age]]
 
         # get the source data: status
-        status_today = countmap(dat_age.status)    # cumulative position for thisday, keys are Enum status
-    
+        status_today = countmap(dat_age.status)    # keys are Enum status
+        update_series!(cumhist, newhist, statuses, status_today, age, thisday)
 
         # get the source data: conditions in (nil, mild, sick, severe)
         filt_infectious = findall(dat_age.status .== infectious)
         if length(filt_infectious) > 0
             sick_today = countmap(dat_age.cond[filt_infectious])  #         keys are enum condition
-        else   # there can be days when no one is infected
-            sick_today = Dict()
-        end
+            update_series!(cumhist, newhist, infectious_cases, sick_today, age, thisday)
+        end   
 
         # get the source data: vaccination
         filt_vaccinated = findall(last.(dat_age.vaxrcvd) .!= :none)
         if length(filt_vaccinated) > 0
             vax_today = countmap(last.(dat_age.vaxrcvd[filt_vaccinated]))  #         keys are symbol
-        else
-            vax_today = Dict()
+            update_series!(cumhist, newhist, vaxlist, vax_today, age, thisday)
         end
 
         # get the source data: variants: use filt_infectious from above...
         if length(filt_infectious) > 0
             variant_today = countmap(last.(dat_age.variant[filt_infectious]))    #  keys are symbol
-        else
-            variant_today = Dict()
+            update_series!(cumhist, newhist, variantlist, variant_today, age, thisday)
         end
-
-
-        #
-        # insert results into cumulative and new series
-        #
-
-        thisday = day_ctr[:day]
-    
-        saveseries!(cumhist, newhist, statuses, status_today, age, thisday)
-        saveseries!(cumhist, newhist, infectious_cases, sick_today, age, thisday)
-        saveseries!(cumhist, newhist, vaxlist, vax_today, age, thisday)
-        saveseries!(cumhist, newhist, variantlist, variant_today, age, thisday)
         
     end # for age in agegrps
 
 end 
 
 
-@inline function saveseries!(cumhist, newhist, categories, countsdict, age, thisday)
+@inline function update_series!(cumhist, newhist, categories, countsdict, age, thisday)
 
     @inbounds for item in categories
         colname = Symbol(item, "_", age)
         itemcount = get(countsdict, item, 0)
+        if itemcount == 0
+            continue
+        end
         if thisday == 1
             getproperty(cumhist, colname)[thisday] = itemcount
             getproperty(newhist, colname)[thisday] = itemcount
         else
             getproperty(cumhist, colname)[thisday] = itemcount
-            getproperty(newhist, colname)[thisday] = (getproperty(cumhist, colname)[thisday] -  
+            getproperty(newhist, colname)[thisday] = (itemcount -  
                     getproperty(cumhist, colname)[thisday-1])
         end
     end

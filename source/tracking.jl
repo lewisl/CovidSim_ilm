@@ -113,7 +113,7 @@ function cumplot(series, locale, plotcols=[:unexposed, :infectious, :recovered, 
     !(typeof(plotcols) <: Array) && (plotcols = [plotcols])
 
     # the data is the 2d array cumseries
-    n = size(cumhist, 1)
+    n = length(cumhist)
     days = days == "all" ? (1:n) : days
     cumseries = hcat(columns(getproperties(cumhist,Tuple(Symbol(plcol,"_","total") for plcol in plotcols)))...)
 
@@ -134,7 +134,7 @@ function cumplot(series, locale, plotcols=[:unexposed, :infectious, :recovered, 
  
 
     # the plot
-    plot(   days, cumseries[1:end,1:end], 
+    plot(   days, cumseries[days,1:end], 
             size = (700,500),
             label = labels, 
             lw=2.3,
@@ -152,25 +152,30 @@ function cumplot(series, locale, plotcols=[:unexposed, :infectious, :recovered, 
 end
 
 
-function newplot(series, locale, plcols=[:infectious]; days="all")
+function newplot(series, locale, plcols=[:infectious]; days="all", geo=[], thm=:wong2)
 
-    # pyplot()
+    cumhist = series[locale].cum
+    newhist = series[locale].new
+
     theme(:ggplot2, foreground_color_border =:black)
 
     !(typeof(plcols) <: Array) && (plcols = [plcols])
 
-    map2series = series.mapper
-
     # the data and labels
-    n = size(series.data[locale].new, 1)
+    n = length(series[locale].new)
     days = days == "all" ? (1:n) : days
-    newseries = series.data[locale].new[days, [getproperty(map2series, i)[totalcol] for i in plcols]]
+    newseries = hcat(columns(getproperties(newhist,Tuple(Symbol(plcol,"_","total") for plcol in plcols)))...)
+
     labels = [titlecase(string(col)) for col in plcols]
     labels = reshape([labels...], 1, length(labels))
-    people = series.data[locale].cum[1, map2series.unexposed[totalcol]] + series.data[locale].cum[1, map2series.infectious[totalcol]]
+    people = if !isempty(geo)
+        geo[geo[:,fips] .== locale, popsize][1]
+     else # this will off by a tiny bit because of rounding
+        getproperty(cumhist, :unexposed_total)[1] + getproperty(cumhist, :infectious_total)[1]
+     end   
 
     # the plot
-    groupedbar( days, newseries[1:end, 1:end], 
+    groupedbar( days, newseries[days, 1:end], 
                 size = (700,500),
                 label = labels, 
                 lw=0.2,

@@ -16,19 +16,19 @@ they move to recovered or dead.
 
 locdat must be a population table for a single locale.
 """
-@inline function transition!(p, infectset, transitionset, vaxset, dovax, dovariant, vaxfn!, trvec,
-    c_cond,
-    c_status,
-    c_agegrp,
-    c_sickday,
-    c_sdcomply,
-    c_variant,
-    c_vaxstatus,
-    c_recovday,
-    c_vaxrcvd,
-    c_vaxday,
-    c_deadday
-    )
+@inline function transition!(p, infectset, transitionset, vaxset, dovax, vaxfn!, trvec,
+            c_cond,
+            c_status,
+            c_agegrp,
+            c_sickday,
+            c_sdcomply,
+            c_variant,
+            c_vaxstatus,
+            c_recovday,
+            c_vaxrcvd,
+            c_vaxday,
+            c_deadday
+            )
 
     if dovax
         vaxfn! = vaxfn! == noop ? vaxtransitioneffect! : vaxfn!  # last branch new vaxfn! was passed in
@@ -61,12 +61,12 @@ locdat must be a population table for a single locale.
 
         vaxfn!(transvec, recoveff, vaxeff) #vaxfn! will be function noop or function vaxtransitioneffect
 
-        dotransition!(p, p_cond, transvec; # perform transition logic and update population table  
-                c_sickday   = c_sickday,
-                c_deadday   = c_deadday,
-                c_status    = c_status,
-                c_cond      = c_cond,
-                c_recovday  = c_recovday
+        dotransition!(p, p_cond, transvec, # perform transition logic and update population table  
+                c_sickday,
+                c_deadday,
+                c_status,
+                c_cond,
+                c_recovday
             )
     
     return    
@@ -113,7 +113,7 @@ Transition an infected person to a new condition or status if called
 with a transition vector (trvec) or increment
 the number of days the person has been sick.
 """
-@inline function dotransition!(p, p_cond, trvec::Union{Vector{Float64}, Nothing};
+@inline function dotransition!(p, p_cond, trvec::Union{Vector{Float64}, Nothing},
                 c_sickday,
                 c_deadday,
                 c_status,

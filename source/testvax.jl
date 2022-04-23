@@ -19,7 +19,6 @@ locale = 38015
 ##
 result_dict, series = run_a_sim(ndays, locale; 
     dovax=false, 
-    dovariant=false,
     paramdir = "../parameters",
     geofilename = "../data/geo2data.csv", 
     socialfilename = "socialparams.yml",

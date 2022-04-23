@@ -366,9 +366,8 @@ altrisk(risk) = sigmoid(spreadin(risk))
 Infectious people spread the virus to susceptible people for a single locale. Changes attribute
 columns in the population table. Runs social distancing cases.
 """
-@inline function spread!(spr::Int, contact_vector::Vector{Int}, sdcases, socialparams,
-     infectset, vaxset, density_factor, dovax, dovariant,     
-        c_pid,
+@inline function spread!(spr::Int, contact_vector::Vector{Int}, sdcases, socialparams,   
+     infectset, vaxset, density_factor, dovax, poprange,    
         c_cond,
         c_status,
         c_agegrp,
@@ -393,15 +392,16 @@ columns in the population table. Runs social distancing cases.
     targ_agegrp = age0_19
     history_changes = ()
     target_status = unexposed
+    lcv = length(contact_vector)
 
     # determine number of outbound contacts 
     contact_param = c_sdcomply[spr] == :none ? contactfactors : sdcases[c_sdcomply[spr]]
     nc = @inbounds numcontacts(density_factor, gammashape, c_agegrp[spr], c_cond[spr], contact_param)  
-    sample!(c_pid, contact_vector)
+    sample!(poprange, contact_vector)
     sel = 0
     for i = 1:nc
-        if sel >= length(contact_vector)
-            sample!(c_pid, contact_vector)  # draw another sample
+        if sel >= lcv
+            sample!(poprange, contact_vector)  # draw another sample
             sel = 1
         else
             sel += 1
@@ -434,10 +434,11 @@ columns in the population table. Runs social distancing cases.
                 risk = infectrisk(infectset, spr_variant, spr_sickday, targ_agegrp, recovfactor, vaxfactor)
 
                 if isinfected(risk)
-                    tovariant = @inbounds dovariant ? c_variant[spr][end] : :base
+                    @inbounds tovariant = c_variant[spr][end]
+                    tosickday = 1
                     tocond = nil
                     tostatus = infectious
-                    @inbounds set_infected!(target, c_cond, tocond, c_status, tostatus, c_sickday, 1, c_variant, tovariant)
+                    set_infected!(target, c_cond, tocond, c_status, tostatus, c_sickday, tosickday, c_variant, tovariant)
                 end
             end  # if (touched ...)
         end  # if contactstatus

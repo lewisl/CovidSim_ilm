@@ -135,28 +135,6 @@ function build_series_table(locales, agegrp, n_days)
     return series
 end
 
-function build_series_oldway(locales, n_days, map2dict=Dict())
-    if isempty(map2dict)
-        map2dict = OrderedDict{Symbol, UnitRange{Int64}}(
-            :unexposed=>1:6, :infectious=>7:12, :recovered=>13:18, :dead=>19:24,            # status
-            :nil=>25:30, :mild=>31:36, :sick=>37:42, :severe=>43:48, :totinfected=>49:54,   # condition
-            :Pfizer=>55:60, :Moderna=>61:66, :JnJ=>67:72, :totvaccinated=>73:78,            # vaccine
-            :base=>79:84, :alpha=>85:90, :delta=>91:96, :omicron_ba1=>97:102, :omicron_ba2=>103:108                # variant
-            )   
-    end
-    group = collect(keys(map2dict))  
-
-    tmpdict = Dict{Int, Series}()   # dict of locales to Series
-
-    series = Series(groups = group,
-                    cols = map2dict,
-                    cum = Dict(loc => zeros(Int, n_days, map2dict[last(group)][end]) for loc in locales),
-                    new = Dict(loc => zeros(Int, n_days, map2dict[last(group)][end]) for loc in locales)              
-                )
-
-    return series       
-end
-
 
 function buildgeodata(filename)
     geo = DataFrame(CSV.File(filename))

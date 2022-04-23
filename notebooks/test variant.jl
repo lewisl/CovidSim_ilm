@@ -8,9 +8,9 @@
 #       format_version: '1.3'
 #       jupytext_version: 1.13.7
 #   kernelspec:
-#     display_name: Julia 1.7.0
+#     display_name: Julia 4 threads 1.7.2
 #     language: julia
-#     name: julia-1.7
+#     name: julia-4-threads-1.7
 # ---
 
 # %%
@@ -23,7 +23,6 @@ cs = CovidSim_ilm
 using StatsBase
 using TypedTables
 using BenchmarkTools
-export @ballocated, @belapsed, @benchmark, @benchmarkable, @benchmarkset, @bprofile, @btime, @case, @tagged, BenchmarkGroup, BenchmarkTools, addgroup!, allocs, gctime, improvements, invariants, isimprovement, isinvariant, isregression, judge, leaves, loadparams!, mean, median, memory, params, ratio, regressions, rmskew, rmskew!, trim, tune!, warmup
 using Distributions
 using YAML
 using PrettyPrint
@@ -75,17 +74,35 @@ countmap(locdat.status)  # everyone begins as unexposed
 # ### Series
 
 # %%
-fieldnames(typeof(model180.series))
+model180.series.dat
 
 # %%
-model180.series[locale].cum
+lochist = model180.series.dat[locale]
 
 # %%
-for col in columnnames(model180.series[locale].cum)
+lochist = model180.series.dat[locale]
+
+# %%
+for col in columnnames(lochist[:all].cum)
     println(col)
 end
 
-# %% [markdown]
+# %%
+for col in columnnames(lochist[:Pfizer].cum)
+    println(col)
+end
+
+# %% tags=[]
+age = "total"
+symb_age = Symbol(age)
+symb_status = Symbol(unexposed)
+cumcoll = getproperty(lochist[symb_status].cum, symb_age)
+
+# %%
+thisday = 100
+cumcell = getproperty(lochist[Symbol(status)].cum, symb_age)[thisday]
+
+# %% [markdown] jupyter={"source_hidden": true} tags=[]
 # ### Social Parameters
 
 # %%
@@ -203,7 +220,7 @@ cs.sanitycheck(basetransition.tree)
 # ### Build the simulation model
 
 # %%
-ndays = 720
+ndays = 810
 locale = 38015
 model = buildsim(ndays, locale;  
     dovax = true,
@@ -241,7 +258,6 @@ seed40_59_omicron_ba2 = makesickseedfunc(; cond=nil, variant=:omicron_ba2, sickd
 # %%
 popdat, series = runsim(model;
             dovax=true,
-            dovariant = true,
             runcases=[seed20_39_day1, seed40_59_day1, seed20_39_omicron, seed40_59_omicron,
                       seed20_39_omicron_ba2, seed40_59_omicron_ba2]   # or seed_1_6 if using old way
             );
@@ -259,7 +275,7 @@ println("Doses given: ",sum(values(vax_today)))
 
 
 # %%
-vaxsym = :Moderna
+vaxsym = :Pfizer
 dose1 = count(length.(locdat.vaxrcvd[last.(locdat.vaxrcvd) .== vaxsym]) .== 1)
 dose2 = count(length.(locdat.vaxrcvd[last.(locdat.vaxrcvd) .== vaxsym]) .== 2)
 println(vaxsym, " 1 dose cnt: ", dose1, " 2 dose cnt: ", dose2, " total ", 2*dose2 + dose1, " people cnt: ", dose1 + dose2)
@@ -280,7 +296,7 @@ cumplot(series, locale, [:Pfizer, :Moderna, :JnJ, :totvaccinated], days=160:300)
 cumplot(series, locale, [:nil, :mild, :sick, :severe])
 
 # %%
-newplot(series, locale, [:unexposed])
+newplot(series, locale, :Pfizer,days=160:300)
 
 # %%
 cumplot(series, locale, [:base, :omicron_ba1, :omicron_ba2])
