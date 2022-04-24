@@ -134,28 +134,27 @@ function runsim(model;
 
             # person loop
             for p in infect_idx    
-                    
+
+                sprtime += @elapsed begin
                 # is this person ACTIVELY infectious
                 spr_sickday = @inbounds c_sickday[p]
                 spr_variant = @inbounds c_variant[p][end]
                 sendrisk = @inbounds infectset[spr_variant].sendrisk[spr_sickday]
                 if sendrisk > 0.0     
-                                                    
-                    sprtime += @elapsed (
-                        spread!(p, contact_vector, sdcases,  socialparams,   
-                                    infectset, vaxset, density_factor, dovax, poprange, 
-                                    c_cond,
-                                    c_status,
-                                    c_agegrp,
-                                    c_sickday,
-                                    c_sdcomply,
-                                    c_variant,
-                                    c_vaxstatus,
-                                    c_recovday,
-                                    c_vaxrcvd,
-                                    c_vaxday,
-                                    ))        
+                    spread!(p, contact_vector, sdcases,  socialparams,   
+                                infectset, vaxset, density_factor, dovax, poprange, 
+                                c_cond,
+                                c_status,
+                                c_agegrp,
+                                c_sickday,
+                                c_sdcomply,
+                                c_variant,
+                                c_vaxstatus,
+                                c_recovday,
+                                c_vaxrcvd,
+                                c_vaxday,)        
                 end
+                end  # sprtime
 
                 trtime += @elapsed (
                     transition!(p, infectset, transitionset, vaxset, dovax, noop, trvec,   
@@ -185,6 +184,13 @@ function runsim(model;
 
             # accumulate simulation statistics in series for plotting: arrays NOT dataframes
             histtime += @elapsed do_history!(locdat, newhist, cumhist, age_idx_loc)
+            if thisday == 1  # :unexposed special case:  not new people on day 1
+                for colname in seriesbyage[:unexposed]
+                    getproperty(newhist, colname)[thisday] = 0
+                end
+                getproperty(newhist, :unexposed_total)[thisday] = 0
+            end
+
 
         end # day loop
 
@@ -219,27 +225,31 @@ end
         dat_age = locdat[age_idx_loc[age]]
 
         # get the source data: status
-        status_today = countmap(dat_age.status)    # keys are Enum status
-        update_series!(cumhist, newhist, statuses, status_today, age, thisday)
+        status_today = zeros(Int, 4)
+        countvec!(status_today, dat_age.status, mapstatus)    # values are Enum status
+        update_series!(cumhist, newhist, statuses, status_today, age, thisday, intmapper=mapstatus)
 
         # get the source data: conditions in (nil, mild, sick, severe)
         filt_infectious = findall(dat_age.status .== infectious)
         if length(filt_infectious) > 0
-            sick_today = countmap(dat_age.cond[filt_infectious])  #         keys are enum condition
-            update_series!(cumhist, newhist, infectious_cases, sick_today, age, thisday)
+            sick_today = zeros(Int, 4)
+            countvec!(sick_today, dat_age.cond[filt_infectious], mapcondition)  #         values are enum condition
+            update_series!(cumhist, newhist, infectious_cases, sick_today, age, thisday, intmapper=mapcondition)
         end   
 
         # get the source data: vaccination
         filt_vaccinated = findall(last.(dat_age.vaxrcvd) .!= :none)
         if length(filt_vaccinated) > 0
-            vax_today = countmap(last.(dat_age.vaxrcvd[filt_vaccinated]))  #         keys are symbol
-            update_series!(cumhist, newhist, vaxlist, vax_today, age, thisday)
+            vax_today = zeros(Int, 3)
+            countvec!(vax_today, last.(dat_age.vaxrcvd[filt_vaccinated]), vaxdict)  # values are symbol
+            update_series!(cumhist, newhist, vaxlist, vax_today, age, thisday, mapdict=vaxdict)
         end
 
         # get the source data: variants: use filt_infectious from above...
         if length(filt_infectious) > 0
-            variant_today = countmap(last.(dat_age.variant[filt_infectious]))    #  keys are symbol
-            update_series!(cumhist, newhist, variantlist, variant_today, age, thisday)
+            variant_today = zeros(Int, 5)
+            countvec!(variant_today, last.(dat_age.variant[filt_infectious]), variantdict)    #  values are symbol
+            update_series!(cumhist, newhist, variantlist, variant_today, age, thisday, mapdict=variantdict)
         end
         
     end # for age in agegrps
@@ -247,21 +257,21 @@ end
 end 
 
 
-@inline function update_series!(cumhist, newhist, categories, countsdict, age, thisday)
+@inline function update_series!(cumhist, newhist, categories, countsvec, age, thisday; intmapper=mapviadict, mapdict=Dict())
 
     @inbounds for item in categories
-        colname = Symbol(item, "_", age)
-        itemcount = get(countsdict, item, 0)
+        seriescol = Symbol(item, "_", age)
+        itemcount = isempty(mapdict) ? countsvec[intmapper(item)] : countsvec[intmapper(mapdict, item)]
         if itemcount == 0
             continue
         end
         if thisday == 1
-            getproperty(cumhist, colname)[thisday] = itemcount
-            getproperty(newhist, colname)[thisday] = itemcount
+            getproperty(cumhist, seriescol)[thisday] = itemcount
+            getproperty(newhist, seriescol)[thisday] = itemcount
         else
-            getproperty(cumhist, colname)[thisday] = itemcount
-            getproperty(newhist, colname)[thisday] = (itemcount -  
-                    getproperty(cumhist, colname)[thisday-1])
+            getproperty(cumhist, seriescol)[thisday] = itemcount
+            getproperty(newhist, seriescol)[thisday] = (itemcount -  
+                    getproperty(cumhist, seriescol)[thisday-1])
         end
     end
 end
@@ -270,10 +280,10 @@ end
 @inline function hist_total_agegrps!(newhist, cumhist)
         # runs once per locale
     for item in seriesgroups
-        for age in instances(agegrp)
-            getproperty(newhist, Symbol(item, "_", "total"))[:] .+= getproperty(newhist, Symbol(item, "_", age))
-            getproperty(cumhist, Symbol(item, "_", "total"))[:] .+= getproperty(cumhist, Symbol(item, "_", age))
-        end
+        getproperty(newhist, Symbol(item, "_", "total"))[:] .= .+(columns(getproperties(newhist, 
+                    seriesbyage[item]))...)      
+        getproperty(cumhist, Symbol(item, "_", "total"))[:] .= .+(columns(getproperties(cumhist, 
+                    seriesbyage[item]))...)     
     end
     
 end
@@ -286,7 +296,6 @@ end
         for age in instances(agegrp)
             getproperty(newhist, Symbol(:totinfected, "_", age))[:] .+= getproperty(newhist, Symbol(cond, "_", age))
             getproperty(cumhist, Symbol(:totinfected, "_", age))[:] .+= getproperty(cumhist, Symbol(cond, "_", age))
-
         end
         getproperty(newhist, Symbol(:totinfected, "_", "total"))[:] .+= getproperty(newhist, Symbol(cond, "_", "total"))
         getproperty(cumhist, Symbol(:totinfected, "_", "total"))[:] .+= getproperty(cumhist, Symbol(cond, "_", "total"))
@@ -300,7 +309,6 @@ end
         for age in instances(agegrp)
             getproperty(newhist, Symbol(:totvaccinated, "_", age))[:] .+= getproperty(newhist, Symbol(vax, "_", age))
             getproperty(cumhist, Symbol(:totvaccinated, "_", age))[:] .+= getproperty(cumhist, Symbol(vax, "_", age))
-
         end
         getproperty(newhist, Symbol(:totvaccinated, "_", "total"))[:] .+= getproperty(newhist, Symbol(vax, "_", "total"))
         getproperty(cumhist, Symbol(:totvaccinated, "_", "total"))[:] .+= getproperty(cumhist, Symbol(vax, "_", "total"))

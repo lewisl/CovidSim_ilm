@@ -26,9 +26,6 @@ using BenchmarkTools
 using Distributions
 using YAML
 using PrettyPrint
-using OrderedCollections
-using Revise
-Revise.revise()
 using LinearAlgebra
 
 # %%
@@ -74,21 +71,13 @@ countmap(locdat.status)  # everyone begins as unexposed
 # ### Series
 
 # %%
-model180.series.dat
+typeof(model180.series) <: Dict
 
 # %%
-lochist = model180.series.dat[locale]
+lochist = model180.series[locale];
 
 # %%
-lochist = model180.series.dat[locale]
-
-# %%
-for col in columnnames(lochist[:all].cum)
-    println(col)
-end
-
-# %%
-for col in columnnames(lochist[:Pfizer].cum)
+for col in columnnames(lochist.cum)
     println(col)
 end
 
@@ -96,13 +85,13 @@ end
 age = "total"
 symb_age = Symbol(age)
 symb_status = Symbol(unexposed)
-cumcoll = getproperty(lochist[symb_status].cum, symb_age)
+cumcoll = getproperty(lochist.cum, Symbol(symb_status, "_", symb_age))
 
 # %%
 thisday = 100
-cumcell = getproperty(lochist[Symbol(status)].cum, symb_age)[thisday]
+cumcell = getproperty(lochist.cum, Symbol(symb_status, "_", symb_age))[thisday]
 
-# %% [markdown] jupyter={"source_hidden": true} tags=[]
+# %% [markdown] tags=[]
 # ### Social Parameters
 
 # %%
@@ -168,6 +157,8 @@ model180.transitionset # the decision transition matrices for all age groups are
 
 # %%
 basetransition = model180.transitionset[:base]
+typeof(basetransition)
+pprintln(basetransition)
 
 # %%
 fieldnames(typeof(basetransition))
@@ -182,9 +173,6 @@ age80tree = basetransition.tree.age80_up[1].sickday
 age80tree = basetransition.tree.age80_up[1].transition
 
 # %%
-keys(age80tree)  # array of Transitiondef
-
-# %%
 basetransition.factors
 
 # %%
@@ -194,9 +182,10 @@ basetransition.factors.vaxhalflifeadjust
 println(typeof(age80tree))
 breakday_idx = 5
 println("for breakday $breakday_idx")
-println("fieldnames: ", fieldnames(typeof(age80tree[breakday_idx])))
-println("sickday ",age80tree[breakday_idx].sickday)
-println("transition \n", age80tree[breakday_idx].transition)
+age80tree
+# println("fieldnames: ", fieldnames(typeof(age80tree[breakday_idx])))
+# println("sickday ",age80tree[breakday_idx].sickday)
+# println("transition \n", age80tree[breakday_idx].transition)
 
 # %% [markdown]
 # ## Vaccines and Vaccination Schedule
@@ -236,21 +225,21 @@ model = buildsim(ndays, locale;
 
 # %%
 seed20_39_day1 = makesickseedfunc(; cond=nil, variant=:base, sickday=1, filter=[Term(:agegrp, age20_39), Term(:status, unexposed)], 
-                            cnt=3, forlocale=0, triggerdate=1, forstartofday=true)
+                            cnt=3, forlocale=0, triggerdate=1, forstartofday=true);
 seed40_59_day1 = makesickseedfunc(; cond=nil, variant=:base, sickday=1, filter=[Term(:agegrp, age40_59), Term(:status, unexposed)], 
-                            cnt=3, forlocale=0, triggerdate=1, forstartofday=true)                            
+                            cnt=3, forlocale=0, triggerdate=1, forstartofday=true);                           
 
 # %%
 seed20_39_omicron = makesickseedfunc(; cond=nil, variant=:omicron_ba1, sickday=1, filter=[Term(:agegrp, age20_39), Term(:status, unexposed)], 
-                            cnt=3, forlocale=0, triggerdate=360, forstartofday=true)
+                            cnt=3, forlocale=0, triggerdate=360, forstartofday=true);
 seed40_59_omicron = makesickseedfunc(; cond=nil, variant=:omicron_ba1, sickday=1, filter=[Term(:agegrp, age40_59), Term(:status, unexposed)], 
-                            cnt=3, forlocale=0, triggerdate=360, forstartofday=true)                            
+                            cnt=3, forlocale=0, triggerdate=360, forstartofday=true);                            
 
 # %%
 seed20_39_omicron_ba2 = makesickseedfunc(; cond=nil, variant=:omicron_ba2, sickday=1, filter=[Term(:agegrp, age20_39), Term(:status, unexposed)], 
-                            cnt=3, forlocale=0, triggerdate=460, forstartofday=true)
+                            cnt=3, forlocale=0, triggerdate=460, forstartofday=true);
 seed40_59_omicron_ba2 = makesickseedfunc(; cond=nil, variant=:omicron_ba2, sickday=1, filter=[Term(:agegrp, age40_59), Term(:status, unexposed)], 
-                            cnt=3, forlocale=0, triggerdate=460, forstartofday=true)                            
+                            cnt=3, forlocale=0, triggerdate=460, forstartofday=true);                            
 
 # %% [markdown]
 # ### Run the simulation model
@@ -261,6 +250,8 @@ popdat, series = runsim(model;
             runcases=[seed20_39_day1, seed40_59_day1, seed20_39_omicron, seed40_59_omicron,
                       seed20_39_omicron_ba2, seed40_59_omicron_ba2]   # or seed_1_6 if using old way
             );
+
+# %%
 locdat = popdat[locale];
 
 # %%
@@ -290,7 +281,7 @@ cumplot(series, locale)
 # Note that the orange line labeled Infectious, which shows the current number of infected people, is *not* what you see in newspaper accounts. In this plot Infectious shows the net infected people: There were some sick people as of the day before. Some more people got sick today. Some people got better: they're not infectious any more--they recovered and are on the blue line. Sadly, some people died--they're not infectious either--they're dead and are on the green line. So net infected is yesterday + new today - recovered today - died today. Newspaper tracking shows the new infections of each day--who got sick today? Tomorrow, if no one new got sick the line would be at zero--even though the people who got sick yesterday aren't better yet. So, the newspaper line goes up and down faster. Yet another approach is to show the cumulative number of infected people: This keeps going up until no one new gets infected--then the line is high but levels off. 
 
 # %%
-cumplot(series, locale, [:Pfizer, :Moderna, :JnJ, :totvaccinated], days=160:300)
+newplot(series, locale, [:Pfizer], days=160:600)
 
 # %%
 cumplot(series, locale, [:nil, :mild, :sick, :severe])

@@ -148,6 +148,27 @@ const seriesgroups = [:unexposed, :infectious, :recovered, :dead,         # stat
                       :Pfizer, :Moderna, :JnJ, :totvaccinated,            # vaccines
                      :base, :alpha, :delta, :omicron_ba1, :omicron_ba2]   # virus variants
 
+# all because building these symbols on the fly is painfully slow because of string catenation!
+const seriesbyage =  Dict(:unexposed => (:unexposed_age0_19, :unexposed_age20_39, :unexposed_age40_59, :unexposed_age60_79, :unexposed_age80_up), 
+                          :infectious => (:infectious_age0_19, :infectious_age20_39,:infectious_age40_59, :infectious_age60_79, :infectious_age80_up), 
+                          :recovered => (:recovered_age0_19, :recovered_age20_39,:recovered_age40_59, :recovered_age60_79, :recovered_age80_up), 
+                          :dead => (:dead_age0_19, :dead_age20_39,:dead_age40_59, :dead_age60_79, :dead_age80_up),         
+                          :nil => (:nil_age0_19, :nil_age20_39, :nil_age40_59, :nil_age60_79, :nil_age80_up), 
+                          :mild => (:mild_age0_19, :mild_age20_39,:mild_age40_59, :mild_age60_79, :mild_age80_up), 
+                          :sick => (:sick_age0_19, :sick_age20_39,:sick_age40_59, :sick_age60_79, :sick_age80_up), 
+                          :severe => (:unexposed_age0_19, :unexposed_age20_39,:unexposed_age40_59, :unexposed_age60_79, :unexposed_age80_up), 
+                          :totinfected => (:totinfected_age0_19, :totinfected_age20_39,:totinfected_age40_59, :totinfected_age60_79, :totinfected_age80_up),         
+                          :Pfizer => (:Pfizer_age0_19, :Pfizer_age20_39,:Pfizer_age40_59, :Pfizer_age60_79, :Pfizer_age80_up), 
+                          :Moderna => (:Moderna_age0_19, :Moderna_age20_39,:Moderna_age40_59, :Moderna_age60_79, :Moderna_age80_up), 
+                          :JnJ => (:JnJ_age0_19, :JnJ_age20_39,:JnJ_age40_59, :JnJ_age60_79, :JnJ_age80_up), 
+                          :totvaccinated => (:totvaccinated_age0_19, :totvaccinated_age20_39,:totvaccinated_age40_59, :totvaccinated_age60_79, :totvaccinated_age80_up),            
+                          :base => (:base_age0_19, :base_age20_39, :base_age40_59, :base_age60_79, :base_age80_up), 
+                          :alpha => (:alpha_age0_19, :alpha_age20_39,:alpha_age40_59, :alpha_age60_79, :alpha_age80_up), 
+                          :delta => (:delta_age0_19, :delta_age20_39,:delta_age40_59, :delta_age60_79, :delta_age80_up), 
+                          :omicron_ba1 => (:omicron_ba1_age0_19, :omicron_ba1_age20_39,:omicron_ba1_age40_59, :omicron_ba1_age60_79, :omicron_ba1_age80_up), 
+                          :omicron_ba2 => (:omicron_ba2_age0_19, :omicron_ba2_age20_39,:omicron_ba2_age40_59, :omicron_ba2_age60_79, :omicron_ba2_age80_up)
+                        ) 
+
 
 # other columns used only in series 
 const totinfected       = 9

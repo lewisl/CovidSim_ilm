@@ -34,6 +34,20 @@ function mapit(x, keyarr, valuearr)
     return nothing
 end  # not used as hardwired if-test mapping is WAY faster
 
+
+function countvec!(resvec::Vector{Int}, sourcevec, intmapper::Function)
+    for val in sourcevec
+        resvec[intmapper(val)] += 1
+    end
+end
+
+function countvec!(resvec::Vector{Int}, sourcevec, mapdict::Dict,  intmapper=mapviadict)
+    for val in sourcevec
+        resvec[intmapper(mapdict, val)] += 1
+    end
+end
+
+
 function mapcondition(x::condition) # from enum to ordinal int
     if x == uninfected
         0
@@ -65,6 +79,9 @@ function mapagegrp(x::agegrp) # from enum to int
     Int(x)
 end
 
+function mapstatus(x::status)
+    Int(x)
+end
 
 function maptouch(x::Union{condition, status}) # from enum to rows of touch parameters
     if x == unexposed
@@ -121,6 +138,17 @@ function maptransition(x::Integer) # from integer to elements of transition vect
         @assert false "invalid index for transition vector $x"
     end
 end
+
+const vaxdict = Dict(:Pfizer=>1, :Moderna=>2, :JnJ=>3)
+const variantdict = Dict(:base => 1, :alpha=>2, :delta=>3, :omicron_ba1=>4, :omicron_ba2=>5)
+
+
+function mapviadict(mapdict, x::Symbol)
+    get(mapdict, x) do
+        throw(DomainError(x, "Argument must be one of :Pfizer, :Moderna, :JnJ"))
+    end
+end
+
 
 function tup2vec(maptup, vals)
     [getfield(maptup, x) for x in vals]
