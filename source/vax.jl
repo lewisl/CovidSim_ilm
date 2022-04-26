@@ -217,17 +217,15 @@ Give people shots!
         agegrpcol = locdat.agegrp
 
         # how people get shots (up to fully vaccinated) today?
-        available_people_doses = mapreduce(vi->(vaxprops[vi].starting_doses / reqdshots[vi]), +, keys(vaxprops))
+        # available_doses = mapreduce(vi->(vaxprops[vi].starting_doses / reqdshots[vi]), +, keys(vaxprops))
+        available_doses = Dict(vi=>(vaxprops[vi].doses / reqdshots[vi]) for vi in keys(vaxprops))
 
-        people_today = floor(Int, pctfunc(today) * length(contactable_idx))   # pct times accessible population
-        # print("$(day_ctr[:day]) allocate by people: ", people_today)
-        people_today = floor(Int, pctfunc(today) * available_people_doses)   # pct times accessible population
-        # println("   allocate by doses available: ", people_today)
-
-
+        # doses_today = floor(Int, pctfunc(today) * available_people_doses)   # pct times accessible population
+        doses_today = Dict(vi => floor(Int, pctfunc(today) * avdoses) for (vi, avdoses) in available_doses)
+        
         doshots!(vaxrcvdcol, vaxdaycol, vaxstatuscol, fullvaxdaycol,  
                   vaxprops, vaxesincluded, reqdshots, pct2ndshot, mix, delay2ndshot,    
-                  contactable_idx, people_today, today)
+                  contactable_idx, doses_today, today)
 
     end  
 end
@@ -235,12 +233,12 @@ end
 
 @inline function doshots!(vaxrcvdcol, vaxdaycol, vaxstatuscol, fullvaxdaycol,         # arrays to update
                   vaxprops, vaxesincluded, reqdshots, pct2ndshot, mix, delay2ndshot,  # vaccine characteristics
-                  contactable_idx, people_today, today)                               # people and simulation today
+                  contactable_idx, doses_today, today)                               # people and simulation today
 
     for p in shuffle(contactable_idx)  # loop across people who are not dead. Mix up the agegrps
 
         # break out if all the people in this schedule today have been fully vaccinated
-        people_today < 1 && break  
+        sum(values(doses_today)) < 1 && break  
 
         # break out if no more doses left of any vaccine 
         mapreduce(vi->vi.doses, +, values(vaxprops)) <= 0 && break  # sum doses of all included vaccines w/ no allocations
@@ -274,7 +272,7 @@ end
                 else
                     vaxstatuscol[p] = :full
                     fullvaxdaycol[p] = today
-                    people_today -= 1
+                    doses_today[vaxchoice] -= 1
                 end
             end
 
@@ -296,7 +294,7 @@ end
                         if length(vaxrcvdcol[p])  == reqdshots[vaxchoice]
                             vaxstatuscol[p] = :full
                             fullvaxdaycol[p] = today       # TODO do we ever use this?
-                            people_today -= 1
+                            doses_today[vaxchoice] -= 1
                         elseif length(vaxrcvdcol[p])  >= reqdshots[vaxchoice]
                             vaxstatuscol[p] = :booster     # TODO do we really need to handle multiple, but not :booster?
                         end

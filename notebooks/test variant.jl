@@ -250,8 +250,6 @@ popdat, series = runsim(model;
             runcases=[seed20_39_day1, seed40_59_day1, seed20_39_omicron, seed40_59_omicron,
                       seed20_39_omicron_ba2, seed40_59_omicron_ba2]   # or seed_1_6 if using old way
             );
-
-# %%
 locdat = popdat[locale];
 
 # %%
@@ -281,70 +279,46 @@ cumplot(series, locale)
 # Note that the orange line labeled Infectious, which shows the current number of infected people, is *not* what you see in newspaper accounts. In this plot Infectious shows the net infected people: There were some sick people as of the day before. Some more people got sick today. Some people got better: they're not infectious any more--they recovered and are on the blue line. Sadly, some people died--they're not infectious either--they're dead and are on the green line. So net infected is yesterday + new today - recovered today - died today. Newspaper tracking shows the new infections of each day--who got sick today? Tomorrow, if no one new got sick the line would be at zero--even though the people who got sick yesterday aren't better yet. So, the newspaper line goes up and down faster. Yet another approach is to show the cumulative number of infected people: This keeps going up until no one new gets infected--then the line is high but levels off. 
 
 # %%
-newplot(series, locale, [:Pfizer], days=160:600)
-
-# %%
-cumplot(series, locale, [:nil, :mild, :sick, :severe])
-
-# %%
-newplot(series, locale, :Pfizer,days=160:300)
+cumplot(series, locale, [:nil, :mild, :sick, :severe, :totinfected])
 
 # %%
 cumplot(series, locale, [:base, :omicron_ba1, :omicron_ba2])
 
-# %%
-colmap = series[locale].cols
+# %% [markdown]
+# ## Examine Vaccination process and outcomes
 
 # %%
-series[locale].cum[end, colmap[:base]]
+vax = :Pfizer
+dose2 = count(length.(locdat.vaxrcvd[last.(locdat.vaxrcvd) .== vax]) .== 2)
+dose1 = count(length.(locdat.vaxrcvd[last.(locdat.vaxrcvd) .== vax]) .== 1)
+println("Count people with $vax 1 dose: $dose1 2 doses: $dose2 Any: $(dose1 + dose2)")
+println("Doses used = $(2 * dose2 + dose1)")
 
 # %%
-series[locale].cum[end, colmap[:base]]
+vax = :Moderna
+dose2 = count(length.(locdat.vaxrcvd[last.(locdat.vaxrcvd) .== vax]) .== 2)
+dose1 = count(length.(locdat.vaxrcvd[last.(locdat.vaxrcvd) .== vax]) .== 1)
+println("Count people with $vax 1 dose: $dose1 2 doses: $dose2 Any: $(dose1 + dose2)")
+println("Doses used = $(2 * dose2 + dose1)")
 
 # %%
-(cs.vaxlist, cs.variantlist)
+vax = :JnJ
+dose2 = count(length.(locdat.vaxrcvd[last.(locdat.vaxrcvd) .== vax]) .== 2)
+dose1 = count(length.(locdat.vaxrcvd[last.(locdat.vaxrcvd) .== vax]) .== 1)
+println("Count people with $vax 1 dose: $dose1 2 doses: $dose2 Any: $(dose1 + dose2)")
+println("Doses used = $(2 * dose2 + dose1)")
+
+# %% [markdown]
+# ## Why did the same number of people die with or without vaccinating nearly half the population?
 
 # %%
-keys(model)
+cumplot(series, locale, :Pfizer,days=160:600)
 
 # %%
-keys(popdat)
+cumplot(series, locale, :Moderna, days=160:600)
 
 # %%
-keys(series)
-
-# %%
-model.dat
-
-# %%
-locdat = popdat[locale]
-@btime countmap($locdat.cond)
-
-# %%
-@btime cnt_cond($locdat.cond)
-
-# %%
-countmap(locdat.status)
-
-# %%
-countmap(locdat.variant)
-
-# %%
-virus_outcome(series, locale, base=:pop)
-
-# %%
-fieldnames(typeof(series[locale]))
-
-# %%
-map2series = series[locale].cols
-
-# %%
-println(":cum ", typeof(series[locale].cum))
-println(":cum ", size(series[locale].cum))
-println(":new ", size(series[locale].new))
-
-# %%
-series[locale].new[:, map2series[:infectious]]
+cumplot(series, locale, :JnJ, days=160:600)
 
 # %% [markdown]
 # ## Test a social distancing case

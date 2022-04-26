@@ -60,7 +60,7 @@ function runsim(model;
                 vax.doses = vax.starting_doses   
             end
         end
-        contact_vector = zeros(Int, 10)    
+        contact_vector = zeros(Int, 8)    
 
     # restart the day counter to zero
     reset!(day_ctr, :day)  # return and reset key to 0 :day leftover from prior runs
@@ -196,9 +196,9 @@ function runsim(model;
 
 
         histtime += @elapsed begin
-            hist_total_agegrps!(newhist, cumhist) # sum agegrps to total for all series groups (by agegrp)
-            add_totinfected_series!(newhist, cumhist) 
-            add_totvaccinated_series!(newhist, cumhist)
+            update_total_agegrps!(newhist, cumhist) # sum agegrps to total for all series groups (by agegrp)
+            update_totinfected_series!(newhist, cumhist) 
+            update_totvaccinated_series!(newhist, cumhist)
         end
 
         silent || println("Simulation completed for $(day_ctr[:day]) days for locale $loc.")
@@ -277,49 +277,38 @@ end
 end
 
 
-@inline function hist_total_agegrps!(newhist, cumhist)
+@inline function update_total_agegrps!(newhist, cumhist)
         # runs once per locale
     for item in seriesgroups
-        getproperty(newhist, Symbol(item, "_", "total"))[:] .= .+(columns(getproperties(newhist, 
-                    seriesbyage[item]))...)      
-        getproperty(cumhist, Symbol(item, "_", "total"))[:] .= .+(columns(getproperties(cumhist, 
-                    seriesbyage[item]))...)     
+        getproperty(newhist, Symbol(item, "_", "total"))[:] .= .+(columns(getproperties(newhist, seriesbyage[item]))...)      
+        getproperty(cumhist, Symbol(item, "_", "total"))[:] .= .+(columns(getproperties(cumhist, seriesbyage[item]))...)     
     end
     
 end
 
 
 # a single locale that already has both new and cum series
-@inline function add_totinfected_series!(newhist, cumhist)
+@inline function update_totinfected_series!(newhist, cumhist)
 
-    for cond in infectious_cases
-        for age in instances(agegrp)
-            getproperty(newhist, Symbol(:totinfected, "_", age))[:] .+= getproperty(newhist, Symbol(cond, "_", age))
-            getproperty(cumhist, Symbol(:totinfected, "_", age))[:] .+= getproperty(cumhist, Symbol(cond, "_", age))
-        end
-        getproperty(newhist, Symbol(:totinfected, "_", "total"))[:] .+= getproperty(newhist, Symbol(cond, "_", "total"))
-        getproperty(cumhist, Symbol(:totinfected, "_", "total"))[:] .+= getproperty(cumhist, Symbol(cond, "_", "total"))
+    for age in vcat(collect(agegrps), "total")  # for each age and "total"
+        getproperty(newhist, Symbol(:totinfected, "_", age))[:] .= .+(columns(getproperties(newhist, 
+                            Tuple(Symbol(cond, "_", age) for cond in infectious_cases)))...)  # sum all of the infectious_cases columns
+        getproperty(cumhist, Symbol(:totinfected, "_", age))[:] .= .+(columns(getproperties(cumhist, 
+                            Tuple(Symbol(cond, "_", age) for cond in infectious_cases)))...)
     end
-    
+     
 end
 
 
-@inline function add_totvaccinated_series!(newhist, cumhist)
-    for vax in vaxlist
-        for age in instances(agegrp)
-            getproperty(newhist, Symbol(:totvaccinated, "_", age))[:] .+= getproperty(newhist, Symbol(vax, "_", age))
-            getproperty(cumhist, Symbol(:totvaccinated, "_", age))[:] .+= getproperty(cumhist, Symbol(vax, "_", age))
-        end
-        getproperty(newhist, Symbol(:totvaccinated, "_", "total"))[:] .+= getproperty(newhist, Symbol(vax, "_", "total"))
-        getproperty(cumhist, Symbol(:totvaccinated, "_", "total"))[:] .+= getproperty(cumhist, Symbol(vax, "_", "total"))
-    end
-end
+@inline function update_totvaccinated_series!(newhist, cumhist)
 
-
-function setx(series, x, cols, rows)
-    for col in cols
-        getproperty(series, col)[rows] .= x
+    for age in vcat(collect(agegrps), "total")  # for each age and "total"
+        getproperty(newhist, Symbol(:totvaccinated, "_", age))[:] .= .+(columns(getproperties(newhist, 
+                            Tuple(Symbol(vax, "_", age) for vax in vaxlist)))...)        # sum all of the vax columns
+        getproperty(cumhist, Symbol(:totvaccinated, "_", age))[:] .= .+(columns(getproperties(cumhist, 
+                            Tuple(Symbol(vax, "_", age) for vax in vaxlist)))...)
     end
+
 end
 
 

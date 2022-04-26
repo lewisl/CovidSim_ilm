@@ -142,7 +142,8 @@ end
     numcontacts(density_factor, gammashape, agegrp, cond, acase::Spreadcase)::Int
 
 Returns the number of contacts that someone spreading the disease will make on a day. This 
-method uses the spreadcase applicable to the current spreader.
+method uses the spreadcase applicable to the current spreader but with contactfactors set by
+a spreadcase.
 """
 @inline function numcontacts(density_factor, gammashape, agegrp, cond, acase::Spreadcase)::Int
     @inbounds @fastmath scale = density_factor * acase.cfcase[mapcondition(cond), mapagegrp(agegrp)]  
@@ -390,9 +391,8 @@ columns in the population table. Runs social distancing cases.
     n_newly_infected = 0
     tovariant = :base
     targ_agegrp = age0_19
-    history_changes = ()
     target_status = unexposed
-    lcv = length(contact_vector)
+    lencv = length(contact_vector)
 
     # determine number of outbound contacts 
     contact_param = c_sdcomply[spr] == :none ? contactfactors : sdcases[c_sdcomply[spr]]
@@ -400,7 +400,7 @@ columns in the population table. Runs social distancing cases.
     sample!(poprange, contact_vector)
     sel = 0
     for i = 1:nc
-        if sel >= lcv
+        if sel >= lencv
             sample!(poprange, contact_vector)  # draw another sample
             sel = 1
         else
@@ -410,7 +410,7 @@ columns in the population table. Runs social distancing cases.
         target = @inbounds contact_vector[sel]
         target_status = @inbounds c_status[target]
 
-        @inbounds if in(target_status, (unexposed, recovered))  # only conditions that can get infected   
+        @inbounds if (target_status == unexposed) | (target_status == recovered)  # only conditions that can get infected   
             # choose the touch_param for the social distancing case or the input social parameters
             touch_param = c_sdcomply[target] == :none ? touchfactors : sdcases[c_sdcomply[target]]
             touched = @inbounds istouched(c_agegrp[target], unexposed, touch_param)   # is the contact significant?
@@ -434,17 +434,17 @@ columns in the population table. Runs social distancing cases.
                 risk = infectrisk(infectset, spr_variant, spr_sickday, targ_agegrp, recovfactor, vaxfactor)
 
                 if isinfected(risk)
-                    @inbounds tovariant = c_variant[spr][end]
-                    tosickday = 1
-                    tocond = nil
-                    tostatus = infectious
-                    set_infected!(target, c_cond, tocond, c_status, tostatus, c_sickday, tosickday, c_variant, tovariant)
+                    @inbounds push!(c_variant[target], c_variant[spr][end])
+                    c_sickday[target] = 1
+                    c_cond[target] = nil
+                    c_status[target] = infectious
+                    # set_infected!(target, c_cond, tocond, c_status, tostatus, c_sickday, tosickday, c_variant, tovariant)
                 end
             end  # if (touched ...)
         end  # if contactstatus
     end # for i = 1:nc
 
-    return  # n_contacts, n_touched, n_newly_infected
+    return  nothing # n_contacts, n_touched, n_newly_infected
 end       
 
 @inline function set_infected!(target, condcol, condval, statcol, statval, sickdaycol, sickdayval, variantcol, variantval)

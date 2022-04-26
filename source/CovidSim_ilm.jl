@@ -156,7 +156,7 @@ const seriesbyage =  Dict(:unexposed => (:unexposed_age0_19, :unexposed_age20_39
                           :nil => (:nil_age0_19, :nil_age20_39, :nil_age40_59, :nil_age60_79, :nil_age80_up), 
                           :mild => (:mild_age0_19, :mild_age20_39,:mild_age40_59, :mild_age60_79, :mild_age80_up), 
                           :sick => (:sick_age0_19, :sick_age20_39,:sick_age40_59, :sick_age60_79, :sick_age80_up), 
-                          :severe => (:unexposed_age0_19, :unexposed_age20_39,:unexposed_age40_59, :unexposed_age60_79, :unexposed_age80_up), 
+                          :severe => (:severe_age0_19, :severe_age20_39,:severe_age40_59, :severe_age60_79, :severe_age80_up), 
                           :totinfected => (:totinfected_age0_19, :totinfected_age20_39,:totinfected_age40_59, :totinfected_age60_79, :totinfected_age80_up),         
                           :Pfizer => (:Pfizer_age0_19, :Pfizer_age20_39,:Pfizer_age40_59, :Pfizer_age60_79, :Pfizer_age80_up), 
                           :Moderna => (:Moderna_age0_19, :Moderna_age20_39,:Moderna_age40_59, :Moderna_age60_79, :Moderna_age80_up), 

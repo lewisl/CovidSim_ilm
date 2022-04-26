@@ -1,19 +1,19 @@
 vaxesincluded:
   Pfizer:
     mix:            0.375    # 0.55
-    starting_doses: 30000
+    starting_doses: 70000
     pct2ndshot:     0.85
     alternate:      [Moderna, JnJ]  # one of none, any, other shot
     booster:        false
   Moderna:
     mix:            0.3125     # 0.30
-    starting_doses: 25000
+    starting_doses: 60000
     pct2ndshot:     0.85
     alternate:      [Pfizer, JnJ]
     booster:        false
   JnJ:
     mix:            0.3125     # 0.15
-    starting_doses: 12500
+    starting_doses: 20000
     pct2ndshot:     0.0
     alternate:      [Pfizer, Moderna]
     booster:        false

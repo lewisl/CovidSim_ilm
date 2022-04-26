@@ -101,7 +101,7 @@ end
 
 
 function cumplot(series, locale, plotcols=[:unexposed, :infectious, :recovered, :dead]; 
-    days="all", geo=[], thm=:wong2)
+    days="all", geo=[], thm=:ggplot2)
 
     cumhist = series[locale].cum
     newhist = series[locale].new
@@ -125,7 +125,7 @@ function cumplot(series, locale, plotcols=[:unexposed, :infectious, :recovered, 
              else # this will off by a tiny bit because of rounding
                 getproperty(cumhist, :unexposed_total)[1] + getproperty(cumhist, :infectious_total)[1]
              end   
-    cityname = !isempty(geo) ? geo[geo[:,fips] .== locale, city][1] : ""
+    # cityname = !isempty(geo) ? geo[geo[:,fips] .== locale, city][1] : ""
     died =  getproperty(cumhist, :dead_total)[end]   #      series.data[locale].cum[end, map2series.dead[totalcol]]
     unexp = getproperty(cumhist, :unexposed_total)[end]
     infected = people - unexp    #series.data[locale].cum[end, map2series.unexposed[totalcol]]
@@ -138,7 +138,7 @@ function cumplot(series, locale, plotcols=[:unexposed, :infectious, :recovered, 
             size = (700,500),
             label = labels, 
             lw=2.3,
-            title = "Covid for $people people in $cityname over $n days\nActive Cases for Each Day",
+            title = "Covid for $people people for $n days\nActive Cases for Each Day",
             xlabel = "Simulation Days",
             ylabel = "People",
             legendfontsize = 10,
@@ -146,18 +146,18 @@ function cumplot(series, locale, plotcols=[:unexposed, :infectious, :recovered, 
             reuse = false,
             legend_position = :right
         )
-    plot!(annotate = ((6, 0.51 * ylims()[2],              # half_yscale,
-            Plots.text("Died: $died\nInfected: $infected\nRecovered: $recovered\nUnexposed: $unexp", 
-                11, :left))))
+    annotate!(days[1] + 6, 0.51 * ylims()[2],              # half_yscale,
+            text("Died: $died\nInfected: $infected\nRecovered: $recovered\nUnexposed: $unexp", 
+                11, :left))
 end
 
 
-function newplot(series, locale, plcols=[:infectious]; days="all", geo=[], thm=:wong2)
+function newplot(series, locale, plcols=[:infectious]; days="all", geo=[], thm=:ggplot2)
 
     cumhist = series[locale].cum
     newhist = series[locale].new
 
-    theme(:ggplot2, foreground_color_border =:black)
+    theme(thm, foreground_color_border =:black)
 
     !(typeof(plcols) <: Array) && (plcols = [plcols])
 
@@ -180,7 +180,7 @@ function newplot(series, locale, plcols=[:infectious]; days="all", geo=[], thm=:
                 label = labels, 
                 lw=0.2,
                 bar_width=1,
-                title = "Covid Daily Change for $people people over $n days",
+                title = "Daily Change for $people people over $n days",
                 xlabel = "Simulation Days",
                 yaxis = ("People"),
                 reuse =false

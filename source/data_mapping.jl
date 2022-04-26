@@ -48,7 +48,7 @@ function countvec!(resvec::Vector{Int}, sourcevec, mapdict::Dict,  intmapper=map
 end
 
 
-function mapcondition(x::condition) # from enum to ordinal int
+@inline function mapcondition(x::condition) # from enum to ordinal int
     if x == uninfected
         0
     else
@@ -57,7 +57,7 @@ function mapcondition(x::condition) # from enum to ordinal int
 end
 
 
-function mapcondition(x::Integer) # from ordinal int to enum
+@inline function mapcondition(x::Integer) # from ordinal int to enum
     if 0 <= x <= 4
         if x == 0
             uninfected
@@ -75,7 +75,7 @@ function mapcondition(x::Integer) # from ordinal int to enum
     end
 end
 
-function mapagegrp(x::agegrp) # from enum to int
+@inline function mapagegrp(x::agegrp) # from enum to int
     Int(x)
 end
 
