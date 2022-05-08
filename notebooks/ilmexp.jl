@@ -41,7 +41,7 @@ contact_factors = socialparams[:contact_factors]
 touch_factors = socialparams[:touch_factors]
 send_risk = infectparams[:send_risk]
 recvrisk = infectparams[:recv_risk]
-riskmx = CovidSim.send_risk_by_recv_risk(send_risk, recv_risk) # (sickdays, agegrp);
+riskmx = CovidSim.send_risk_by_recv_risk(send_risk, recv_risk) 
 
 # %%
 filt_spread_bit = ilmat[:,1] .== 2
@@ -63,11 +63,11 @@ time_it = @elapsed begin
     n_spreaders = size(filt_spread_idx, 1);
 #     @show n_spreaders
 
-    contacts_per_spreader = zeros(Int, size(filt_spread_idx,1),2) # second column for sickday of the spreader
+    contacts_per_spreader = zeros(Int, size(filt_spread_idx,1),2) # second column for duration of the spreader
     for i in 1:size(contacts_per_spreader, 1)  # cond, agegrp
         scale = contact_factors[ilmat[filt_spread_idx[i], cpop_cond]-4, ilmat[filt_spread_idx[i], cpop_agegrp]]
         contacts_per_spreader[i, 1] = round(Int,rand(Gamma(1.3,scale))) # assume density_factor = 1.0
-        contacts_per_spreader[i, 2] = ilmat[filt_spread_idx[i], cpop_sickday]   # sickday of the spreader who made this contact
+        contacts_per_spreader[i, 2] = ilmat[filt_spread_idx[i], cpop_duration]   # duration of the spreader who made this contact
     end
     n_contacts = sum(contacts_per_spreader[:,1])
 #     @show n_contacts
@@ -87,7 +87,7 @@ time_it = @elapsed begin
     contact_ptr = 0
     for spr in 1:n_spreaders
         nc = contacts_per_spreader[spr,1]
-        sickday_spr = contacts_per_spreader[spr, 2]
+        duration_spr = contacts_per_spreader[spr, 2]
         # who are the contacts for this spreader?
             contact_selector = (contact_ptr+1):(contact_ptr+nc)
             contact_ptr += nc
@@ -103,7 +103,7 @@ time_it = @elapsed begin
             touched = rand(Binomial(1, touch_factors[characteristic, agegrp]))
             n_touched += touched
             if touched == 1 && characteristic == unexposed
-                prob = riskmx[sickday_spr, agegrp]
+                prob = riskmx[duration_spr, agegrp]
                 newly_infected = rand(Binomial(1, prob))
                 if newly_infected == 1
                     ilmat[contact_person, cpop_cond] = nil # nil === asymptomatic or pre-symptomatic
@@ -154,15 +154,15 @@ function transition!(dt, all_decpoints, locale, dat)
     for agegrp in agegrps
         tree = dt[agegrp]
         for node in keys(tree)
-            nodesickday, fromcond = node
+            nodeduration, fromcond = node
             for branch in tree[node]["branches"]
                 filt = ( (dat[agegrp_filt_idx[agegrp],cpop_cond] .== fromcond) .& 
                          (dat[agegrp_filt_idx[agegrp],cpop_status] .== infectious) .&
-                         (dat[agegrp_filt_idx[agegrp], cpop_sickday] .== nodesickday)  )
+                         (dat[agegrp_filt_idx[agegrp], cpop_duration] .== nodeduration)  )
                 
                     # boolean filt = ( (dat[:,cpop_cond] .== fromcond) .& 
                     #                  (dat[:,cpop_status] .== infectious) .&
-                    #                  (dat[:, cpop_sickday] .== nodesickday) .&
+                    #                  (dat[:, cpop_duration] .== nodeduration) .&
                     #                  (agegrp_filt_bit[agegrp])  )
 
                 filt = agegrp_filt_idx[agegrp][filt]
@@ -191,7 +191,7 @@ function transition!(dt, all_decpoints, locale, dat)
 
     # bump everyone who is still infectious all at once in one go
     filt = (dat[:,cpop_status] .== infectious)
-    dat[filt, cpop_sickday] .+= 1   
+    dat[filt, cpop_duration] .+= 1   
 end  
     
 
@@ -209,10 +209,10 @@ count((ilmat - refresh) .!= 0)
 time_it = @elapsed CovidSim.make_sick!(ilmat; cnt=[3,3], fromage=[2,3], tocond=nil)
 
 #=
-function seed!(day, cnt, sickday, cond, agegrps, dat)  #  locale,
+function seed!(day, cnt, duration, cond, agegrps, dat)  #  locale,
     if day == day_ctr[:day] ]
         
-        make_sick!(dat; cnt, fromage, tocond, tosickday=1)
+        make_sick!(dat; cnt, fromage, tocond, toduration=1)
         
     end 
 end

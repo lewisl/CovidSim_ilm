@@ -212,7 +212,6 @@ Give people shots!
         # people columns
         vaxstatuscol = locdat.vaxstatus
         vaxdaycol = locdat.vaxday
-        fullvaxdaycol = locdat.fullvaxday
         vaxrcvdcol = locdat.vaxrcvd
         agegrpcol = locdat.agegrp
 
@@ -223,7 +222,7 @@ Give people shots!
         # doses_today = floor(Int, pctfunc(today) * available_people_doses)   # pct times accessible population
         doses_today = Dict(vi => floor(Int, pctfunc(today) * avdoses) for (vi, avdoses) in available_doses)
         
-        doshots!(vaxrcvdcol, vaxdaycol, vaxstatuscol, fullvaxdaycol,  
+        doshots!(vaxrcvdcol, vaxdaycol, vaxstatuscol,  
                   vaxprops, vaxesincluded, reqdshots, pct2ndshot, mix, delay2ndshot,    
                   contactable_idx, doses_today, today)
 
@@ -231,7 +230,7 @@ Give people shots!
 end
 
 
-@inline function doshots!(vaxrcvdcol, vaxdaycol, vaxstatuscol, fullvaxdaycol,         # arrays to update
+@inline function doshots!(vaxrcvdcol, vaxdaycol, vaxstatuscol,         # arrays to update
                   vaxprops, vaxesincluded, reqdshots, pct2ndshot, mix, delay2ndshot,  # vaccine characteristics
                   contactable_idx, doses_today, today)                               # people and simulation today
 
@@ -271,7 +270,6 @@ end
                     vaxstatuscol[p] = :first
                 else
                     vaxstatuscol[p] = :full
-                    fullvaxdaycol[p] = today
                     doses_today[vaxchoice] -= 1
                 end
             end
@@ -293,7 +291,6 @@ end
                         push!(vaxdaycol[p], today)
                         if length(vaxrcvdcol[p])  == reqdshots[vaxchoice]
                             vaxstatuscol[p] = :full
-                            fullvaxdaycol[p] = today       # TODO do we ever use this?
                             doses_today[vaxchoice] -= 1
                         elseif length(vaxrcvdcol[p])  >= reqdshots[vaxchoice]
                             vaxstatuscol[p] = :booster     # TODO do we really need to handle multiple, but not :booster?

@@ -46,7 +46,7 @@ Base.summarysize(poparr)
 # %%
 n = 500_000
 poptable = table(zeros(Int8,n),zeros(Int8,n),zeros(Int8,n),zeros(Int16,n),zeros(Int16,n),zeros(Int8,n),
-    names=[:agegrp,:sick,:status,:tested,:isolated,:sickday], pkey=[:agegrp,:sick,:status,:tested,:isolated,:sickday]);
+    names=[:agegrp,:sick,:status,:tested,:isolated,:duration], pkey=[:agegrp,:sick,:status,:tested,:isolated,:duration]);
 
 # %%
 Base.summarysize(poptable)
@@ -56,7 +56,7 @@ select(poptable, 1) .= Int8.(rand(dcat,n));
 select(poptable, 3) .= ones(Int8, n);
 
 # %%
-@time poptable = table(sort(poptable, :agegrp), pkey=[:agegrp,:sick,:status,:tested,:isolated,:sickday])
+@time poptable = table(sort(poptable, :agegrp), pkey=[:agegrp,:sick,:status,:tested,:isolated,:duration])
 
 # %%
 @time select(groupby(length, poptable, :agegrp), :length) ./ n

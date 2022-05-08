@@ -52,51 +52,51 @@ dts = Dict(i=>sort(alldat.dectree[i], rev=true) for i in 1:5)
 collect(keys(dts[4]))
 
 # %%
-sickdays_by_age = Dict{Int,Array{Int,1}}()  # empty
+duration = Dict{Int,Array{Int,1}}()  # empty
 fromconds_by_age = Dict{Int,Array{Int,1}}()  # empty
 for i in 1:5
-    sickdays_by_age[i] = [k[1] for k in collect(keys(dts[i]))]
+    duration_by_age[i] = [k[1] for k in collect(keys(dts[i]))]
     fromconds_by_age[i] = [k[2] for k in collect(keys(dts[i]))]
 end
-display(sickdays_by_age)
+display(duration_by_age)
 display(fromconds_by_age)
 
 # %%
 infected_idx = findall(locdat[:,1] .== 2);
-sorted_by_sickday = sortperm(locdat[infected_idx,4], rev=true);
+sorted_by_duration = sortperm(locdat[infected_idx,4], rev=true);
 
 # %%
-@elapsed for p in infected_idx[sorted_by_sickday]  # p is the index to the person
-    (pstat, page, psickday, pcond) = locdat[p,[cpop_status, cpop_agegrp, cpop_sickday, cpop_cond]]
+@elapsed for p in infected_idx[sorted_by_duration]  # p is the index to the person
+    (pstat, page, pduration, pcond) = locdat[p,[cpop_status, cpop_agegrp, cpop_duration, cpop_cond]]
 
-    sickdayfound = findall(x->x==psickday, sickdays_by_age[page])
-    if isempty(sickdayfound)  # person's sickday doesn't match any decision point sickday
-        # test against sickdaylim, then increment
-        if psickday == sickdaylim
-            @error "person made it to end of sickdaylim and was not removed"
+    durationfound = findall(x->x==pduration, duration_by_age[page])
+    if isempty(durationfound)  # person's duration doesn't match any decision point duration
+        # test against durationlim, then increment
+        if pduration == durationlim
+            @error "person made it to end of durationlim and was not removed"
         else
-            locdat[p,cpop_sickday] += 1
+            locdat[p,cpop_duration] += 1
         end
     else
-        condfound = findall(x->x==pcond, fromconds_by_age[page][sickdayfound])
+        condfound = findall(x->x==pcond, fromconds_by_age[page][durationfound])
         if isempty(condfound)
-            if psickday == sickdaylim
-                @error "person made it to end of sickdaylim and was not removed"
+            if pduration == durationlim
+                @error "person made it to end of durationlim and was not removed"
             else
-                locdat[p,cpop_sickday] += 1
+                locdat[p,cpop_duration] += 1
             end
         else
-            # do the transition for sickday and from cond and the probabilities of all outcomes at this branch
-            dtkey = [psickday, pcond]
+            # do the transition for duration and from cond and the probabilities of all outcomes at this branch
+            dtkey = [pduration, pcond]
             probs = dts[page][dtkey]["probs"]
             outcomes = dts[page][dtkey]["outcomes"]
             choice = rand(Categorical(probs), 1)
             tocond = outcomes[choice][]
-            if tocond in [dead, recovered]  # change status, leave cond and sickday as last state before death or recovery
+            if tocond in [dead, recovered]  # change status, leave cond and duration as last state before death or recovery
                 locdat[p, cpop_status] = tocond
             else   # change disease condition
                 locdat[p, cpop_cond] = tocond
-                locdat[p, cpop_sickday] += 1  
+                locdat[p, cpop_duration] += 1  
             end                      
         end
     end    

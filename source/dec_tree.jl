@@ -6,7 +6,7 @@
 
 
         Base.@kwdef struct Transitiondef
-            sickday::Int64
+            duration::Int64
             transition::Matrix{Float64}
         end
 
@@ -47,7 +47,7 @@ function setup_dt(dtfilename::String)
     newdict = (
         Dict(symbol2agegrp(Symbol(k1)) =>      # agegrp    
             Dict(k2 =>                    # stage in 1:5
-                Dict(Symbol(k3) =>  if k3 == :sickday
+                Dict(Symbol(k3) =>  if k3 == :duration
                                         v3
                                     else 
                                         Dict(symbol2condition(k4) => v4 for (k4, v4) in v3)
@@ -60,7 +60,7 @@ function setup_dt(dtfilename::String)
     # change :transition value to an array
     for (k1, v1) in newdict         # k1 is agegrp
         for (k2, v2) in v1          # k2 is stage in 1:5
-            for (k3, v3) in v2      # k3 is :sickday or :transition
+            for (k3, v3) in v2      # k3 is :duration or :transition
                 if k3 == :transition
                     out = vcat(v3[nil]',v3[mild]',v3[sick]',v3[severe]') # stack the vectors
                     newdict[k1][k2][k3] = OffsetArray(out, 5:8, 1:6)   # index by condition from nil to severe, 1:6
@@ -84,7 +84,7 @@ A decision tree is of the following type and structure:
     - age60_79
     - age80_up
 - Each age field of Agetree is a vector of struct Transitiondef with fields:
-    - sickday: the day on which transitions to different disease outcomes occurs
+    - duration: the day on which transitions to different disease outcomes occurs
     - transition: an array that maps from current conditions (rows) to outcomes (columns that are the probability of
      either a different sickness condition or a final outcome of either recover or dead) 
 another disease state (condition or status).
@@ -92,7 +92,7 @@ another disease state (condition or status).
 """
 function setup_dt(trdict::Dict)
 
-    prepdict = Dict(age_key => [Transitiondef(brk[:sickday], 
+    prepdict = Dict(age_key => [Transitiondef(brk[:duration], 
                                     vcat(brk[:transition][:nil]',brk[:transition][:mild]',
                                         brk[:transition][:sick]',brk[:transition][:severe]')) 
                                 for (_, brk) in sort(age)] 
@@ -113,11 +113,11 @@ function display_tree(tree)
     for agegrp in keys(tree)
         agetree = tree[agegrp]
         println("agegrp: ", agegrp, " =>")
-        for sickday in keys(agetree)
-            sickdaytree = agetree[sickday]
-            println("    sickday: ", sickday, " =>")
-            for fromcond in keys(sickdaytree)
-                condtree = sickdaytree[fromcond]
+        for duration in keys(agetree)
+            durationtree = agetree[duration]
+            println("    duration: ", duration, " =>")
+            for fromcond in keys(durationtree)
+                condtree = durationtree[fromcond]
                 println("        fromcond: ", fromcond, " =>")
                 print("            probs: => ")
                 println(condtree[:probs])
@@ -130,7 +130,7 @@ function display_tree(tree)
                 #     println("                ", condtree["branches"][branch])   
                 # end
             end  # for fromcond
-        end  # for sickday
+        end  # for duration
     end   # for agegrp     
 end
 
@@ -139,13 +139,13 @@ function display_tree_array(tree)
         agetree = tree[agegrp]
         println("agegrp: ", agegrp, " =>")
         for brkday_idx in keys(agetree)
-            sickdaytree = agetree[brkday_idx]
-            println("    sickday: ", sickdaytree[:sickday])
+            durationtree = agetree[brkday_idx]
+            println("    duration: ", durationtree[:duration])
             println("    transitions: ")
-            for r in eachrow(sickdaytree[:transition])
+            for r in eachrow(durationtree[:transition])
                 print("      "); println(r)
             end
-        end  # for sickday
+        end  # for duration
     end   # for agegrp     
 end
 
@@ -156,7 +156,7 @@ function display_tree_struct(tree)
         println(agegrp, " # field of struct Agetree, values are vectors")
         for brk in 1:length(agetree)
             println("    brk: $brk", " # element of Vector{Transitiondef}")
-            println("    sickday: ", agetree[brk].sickday)
+            println("    duration: ", agetree[brk].duration)
             println("    transitions: ")
             for r in eachrow(agetree[brk].transition)
                 print("        "); println(r)
@@ -208,7 +208,7 @@ function getseqs(dt_this_age::Dict; maxsearches = 100)
         for i in 1:length(dt_this_age[k1][fromcond][:outcomes])
             outcome = dt_this_age[k1][fromcond][:outcomes][i]
             prob = dt_this_age[k1][fromcond][:probs][i]
-            push!(todo, [(sickday=k1, fromcond=fromcond, tocond=outcome, prob=prob)])
+            push!(todo, [(duration=k1, fromcond=fromcond, tocond=outcome, prob=prob)])
         end
     end
 
@@ -228,7 +228,7 @@ function getseqs(dt_this_age::Dict; maxsearches = 100)
                 for i in 1:length(dt_this_age[brk][tocond][:outcomes])
                     outcome = dt_this_age[brk][tocond][:outcomes][i]
                     prob = dt_this_age[brk][tocond][:probs][i]
-                    newseq = vcat(seq, (sickday=brk, fromcond=tocond, tocond=outcome, prob=prob))
+                    newseq = vcat(seq, (duration=brk, fromcond=tocond, tocond=outcome, prob=prob))
                     if (outcome == dead) | (outcome == recovered)  # terminal node reached--no more nodes to add
                         push!(done, newseq)
                     else  # not at a terminal outcome: still more nodes to add
@@ -253,7 +253,7 @@ function getseqs(dt_age::Vector{Transitiondef}; maxsearches = 100)
     # dt_age is an vector of Transitiondef
     # find the top nodes (node is a condition/status transition)
     # dt_age = sort(dt_age)  # in order by breaks
-    breakdays = [brk.sickday for brk in dt_age]
+    breakdays = [brk.duration for brk in dt_age]
     brk_idx = 1:size(dt_age,1)
     todo = [] # array of node sequences 
     done = [] # ditto
@@ -261,7 +261,7 @@ function getseqs(dt_age::Vector{Transitiondef}; maxsearches = 100)
     # gather the outcomes at the first breakday for the starting conditions
     # no transition has happened yet: these are initial conditions: the first sequence(s) to be extended
 
-    breakday = breakdays[1]                      # dt_age[brk1][:sickday]
+    breakday = breakdays[1]                      # dt_age[brk1][:duration]
     transitions = dt_age[1].transition  # from-to matrix of probabilities
 
     for row in eachindex(transitions[:,1])     
@@ -269,7 +269,7 @@ function getseqs(dt_age::Vector{Transitiondef}; maxsearches = 100)
             if transitions[row, i] != 0.0       
                 outcome = transition_cases[i]
                 prob = transitions[row, i] 
-                push!(todo, [(sickday=breakday, fromcond=mapcondition(row), tocond=outcome, prob=prob)])   
+                push!(todo, [(duration=breakday, fromcond=mapcondition(row), tocond=outcome, prob=prob)])   
             end
         end
     end
@@ -296,7 +296,7 @@ function getseqs(dt_age::Vector{Transitiondef}; maxsearches = 100)
                 for i in 1:length(outcomes_idx)                      # 1:length(dt_age[brk][tocond][:outcomes])
                     outcome = outcomes_idx[i]  # dt_age[brk][tocond][:outcomes][i]
                     prob = next_transition[mapcondition(tocond), outcome]    # prob = dt_age[brk][tocond][:probs][i]   
-                    newseq = vcat(seq, (sickday=breakday, fromcond=tocond, tocond=transition_cases[outcome], prob=prob))
+                    newseq = vcat(seq, (duration=breakday, fromcond=tocond, tocond=transition_cases[outcome], prob=prob))
                     outcome = transition_cases[outcome]
                     if (outcome == dead) | (outcome == recovered)  # terminal node reached--no more nodes to add
                         push!(done, newseq)
@@ -329,32 +329,32 @@ end
 
 # what a tree looks like using nested structs and from->to array for transitions
 #=
-age0_19 =               # field of struct Agetree, value is a vector of Transitiondef, sorted by sickday
-    [   sickday: 5      # field of Transitiondef
+age0_19 =               # field of struct Agetree, value is a vector of Transitiondef, sorted by duration
+    [   duration: 5      # field of Transitiondef
         transitions:    # field of Transitiondef
             [0.0, 0.391304347826087, 0.4891304347826087, 0.11956521739130435, 0.0, 0.0]
             [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
             [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
             [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-        sickday: 9
+        duration: 9
         transitions: 
             [0.9, 0.0, 0.0, 0.1, 0.0, 0.0]
             [0.0, 0.0, 1.0, 0.0, 0.0, 0.0]
             [0.0, 0.0, 0.0, 0.95, 0.05, 0.0]
             [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-        sickday: 14
+        duration: 14
         transitions: 
             [1.0, 0.0, 0.0, 0.0, 0.0, 0.0]
             [1.0, 0.0, 0.0, 0.0, 0.0, 0.0]
             [0.85, 0.0, 0.0, 0.12, 0.03, 0.0]
             [0.692, 0.0, 0.0, 0.0, 0.302, 0.006]
-        sickday: 19
+        duration: 19
         transitions: 
             [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
             [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
             [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
             [0.891, 0.0, 0.0, 0.0, 0.106, 0.003]
-        sickday: 25
+        duration: 25
         transitions: 
             [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
             [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
@@ -362,31 +362,31 @@ age0_19 =               # field of struct Agetree, value is a vector of Transiti
             [0.91, 0.0, 0.0, 0.0, 0.0, 0.09]
     ]
 age20_39 =
-    [   sickday: 5
+    [   duration: 5
         transitions: 
             [0.0, 0.2, 0.7, 0.1, 0.0, 0.0]
             [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
             [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
             [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-        sickday: 9
+        duration: 9
         transitions: 
             [0.9, 0.0, 0.0, 0.1, 0.0, 0.0]
             [0.85, 0.0, 0.0, 0.15, 0.0, 0.0]
             [0.0, 0.0, 0.0, 0.9, 0.1, 0.0]
             [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-        sickday: 14
+        duration: 14
         transitions: 
             [1.0, 0.0, 0.0, 0.0, 0.0, 0.0]
             [1.0, 0.0, 0.0, 0.0, 0.0, 0.0]
             [0.83, 0.0, 0.0, 0.1, 0.07, 0.0]
             [0.474, 0.0, 0.0, 0.0, 0.514, 0.012]
-        sickday: 19
+        duration: 19
         transitions: 
             [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
             [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
             [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
             [0.922, 0.0, 0.0, 0.0, 0.072, 0.006]
-        sickday: 25
+        duration: 25
         transitions: 
             [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
             [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
@@ -394,31 +394,31 @@ age20_39 =
             [0.964, 0.0, 0.0, 0.0, 0.0, 0.036]
     ]
 age40_59 =
-    [   sickday: 5
+    [   duration: 5
         transitions: 
             [0.0, 0.2, 0.7, 0.1, 0.0, 0.0]
             [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
             [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
             [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-        sickday: 9
+        duration: 9
         transitions: 
             [0.9, 0.0, 0.0, 0.1, 0.0, 0.0]
             [0.85, 0.0, 0.05, 0.1, 0.0, 0.0]
             [0.0, 0.0, 0.0, 0.9, 0.1, 0.0]
             [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-        sickday: 14
+        duration: 14
         transitions: 
             [1.0, 0.0, 0.0, 0.0, 0.0, 0.0]
             [0.9, 0.0, 0.0, 0.1, 0.0, 0.0]
             [0.85, 0.0, 0.0, 0.14, 0.01, 0.0]
             [0.776, 0.0, 0.0, 0.0, 0.206, 0.018]
-        sickday: 19
+        duration: 19
         transitions: 
             [1.0, 0.0, 0.0, 0.0, 0.0, 0.0]
             [1.0, 0.0, 0.0, 0.0, 0.0, 0.0]
             [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
             [0.856, 0.0, 0.0, 0.0, 0.126, 0.018]
-        sickday: 25
+        duration: 25
         transitions: 
             [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
             [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
@@ -431,25 +431,25 @@ age60_79 =
             [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
             [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
             [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-        sickday: 9
+        duration: 9
         transitions: 
             [0.62, 0.0, 0.0, 0.38, 0.0, 0.0]
             [0.5, 0.0, 0.25, 0.25, 0.0, 0.0]
             [0.0, 0.0, 0.0, 0.78, 0.22, 0.0]
             [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-        sickday: 14
+        duration: 14
         transitions: 
             [0.8, 0.1, 0.1, 0.0, 0.0, 0.0]
             [0.8, 0.0, 0.15, 0.05, 0.0, 0.0]
             [0.8, 0.0, 0.0, 0.1, 0.1, 0.0]
             [0.165, 0.0, 0.0, 0.0, 0.715, 0.12]
-        sickday: 19
+        duration: 19
         transitions: 
             [1.0, 0.0, 0.0, 0.0, 0.0, 0.0]
             [1.0, 0.0, 0.0, 0.0, 0.0, 0.0]
             [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
             [0.81, 0.0, 0.0, 0.0, 0.13, 0.06]
-        sickday: 25
+        duration: 25
         transitions: 
             [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
             [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
@@ -457,31 +457,31 @@ age60_79 =
             [0.688, 0.0, 0.0, 0.0, 0.0, 0.312]
     ]
 age80_up =
-    [   sickday: 5
+    [   duration: 5
         transitions: 
             [0.0, 0.1, 0.5, 0.4, 0.0, 0.0]
             [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
             [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
             [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-        sickday: 9
+        duration: 9
         transitions: 
             [0.5, 0.0, 0.0, 0.5, 0.0, 0.0]
             [0.0, 0.0, 0.4, 0.6, 0.0, 0.0]
             [0.0, 0.0, 0.0, 0.6, 0.4, 0.0]
             [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-        sickday: 14
+        duration: 14
         transitions: 
             [0.7, 0.0, 0.3, 0.0, 0.0, 0.0]
             [0.7, 0.0, 0.0, 0.3, 0.0, 0.0]
             [0.7, 0.0, 0.0, 0.1, 0.2, 0.0]
             [0.12, 0.0, 0.0, 0.0, 0.67, 0.21]
-        sickday: 19
+        duration: 19
         transitions: 
             [1.0, 0.0, 0.0, 0.0, 0.0, 0.0]
             [1.0, 0.0, 0.0, 0.0, 0.0, 0.0]
             [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
             [0.49, 0.0, 0.0, 0.0, 0.24, 0.27]
-        sickday: 25
+        duration: 25
         transitions: 
             [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
             [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
@@ -495,155 +495,155 @@ age80_up =
 # what an older version tree built as a Dict looks like using from->to array for transitions
 #=
 agegrp: age0_19 =>
-    sickday: 25
+    duration: 25
     transitions: 
       [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
       [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
       [0.976, 0.0, 0.0, 0.0, 0.0, 0.024]
       [0.91, 0.0, 0.0, 0.0, 0.0, 0.09]
-    sickday: 19
+    duration: 19
     transitions: 
       [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
       [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
       [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
       [0.891, 0.0, 0.0, 0.0, 0.106, 0.003]
-    sickday: 9
+    duration: 9
     transitions: 
       [0.9, 0.0, 0.0, 0.1, 0.0, 0.0]
       [0.0, 0.0, 1.0, 0.0, 0.0, 0.0]
       [0.0, 0.0, 0.0, 0.95, 0.05, 0.0]
       [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-    sickday: 14
+    duration: 14
     transitions: 
       [1.0, 0.0, 0.0, 0.0, 0.0, 0.0]
       [1.0, 0.0, 0.0, 0.0, 0.0, 0.0]
       [0.85, 0.0, 0.0, 0.12, 0.03, 0.0]
       [0.692, 0.0, 0.0, 0.0, 0.302, 0.006]
-    sickday: 5
+    duration: 5
     transitions: 
       [0.0, 0.4, 0.5, 0.1, 0.0, 0.0]
       [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
       [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
       [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
 agegrp: age40_59 =>
-    sickday: 25
+    duration: 25
     transitions: 
       [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
       [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
       [0.958, 0.0, 0.0, 0.0, 0.0, 0.042]
       [0.958, 0.0, 0.0, 0.0, 0.0, 0.042]
-    sickday: 19
+    duration: 19
     transitions: 
       [1.0, 0.0, 0.0, 0.0, 0.0, 0.0]
       [1.0, 0.0, 0.0, 0.0, 0.0, 0.0]
       [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
       [0.856, 0.0, 0.0, 0.0, 0.126, 0.018]
-    sickday: 9
+    duration: 9
     transitions: 
       [0.9, 0.0, 0.0, 0.1, 0.0, 0.0]
       [0.85, 0.0, 0.05, 0.1, 0.0, 0.0]
       [0.0, 0.0, 0.0, 0.9, 0.1, 0.0]
       [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-    sickday: 14
+    duration: 14
     transitions: 
       [1.0, 0.0, 0.0, 0.0, 0.0, 0.0]
       [0.9, 0.0, 0.0, 0.1, 0.0, 0.0]
       [0.85, 0.0, 0.0, 0.14, 0.01, 0.0]
       [0.776, 0.0, 0.0, 0.0, 0.206, 0.018]
-    sickday: 5
+    duration: 5
     transitions: 
       [0.0, 0.2, 0.7, 0.1, 0.0, 0.0]
       [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
       [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
       [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
 agegrp: age20_39 =>
-    sickday: 25
+    duration: 25
     transitions: 
       [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
       [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
       [0.964, 0.0, 0.0, 0.0, 0.0, 0.036]
       [0.964, 0.0, 0.0, 0.0, 0.0, 0.036]
-    sickday: 19
+    duration: 19
     transitions: 
       [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
       [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
       [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
       [0.922, 0.0, 0.0, 0.0, 0.072, 0.006]
-    sickday: 9
+    duration: 9
     transitions: 
       [0.9, 0.0, 0.0, 0.1, 0.0, 0.0]
       [0.85, 0.0, 0.0, 0.15, 0.0, 0.0]
       [0.0, 0.0, 0.0, 0.9, 0.1, 0.0]
       [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-    sickday: 14
+    duration: 14
     transitions: 
       [1.0, 0.0, 0.0, 0.0, 0.0, 0.0]
       [1.0, 0.0, 0.0, 0.0, 0.0, 0.0]
       [0.83, 0.0, 0.0, 0.1, 0.07, 0.0]
       [0.474, 0.0, 0.0, 0.0, 0.514, 0.012]
-    sickday: 5
+    duration: 5
     transitions: 
       [0.0, 0.2, 0.7, 0.1, 0.0, 0.0]
       [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
       [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
       [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
 agegrp: age60_79 =>
-    sickday: 25
+    duration: 25
     transitions: 
       [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
       [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
       [0.76, 0.0, 0.0, 0.0, 0.0, 0.24]
       [0.688, 0.0, 0.0, 0.0, 0.0, 0.312]
-    sickday: 19
+    duration: 19
     transitions: 
       [1.0, 0.0, 0.0, 0.0, 0.0, 0.0]
       [1.0, 0.0, 0.0, 0.0, 0.0, 0.0]
       [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
       [0.81, 0.0, 0.0, 0.0, 0.13, 0.06]
-    sickday: 9
+    duration: 9
     transitions: 
       [0.62, 0.0, 0.0, 0.38, 0.0, 0.0]
       [0.5, 0.0, 0.25, 0.25, 0.0, 0.0]
       [0.0, 0.0, 0.0, 0.78, 0.22, 0.0]
       [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-    sickday: 14
+    duration: 14
     transitions: 
       [0.8, 0.1, 0.1, 0.0, 0.0, 0.0]
       [0.8, 0.0, 0.15, 0.05, 0.0, 0.0]
       [0.8, 0.0, 0.0, 0.1, 0.1, 0.0]
       [0.165, 0.0, 0.0, 0.0, 0.715, 0.12]
-    sickday: 5
+    duration: 5
     transitions: 
       [0.0, 0.15, 0.6, 0.25, 0.0, 0.0]
       [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
       [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
       [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
 agegrp: age80_up =>
-    sickday: 25
+    duration: 25
     transitions: 
       [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
       [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
       [0.682, 0.0, 0.0, 0.0, 0.0, 0.318]
       [0.676, 0.0, 0.0, 0.0, 0.0, 0.324]
-    sickday: 19
+    duration: 19
     transitions: 
       [1.0, 0.0, 0.0, 0.0, 0.0, 0.0]
       [1.0, 0.0, 0.0, 0.0, 0.0, 0.0]
       [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
       [0.49, 0.0, 0.0, 0.0, 0.24, 0.27]
-    sickday: 9
+    duration: 9
     transitions: 
       [0.5, 0.0, 0.0, 0.5, 0.0, 0.0]
       [0.0, 0.0, 0.4, 0.6, 0.0, 0.0]
       [0.0, 0.0, 0.0, 0.6, 0.4, 0.0]
       [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-    sickday: 14
+    duration: 14
     transitions: 
       [0.7, 0.0, 0.3, 0.0, 0.0, 0.0]
       [0.7, 0.0, 0.0, 0.3, 0.0, 0.0]
       [0.7, 0.0, 0.0, 0.1, 0.2, 0.0]
       [0.12, 0.0, 0.0, 0.0, 0.67, 0.21]
-    sickday: 5
+    duration: 5
     transitions: 
       [0.0, 0.1, 0.5, 0.4, 0.0, 0.0]
       [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
@@ -658,18 +658,18 @@ agegrp: age80_up =>
 #  what a tree looks like for 5 agegrps
 #= 
 agegrp: age0_19 =>                                      #"agegrp:" is not in the dict  agegrp value is an enum agegrp
-    sickday: 5 =>                                       #"sickday:" is not in the dict
+    duration: 5 =>                                       #"duration:" is not in the dict
         fromcond: nil =>                                #"fromcond:" is not in the dict fromcond value is an enum condition
             probs: => [0.4, 0.5, 0.1]
             outcomes: => condition[nil, mild, sick]
-    sickday: 25 =>
+    duration: 25 =>
         fromcond: severe =>
             probs: => [0.91, 0.09]
             outcomes: => status[recovered, dead]
         fromcond: sick =>
             probs: => [0.976, 0.024]
             outcomes: => status[recovered, dead]
-    sickday: 9 =>
+    duration: 9 =>
         fromcond: mild =>
             probs: => [1.0]
             outcomes: => condition[mild]
@@ -679,7 +679,7 @@ agegrp: age0_19 =>                                      #"agegrp:" is not in the
         fromcond: sick =>
             probs: => [0.95, 0.05]
             outcomes: => condition[sick, severe]
-    sickday: 14 =>
+    duration: 14 =>
         fromcond: severe =>
             probs: => [0.692, 0.302, 0.006]
             outcomes: => Enum{Int32}[recovered, severe, dead]
@@ -689,23 +689,23 @@ agegrp: age0_19 =>                                      #"agegrp:" is not in the
         fromcond: sick =>
             probs: => [0.85, 0.12, 0.03]
             outcomes: => Enum{Int32}[recovered, sick, severe]
-    sickday: 19 =>
+    duration: 19 =>
         fromcond: severe =>
             probs: => [0.891, 0.106, 0.003]
             outcomes: => Enum{Int32}[recovered, severe, dead]
 agegrp: age60_79 =>
-    sickday: 5 =>
+    duration: 5 =>
         fromcond: nil =>
             probs: => [0.15, 0.6, 0.25]
             outcomes: => condition[nil, mild, sick]
-    sickday: 25 =>
+    duration: 25 =>
         fromcond: severe =>
             probs: => [0.688, 0.312]
             outcomes: => status[recovered, dead]
         fromcond: sick =>
             probs: => [0.76, 0.24]
             outcomes: => status[recovered, dead]
-    sickday: 9 =>
+    duration: 9 =>
         fromcond: mild =>
             probs: => [1.0]
             outcomes: => condition[mild]
@@ -715,7 +715,7 @@ agegrp: age60_79 =>
         fromcond: sick =>
             probs: => [0.78, 0.22]
             outcomes: => condition[sick, severe]
-    sickday: 14 =>
+    duration: 14 =>
         fromcond: severe =>
             probs: => [0.165, 0.715, 0.12]
             outcomes: => Enum{Int32}[recovered, severe, dead]
@@ -725,23 +725,23 @@ agegrp: age60_79 =>
         fromcond: sick =>
             probs: => [0.8, 0.1, 0.1]
             outcomes: => Enum{Int32}[recovered, sick, severe]
-    sickday: 19 =>
+    duration: 19 =>
         fromcond: severe =>
             probs: => [0.81, 0.13, 0.06]
             outcomes: => Enum{Int32}[recovered, severe, dead]
 agegrp: age80_up =>
-    sickday: 5 =>
+    duration: 5 =>
         fromcond: nil =>
             probs: => [0.1, 0.5, 0.4]
             outcomes: => condition[nil, mild, sick]
-    sickday: 25 =>
+    duration: 25 =>
         fromcond: severe =>
             probs: => [0.676, 0.324]
             outcomes: => status[recovered, dead]
         fromcond: sick =>
             probs: => [0.682, 0.318]
             outcomes: => status[recovered, dead]
-    sickday: 9 =>
+    duration: 9 =>
         fromcond: mild =>
             probs: => [0.4, 0.6]
             outcomes: => condition[mild, sick]
@@ -751,7 +751,7 @@ agegrp: age80_up =>
         fromcond: sick =>
             probs: => [0.6, 0.4]
             outcomes: => condition[sick, severe]
-    sickday: 14 =>
+    duration: 14 =>
         fromcond: severe =>
             probs: => [0.12, 0.67, 0.21]
             outcomes: => Enum{Int32}[recovered, severe, dead]
@@ -761,23 +761,23 @@ agegrp: age80_up =>
         fromcond: sick =>
             probs: => [0.7, 0.1, 0.2]
             outcomes: => Enum{Int32}[recovered, sick, severe]
-    sickday: 19 =>
+    duration: 19 =>
         fromcond: severe =>
             probs: => [0.49, 0.24, 0.27]
             outcomes: => Enum{Int32}[recovered, severe, dead]
 agegrp: age20_39 =>
-    sickday: 5 =>
+    duration: 5 =>
         fromcond: nil =>
             probs: => [0.2, 0.7, 0.1]
             outcomes: => condition[nil, mild, sick]
-    sickday: 25 =>
+    duration: 25 =>
         fromcond: severe =>
             probs: => [0.964, 0.036]
             outcomes: => status[recovered, dead]
         fromcond: sick =>
             probs: => [0.964, 0.036]
             outcomes: => status[recovered, dead]
-    sickday: 9 =>
+    duration: 9 =>
         fromcond: mild =>
             probs: => [1.0]
             outcomes: => condition[mild]
@@ -787,7 +787,7 @@ agegrp: age20_39 =>
         fromcond: sick =>
             probs: => [0.9, 0.1]
             outcomes: => condition[sick, severe]
-    sickday: 14 =>
+    duration: 14 =>
         fromcond: severe =>
             probs: => [0.474, 0.514, 0.012]
             outcomes: => Enum{Int32}[recovered, severe, dead]
@@ -797,23 +797,23 @@ agegrp: age20_39 =>
         fromcond: sick =>
             probs: => [0.83, 0.1, 0.07]
             outcomes: => Enum{Int32}[recovered, sick, severe]
-    sickday: 19 =>
+    duration: 19 =>
         fromcond: severe =>
             probs: => [0.922, 0.072, 0.006]
             outcomes: => Enum{Int32}[recovered, severe, dead]
 agegrp: age40_59 =>
-    sickday: 5 =>
+    duration: 5 =>
         fromcond: nil =>
             probs: => [0.2, 0.7, 0.1]
             outcomes: => condition[nil, mild, sick]
-    sickday: 25 =>
+    duration: 25 =>
         fromcond: severe =>
             probs: => [0.958, 0.042]
             outcomes: => status[recovered, dead]
         fromcond: sick =>
             probs: => [0.958, 0.042]
             outcomes: => status[recovered, dead]
-    sickday: 9 =>
+    duration: 9 =>
         fromcond: mild =>
             probs: => [1.0]
             outcomes: => condition[mild]
@@ -823,7 +823,7 @@ agegrp: age40_59 =>
         fromcond: sick =>
             probs: => [0.9, 0.1]
             outcomes: => condition[sick, severe]
-    sickday: 14 =>
+    duration: 14 =>
         fromcond: severe =>
             probs: => [0.776, 0.206, 0.018]
             outcomes: => Enum{Int32}[recovered, severe, dead]
@@ -833,7 +833,7 @@ agegrp: age40_59 =>
         fromcond: sick =>
             probs: => [0.85, 0.14, 0.01]
             outcomes: => Enum{Int32}[recovered, sick, severe]
-    sickday: 19 =>
+    duration: 19 =>
         fromcond: severe =>
             probs: => [0.856, 0.126, 0.018]
             outcomes: => Enum{Int32}[recovered, severe, dead]

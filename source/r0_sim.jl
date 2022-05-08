@@ -10,7 +10,7 @@ function r0_sim(pop=200_000, age_dist=age_dist, dectree, infectparams, density_f
         for j = 1:cnt_by_agedist[i]
             r0pop.status[idx] = infectious
             r0pop.cond[idx] = nil
-            r0pop.sickday[idx] = 1
+            r0pop.duration[idx] = 1
             idx += 1
         end
     end
@@ -21,7 +21,7 @@ function r0_sim(pop=200_000, age_dist=age_dist, dectree, infectparams, density_f
     sdcases = []   # TODO this should be an input based on current context of simulation
     r0_infected = 0
 
-    for i = 1:sickdaylim        
+    for i = 1:durationlim        
         contactable_idx = findall(locdat.status .!= dead)
         n_newly_infected = spread!(r0pop, gen1_infect_idx, contactable_idx,  sdcases, socialparams, infectparams, density_factor)  
         infect_idx = findall(locdat.status .== infectious)

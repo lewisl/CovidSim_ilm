@@ -38,33 +38,38 @@ end
 const agegrps = instances(agegrp)
 
         
+"""
+Pre-allocate and initialize population data for one locale in the simulation.
+Returns a TypedTable which is a tuple of arrays:
+- each column is a trait of people
+- rows are days of the simulatoin
+"""
 function pop_data(pop; age_dist=age_dist)
 
-    parts = apportion(pop, age_dist)
+        parts = apportion(pop, age_dist)
 
-    # must use comprehension to initialize vector of vector NOT fill--fill creates identical vectors
-    dat = Table(
-        pid = collect(1:pop),  # ordinal persistent id for persons in matrix
-        status = fill(unexposed, pop),    
-        agegrp = reduce(vcat,[fill(age, parts[Int(age)]) for age in agegrps]), 
-        cond = fill(uninfected, pop),
-        sickday = zeros(Int, pop),   
-        variant = [[:none] for _ in 1:pop],
-        recovday = [[0] for _ in 1:pop],  
-        deadday = zeros(Int, pop),   
-        cluster = zeros(Int, pop), 
-        sdcomply = fill(:none, pop),  
-        vaxstatus = fill(:none, pop),  # :none, :first, :multiple, :full, :booster  maybe others later...
-        vaxrcvd = [[:none] for _ in 1:pop],    # vaccine symbols  :pfizer, :moderna, :jnj
-        vaxday = [[0] for _ in 1:pop], 
-        fullvaxday = zeros(Int, pop),
-        tested = falses(pop),  
-        testday = zeros(Int, pop),  
-        quar = falses(pop),
-        quarday = zeros(Int, pop))
+        # must use comprehension to initialize vector of vector NOT fill--fill creates identical vectors
+        dat = Table(
+            status = fill(unexposed, pop),                                          # enum status
+            agegrp = reduce(vcat,[fill(age, parts[Int(age)]) for age in agegrps]),  # enum agegrp
+            cond = fill(uninfected, pop),                                           # enum condition
+            duration = zeros(Int, pop),                                             # Int
+            variant = [Symbol[] for _ in 1:pop],                                     # Vector{Symbol}
+            sickday = [[0] for _ in 1:pop],                                         # Vector{Int}
+            recovday = [[0] for _ in 1:pop],                                        # Vector{Int}
+            deadday = zeros(Int, pop),                                              # Int
+            ring = zeros(Int, pop),                                                 # Int (not used as yet)
+            sdcomply = fill(:none, pop),                                            # Symbol
+            vaxstatus = fill(:none, pop),          # :none, :first, :multiple, :full, :booster  maybe others later...
+            vaxrcvd = [[:none] for _ in 1:pop],    # Vector{Symbol} of vaccine symbols  :Pfizer, :Moderna, :JnJ
+            vaxday = [[0] for _ in 1:pop],                                          # Vector{Int}
+            tested = falses(pop),                                                   # Bool
+            testday = zeros(Int, pop),                                              # Vector{Int}
+            quar = falses(pop),                                                     # Bool
+            quarday = zeros(Int, pop))                                              # Int
 
     return dat       
-end 
+end
 
 
 function apportion(x::Int, splits::Array)
@@ -105,8 +110,8 @@ end
 #=
 Notes: 
     :cond used to seed simulation with virus in people
-    :cond goes with :variant and :sickday--if not provided,
-        :variant set to :base and :sickday to 1
+    :cond goes with :variant and :duration--if not provided,
+        :variant set to :base and :duration to 1
     :recovered may be used to test operation of simulation with assumed context
 
     NOT IMPLEMENTED YET:
@@ -137,7 +142,7 @@ Base.@kwdef struct Seedset
 
         function Seedset(filter::Vector{Term}, change::Vector{Term}, cnt::Int) 
             allowed_filter_columns = [:cond, :status, :agegrp, :variant, :vaxstatus, :vaxrcvd, :tested, :quar]
-            allowed_change_columns = [:cond, :status, :sickday, :variant, :vaxstatus, :vaxrcvd]
+            allowed_change_columns = [:cond, :status, :duration, :variant, :vaxstatus, :vaxrcvd]
 
             for f in filter
                 if in(f.trait, allowed_filter_columns)
@@ -195,7 +200,7 @@ function dotest(;day = 1, n=100)
 
     # create a seed
     s1 = Seedset(filter=[term(:agegrp, age20_39), term(:status, unexposed)],
-              totrait=[term(:cond, nil), term(:variant, :base), term(:sickday, 1)],
+              totrait=[term(:cond, nil), term(:variant, :base), term(:duration, 1)],
               cnt = 5
             )
 
@@ -212,29 +217,29 @@ end
 
 
 """
-    makesickseedset( ; cond=nil, variant=:base, sickday=1, filter::Vector{Term}, cnt)
+    makesickseedset( ; cond=nil, variant=:base, duration=1, filter::Vector{Term}, cnt)
 
 Return a Seedset that contains the filter for whom to make sick, the traits to be set, and the cnt of people to be changed.
 
 Use this as the first input to seed\\_case\\_gen to create a callback function that will be run
 in the simulation loop.
 """
-function makesickseedset( ; cond=nil, variant=:base, sickday=1, filter::Vector{Term}, cnt)
+function makesickseedset( ; cond=nil, variant=:base, duration=1, filter::Vector{Term}, cnt)
     Seedset(filter=filter, cnt=cnt, 
-            change=[Term(:status, infectious), Term(:cond, cond), Term(:variant, variant), Term(:sickday, sickday)])
+            change=[Term(:status, infectious), Term(:cond, cond), Term(:variant, variant), Term(:duration, duration)])
 end
 
 
 """
-    makesickseedfunc( ; cond=nil, variant=:base, sickday=1, filter::Vector{Term}, cnt, forlocale=0, forday, startofday)
+    makesickseedfunc( ; cond=nil, variant=:base, duration=1, filter::Vector{Term}, cnt, forlocale=0, forday, startofday)
 
 Create a Seedset that contains the filter for whom to make sick, the traits to be set, and the cnt of people to be changed. 
 
 **And** call seed\\_case\\_gen for you to return the callback function that encloses this Seedset.
 """
-function makesickseedfunc( ; cond=nil, variant=:base, sickday=1, filter::Vector{Term}, cnt, forlocale=0, forday, forstartofday)
+function makesickseedfunc( ; cond=nil, variant=:base, duration=1, filter::Vector{Term}, cnt, forlocale=0, forday, forstartofday)
     ss = Seedset(filter=filter, cnt=cnt, 
-            change=[Term(:status, infectious), Term(:cond, cond), Term(:variant, variant), Term(:sickday, sickday)])
+            change=[Term(:status, infectious), Term(:cond, cond), Term(:variant, variant), Term(:duration, duration)])
 
     seed_case_gen(ss; forlocale=forlocale, forday=forday, startofday=forstartofday)
 end
@@ -407,9 +412,9 @@ end
 function create_cols(dat)
     c_cond = dat.cond
     c_status = dat.status
-    c_sickday = dat.sickday
+    c_duration = dat.duration
     c_variant = dat.variant
-    (c_cond=c_cond, c_status=c_status, c_sickday=c_sickday, c_variant=c_variant)
+    (c_cond=c_cond, c_status=c_status, c_duration=c_duration, c_variant=c_variant)
 end
 
 function timesets(; cnt=10000)
@@ -417,7 +422,7 @@ function timesets(; cnt=10000)
 
     c_cond = dat.cond
     c_status = dat.status
-    c_sickday = dat.sickday
+    c_duration = dat.duration
     c_variant = dat.variant
 
     tcolset = 0
@@ -432,7 +437,7 @@ function timesets(; cnt=10000)
         tcolset += @elapsed begin
                         c_cond[i] = nil
                         c_status[i] = infectious
-                        c_sickday[i] = 1
+                        c_duration[i] = 1
                         push!(c_variant[i], :base)
                     end
     end
@@ -440,14 +445,14 @@ function timesets(; cnt=10000)
     st = Int(cnt/10)
     for i in st+1:2*st  
         tpairset += @elapsed begin
-            pairs = [c_cond=>nil, c_status=>infectious, c_sickday=>1, c_variant=>:base]
+            pairs = [c_cond=>nil, c_status=>infectious, c_duration=>1, c_variant=>:base]
             ap(i, pairs)
         end
     end
 
     for i in 2*st+1:3*st
         tsymset += @elapsed begin
-            pairs = [:cond=>nil, :status=>infectious, :sickday=>1, :variant=>:base]
+            pairs = [:cond=>nil, :status=>infectious, :duration=>1, :variant=>:base]
             apsym(dat, i, pairs)
         end
     end
@@ -455,7 +460,7 @@ function timesets(; cnt=10000)
     for i in 3*st+1:4*st
         tstructset += @elapsed begin
             pairs = [Cval(c_cond, nil), Cval(c_status, infectious),
-                     Cval(c_sickday, 1), Cval(c_variant, :base)]
+                     Cval(c_duration, 1), Cval(c_variant, :base)]
             apstruct(i, pairs)
         end
     end
@@ -463,7 +468,7 @@ function timesets(; cnt=10000)
     for i in 3*st+1:4*st
         ttupset += @elapsed begin
             pairs = [(c_cond, nil), (c_status, infectious),
-                     (c_sickday, 1), (c_variant, :base)]
+                     (c_duration, 1), (c_variant, :base)]
             aptup(i, pairs)
         end
     end    
@@ -471,14 +476,14 @@ function timesets(; cnt=10000)
     for i in 4*st+1:5*st
         tarrset += @elapsed begin
             pairs = [[c_cond, nil], [c_status, infectious],
-                     [c_sickday, 1], [c_variant, :base]]
+                     [c_duration, 1], [c_variant, :base]]
             aparr(i, pairs)
         end
     end   
 
     for i in 5*st+1:6*st
         trowset += @elapsed begin
-            aprow(dat, i, (status=infectious, cond=nil, sickday=1))  # need to build the named tuple programmatically
+            aprow(dat, i, (status=infectious, cond=nil, duration=1))  # need to build the named tuple programmatically
         end
     end
 

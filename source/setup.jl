@@ -4,6 +4,7 @@
 
 
 function setup(ndays, locales;  # must provide following inputs
+    day1,
     dovax=false,
     dovariant=false,
     paramdir,
@@ -19,7 +20,7 @@ function setup(ndays, locales;  # must provide following inputs
         datadict = build_data(locales, geodata, ndays)
 
     # history series
-        series = build_series_table(locales, agegrp, ndays)
+        series = build_series_table(locales, agegrp, ndays, day1)
 
     # social parameters
         socialparams = build_socialparams(socialfilename, paramdir)
@@ -37,7 +38,7 @@ function setup(ndays, locales;  # must provide following inputs
         vaxschedset = Dict()  # nothing
     end
 
-    model = (ndays=ndays, locales=locales, dat=datadict, series=series, geo=geodata, 
+    model = (ndays=ndays, day1=day1, locales=locales, dat=datadict, series=series, geo=geodata, 
             transitionset=transitionset, vaxset=vaxset, vaxschedset=vaxschedset, infectset=infectset, 
             social=socialparams, trvec=trvec)  
 
@@ -93,43 +94,34 @@ function pop_data(pop; age_dist=age_dist)
 
         # must use comprehension to initialize vector of vector NOT fill--fill creates identical vectors
         dat = Table(
-            pid = collect(1:pop),  # ordinal persistent id for persons in matrix
-            status = fill(unexposed, pop),    
-            agegrp = reduce(vcat,[fill(age, parts[Int(age)]) for age in agegrps]), 
-            cond = fill(uninfected, pop),
-            sickday = zeros(Int, pop),   
-            variant = [[:none] for _ in 1:pop],
-            recovday = [[0] for _ in 1:pop],  
-            deadday = zeros(Int, pop),   
-            cluster = zeros(Int, pop), 
-            sdcomply = fill(:none, pop),  
-            vaxstatus = fill(:none, pop),  # :none, :first, :multiple, :full, :booster  maybe others later...
-            vaxrcvd = [[:none] for _ in 1:pop],    # vaccine symbols  :pfizer, :moderna, :jnj
-            vaxday = [[0] for _ in 1:pop], 
-            fullvaxday = zeros(Int, pop),
-            tested = falses(pop),  
-            testday = zeros(Int, pop),  
-            quar = falses(pop),
-            quarday = zeros(Int, pop))
+            status = fill(unexposed, pop),                                          # enum status
+            agegrp = reduce(vcat,[fill(age, parts[Int(age)]) for age in agegrps]),  # enum agegrp
+            cond = fill(uninfected, pop),                                           # enum condition
+            duration = zeros(Int, pop),                                             # Int
+            variant = [Symbol[] for _ in 1:pop],                                     # Vector{Symbol}
+            sickday = [[0] for _ in 1:pop],                                         # Vector{Int}
+            recovday = [[0] for _ in 1:pop],                                        # Vector{Int}
+            deadday = zeros(Int, pop),                                              # Int
+            ring = zeros(Int, pop),                                                 # Int (not used as yet)
+            sdcomply = fill(:none, pop),                                            # Symbol
+            vaxstatus = fill(:none, pop),          # :none, :first, :multiple, :full, :booster  maybe others later...
+            vaxrcvd = [[:none] for _ in 1:pop],    # Vector{Symbol} of vaccine symbols  :Pfizer, :Moderna, :JnJ
+            vaxday = [[0] for _ in 1:pop],                                          # Vector{Int}
+            tested = falses(pop),                                                   # Bool
+            testday = zeros(Int, pop),                                              # Vector{Int}
+            quar = falses(pop),                                                     # Bool
+            quarday = zeros(Int, pop))                                              # Int
 
     return dat       
 end
 
 
-Base.@kwdef struct Series
-    cum::Dict{Int, Matrix{Int}} # locale as Int, matrix of cum history columns
-    new::Dict{Int, Matrix{Int}} # locale as Int, matrix of new (each day) history columns
-    groups::Vector{Symbol}
-    cols::OrderedDict{Symbol, UnitRange{Int64}}
-end
-
-
-function build_series_table(locales, agegrp, n_days)
-
+function build_series_table(locales, agegrp, n_days, day1)
+    caldays = range(day1, step=Day(1), length=n_days)
     cols = [Symbol(col,"_", age) for col in seriesgroups for age in vcat(collect(string.(instances(agegrp))),"total")]
     colvals = [zeros(Int,n_days) for _ in 1:length(cols)]
-    series = Dict(loc => (cum = Table(; zip(cols,[zeros(Int,n_days) for _ in 1:length(cols)])...), 
-                          new = Table(; zip(cols,[zeros(Int,n_days) for _ in 1:length(cols)])...))
+    series = Dict(loc => (cum = Table(; caldays=caldays, zip(cols,[zeros(Int,n_days) for _ in 1:length(cols)])...), 
+                          new = Table(; caldays=caldays, zip(cols,[zeros(Int,n_days) for _ in 1:length(cols)])...))
              for loc in locales)
 
     return series

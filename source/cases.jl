@@ -12,18 +12,18 @@
 
 """
 Generate seeding cases.
-inputs: day, cnt, sickday, cond, agegrp
+inputs: day, cnt, duration, cond, agegrp
 Two of the inputs may refer to multiple items and must match in number of items.
 
 Returns a function that can be used in runcases input to run_a_sim.
 """
-function seed_case_gen_old(cnt, sickday, cond, variant, agegrp; forlocale, triggerdate, forstartofday) # these args go into the returned seed! case
+function seed_case_gen_old(cnt, duration, cond, variant, agegrp; forlocale, triggerdate, forstartofday) # these args go into the returned seed! case
     # caserunner gets returned; assign it a value at the cmdline; use as an input to run_a_sim
 
     function caserunner(locdat, socialparams, infectset, sdcases, age_idx_loc; startofday, locale, day)  # args must match runcases loop in run_a_sim
         if (day == triggerdate) & (startofday == forstartofday) 
             if (forlocale == 0) | (forlocale == locale)
-                seed!(cnt, sickday, cond, variant, agegrp, locdat)  # payload: this is what the function will do when run
+                seed!(cnt, duration, cond, variant, agegrp, locdat)  # payload: this is what the function will do when run
             end
         end
     end
@@ -32,18 +32,17 @@ end
 
 
 """
-    seed!(cnt, sickday, conds, agegrps, locale, dat)
+    seed!(cnt, duration, conds, agegrps, locale, dat)
 
 This is the action function that setups and implements a seeding case all in one execution.
 """
-function seed!(cnt, sickday, conds, variants, agegrps, locdat)
+function seed!(cnt, duration, conds, variants, agegrps, locdat)
 
-
-    @assert length(sickday) == 1 "input only one sickday value"
+    @assert length(duration) == 1 "input only one duration value"
     # @warn "Seeding is for testing and may result in case counts out of balance"
     println("*** seed day $(day_ctr[:day]): $(sum(cnt)) $conds")
     # @assert (cond in [nil, mild, sick, severe]) "Seed cases must have conditions of nil, mild, sick, or severe" 
-    make_sick!(locdat; cnt=cnt, ages=agegrps, tocond=conds, tovariant=variants, tosickday=sickday)
+    make_sick!(locdat; cnt=cnt, ages=agegrps, tocond=conds, tovariant=variants, toduration=duration)
 
 end
 
@@ -71,7 +70,7 @@ Base.@kwdef struct Seedset
 
     function Seedset(filter::Vector{Term}, change::Vector{Term}, cnt::Int) 
         allowed_filter_columns = [:cond, :status, :agegrp, :variant, :vaxstatus, :vaxrcvd, :tested, :quar]
-        allowed_change_columns = [:cond, :status, :sickday, :variant, :vaxstatus, :vaxrcvd]
+        allowed_change_columns = [:cond, :status, :duration, :sickday, :variant, :vaxstatus, :vaxrcvd]
 
         for f in filter
             if in(f.trait, allowed_filter_columns)
@@ -127,7 +126,11 @@ function settraits!(locdat, s::Seedset)
         col = getproperty(locdat, ch.trait)
         if isa(first(col), Vector) # if element of the column is a vector, push! the value
             for idx in filt
-                push!(col[idx], ch.val)
+                if isempty(col[idx])
+                    col[idx] = [ch.val]
+                else
+                    push!(col[idx], ch.val)
+                end
             end
         else 
             col[filt] .= ch.val  # set the value for each trait column
@@ -139,55 +142,18 @@ function settraits!(locdat, s::Seedset)
 end
 
 
-function settraits!(locseries, )
-end
-
-
-
 """
-    makesickseedset( ; cond=nil, variant=:base, sickday=1, filter::Vector{Term}, cnt)
-
-Return a Seedset that contains the filter for whom to make sick, the traits to be set, and the cnt of people to be changed.
-
-Use this as the first input to seed\\_case\\_gen to create a callback function that will be run
-in the simulation loop.
-"""
-function makesickseedset( ; cond=nil, variant=:base, sickday=1, filter::Vector{Term}, cnt)
-    Seedset(filter=filter, cnt=cnt, 
-            change=[Term(:status, infectious), Term(:cond, cond), Term(:variant, variant), Term(:sickday, sickday)])
-end
-
-
-"""
-    makesickseedfunc( ; cond=nil, variant=:base, sickday=1, filter::Vector{Term}, cnt, forlocale=0, triggerdate, startofday)
+    makesickseedfunc( ; cond=nil, variant=:base, duration=1, filter::Vector{Term}, cnt, forlocale=0, triggerdate, startofday)
 
 Create a Seedset that contains the filter for whom to make sick, the traits to be set, and the cnt of people to be changed. 
 
 **And** call seed\\_case\\_gen for you to return the callback function that encloses this Seedset.
 """
-function makesickseedfunc( ; cond=nil, variant=:base, sickday=1, filter::Vector{Term}, cnt, forlocale=0, triggerdate, forstartofday)
+function makesickseedfunc( ; cond=nil, variant=:base, duration=1, filter::Vector{Term}, cnt, forlocale=0, triggerdate, forstartofday)
     ss = Seedset(filter=filter, cnt=cnt, 
-            change=[Term(:status, infectious), Term(:cond, cond), Term(:variant, variant), Term(:sickday, sickday)])
+            change=[Term(:status, infectious), Term(:cond, cond), Term(:sickday, triggerdate), Term(:variant, variant), Term(:duration, duration)])
 
     seed_case_gen(ss; forlocale=forlocale, triggerdate=triggerdate, forstartofday=forstartofday)
-end
-
-
-"""
-    makenotsickseedset( ; status, filter::Vector{Term}, cnt)
-
-Return a Seedset that contains the filter for whom to change from sick to either recovered or dead, and the cnt of people to be changed.
-
-Use this as the first input to seed\\_case\\_gen to create a callback function that will be run
-in the simulation loop.
-"""
-function makenotsickseedset( ; status, filter::Vector{Term}, cnt)
-    if !in(status, [recovered, dead])
-        throw(DomainError(status, "Status must be either recovered or dead"))
-    end
-
-    Seedset(filter=filter, cnt=cnt,
-            change=[Term(:status, status), Term(:cond, uninfected)])
 end
 
 

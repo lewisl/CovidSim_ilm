@@ -12,7 +12,7 @@ pid              # persistent id for persons in matrix
 status    
 agegrp 
 cond ,
-sickday   
+duration   
 variant 
 recovday  
 deadday  
@@ -21,7 +21,6 @@ sdcomply
 vaxstatus      # :none, :first, :multiple, :full, :booster
 vaxrcvd        # :pfizer, :moderna, :jnj
 vaxday         # array of int days 
-fullvaxday
 test 
 testday   
 quar 

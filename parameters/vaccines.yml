@@ -1,6 +1,6 @@
 ---
 Pfizer:  # will convert to symbol at load time
-  halflife:         280
+  halflife:         360
   reqdshots:          2
   delay2ndshot:      21
   full_effect_days:  14
@@ -16,23 +16,23 @@ Pfizer:  # will convert to symbol at load time
       base:     0.90
       alpha:    0.90
       delta:    0.84
-      omicron_ba1:  0.2
-      omicron_ba2:  0.2
+      omicron_ba1:  0.5
+      omicron_ba2:  0.5
     full:
       base:     0.94
       alpha:    0.94
       delta:    0.88
-      omicron_ba1:  0.3
-      omicron_ba2: 0.3
+      omicron_ba1:  0.65
+      omicron_ba2: 0.65
     booster:
       base:     0.94
       alpha:    0.94
       delta:    0.88
-      omicron_ba1:  0.5
-      omicron_ba2: 0.5
+      omicron_ba1:  0.75
+      omicron_ba2: 0.75
 
 Moderna:  # will convert to symbol at load time
-  halflife:         280
+  halflife:         360
   reqdshots:          2
   delay2ndshot:      21
   full_effect_days:  14
@@ -48,23 +48,23 @@ Moderna:  # will convert to symbol at load time
       base:     0.92
       alpha:    0.92
       delta:    0.85
-      omicron_ba1:  0.25
-      omicron_ba2: 0.25
+      omicron_ba1:  0.5
+      omicron_ba2: 0.5
     full:
       base:     0.95
       alpha:    0.95
       delta:    0.88
-      omicron_ba1:  0.35
-      omicron_ba2: 0.35
+      omicron_ba1:  0.65
+      omicron_ba2: 0.65
     booster:
       base:     0.95
       alpha:    0.95
       delta:    0.88
-      omicron_ba1:  0.55
-      omicron_ba2: 0.55
+      omicron_ba1:  0.75
+      omicron_ba2: 0.75
 
 JnJ:  # will convert to symbol at load time
-  halflife:         240
+  halflife:         360
   reqdshots:          1
   delay2ndshot:       0    
   full_effect_days:  14
@@ -80,17 +80,17 @@ JnJ:  # will convert to symbol at load time
       base:     0.88
       alpha:    0.88
       delta:    0.80
-      omicron_ba1:  0.2
-      omicron_ba2:  0.2
+      omicron_ba1:  0.5
+      omicron_ba2:  0.5
     full:
       base:     0.88
       alpha:    0.88
       delta:    0.80
-      omicron_ba1:  0.2
-      omicron_ba2: 0.2
+      omicron_ba1:  0.5
+      omicron_ba2: 0.5
     booster:
       base:     0.88
       alpha:    0.88
       delta:    0.80
-      omicron_ba1:  0.35
-      omicron_ba2: 0.35
+      omicron_ba1:  0.75
+      omicron_ba2: 0.75

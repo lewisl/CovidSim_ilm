@@ -85,7 +85,7 @@ function t_n_t_case(start_date, end_date;
                         end
                     # quarantines ending today
                     elseif q.quar_date + qdays == thisday # end of quarantine is today
-                        cnt = grab(ret_conds, agegrps, sickdays, q, isodat)
+                        cnt = grab(ret_conds, agegrps, durations, q, isodat)
                         t_n_t_unquarantine(cnt, q, opendat, isodat, infectparams)
                         push!(tntq, (day=day_ctr[:day], unquarantine=sum(cnt)))
                         delete!(isodat, q)  # remove dated locale
@@ -148,9 +148,9 @@ function test_and_trace(start_date, end_date;
         if target_test
             sel_age = get_next!(nxt) # circular cycle through 1:4
             if sel_age == 4; sel_age = 4:5; end  # only sampled age group is non-zero
-            avail_to_test[:,:,sel_age] = grab(test_conds, sel_age, sickdays, locale, opendat)
+            avail_to_test[:,:,sel_age] = grab(test_conds, sel_age, durations, locale, opendat)
         else
-            avail_to_test[:] = grab(test_conds, agegrps, sickdays, locale, opendat)
+            avail_to_test[:] = grab(test_conds, agegrps, durations, locale, opendat)
         end
 
         if sum(avail_to_test) == 0
@@ -159,21 +159,21 @@ function test_and_trace(start_date, end_date;
         end
 
         n_conds = length(map2access[unexposed]:map2access[mild])
-        to_test = Dict(i=>zeros(Int, sickdaylim, n_conds, agegrps) for i in 1:generations) # TODO pre-allocate?
-        postests = Dict(i=>zeros(Int, sickdaylim, n_conds, agegrps) for i in 1:generations)
-        poscontacts = Dict(i=>zeros(Int, sickdaylim, n_conds, agegrps) for i in 1:generations)
-        postouched = Dict(i=>zeros(Int, sickdaylim, n_conds, agegrps) for i in 1:generations)
+        to_test = Dict(i=>zeros(Int, durationlim, n_conds, agegrps) for i in 1:generations) # TODO pre-allocate?
+        postests = Dict(i=>zeros(Int, durationlim, n_conds, agegrps) for i in 1:generations)
+        poscontacts = Dict(i=>zeros(Int, durationlim, n_conds, agegrps) for i in 1:generations)
+        postouched = Dict(i=>zeros(Int, durationlim, n_conds, agegrps) for i in 1:generations)
 
         qloc = (locale=locale, quar_date=thisday)
 
         # initialize new tracking locales and stash
             tstloc = (locale=locale, test_date=thisday)
             if !haskey(testdat, tstloc)  
-                testdat[tstloc] = zeros(Int, sickdaylim, length(conditions), length(agegrps))
+                testdat[tstloc] = zeros(Int, durationlim, length(conditions), length(agegrps))
             end
             # holds postest people to be quarantined after delay getting test results
             if !haskey(tnt_stash, tstloc) 
-                tnt_stash[tstloc] = zeros(Int, sickdaylim, length(test_conds), length(agegrps))
+                tnt_stash[tstloc] = zeros(Int, durationlim, length(test_conds), length(agegrps))
             end
         
         density_factor = env.geodata[env.geodata[:, fips] .== locale, density_fac][1]
@@ -194,7 +194,7 @@ function test_and_trace(start_date, end_date;
             conducted = sum(all_tests)
             perday_conducted += conducted
             if sum(all_tests) != 0  # track the test cases
-                plus!(all_tests, test_conds, agegrps, sickdays, tstloc, dat=testdat)  
+                plus!(all_tests, test_conds, agegrps, durations, tstloc, dat=testdat)  
             end
             
 
@@ -252,10 +252,10 @@ function simtests(to_test; tc_perday=1000, sensitivity=.9, specificity=.9, infec
     pos_results = zeros(Int, 25,4,5)
 
     if tc_perday <= 0  # earlier generations of test and trace used up the available tests today
-        return zeros(Int,sickdaylim, 4, length(agegrps)), [Int(0)]
+        return zeros(Int,durationlim, 4, length(agegrps)), [Int(0)]
     end
     if sum(to_test) == 0
-        return zeros(Int,sickdaylim, 4, length(agegrps)), [Int(0)]
+        return zeros(Int,durationlim, 4, length(agegrps)), [Int(0)]
     end        
 
     # today_tests = rand(Binomial(tc_perday, test_pct), 1)[1]
@@ -309,17 +309,17 @@ end
 
 function t_n_t_quarantine(postests, qloc::Quar_Loc; opendat, isodat, infectparams)
     if !haskey(isodat, qloc)  
-        isodat[qloc] = zeros(Int, sickdaylim, length(conditions), length(agegrps))
+        isodat[qloc] = zeros(Int, durationlim, length(conditions), length(agegrps))
     end
 
     test_conds = [unexposed, recovered, nil, mild] 
-    isolate_by!(postests, test_conds, agegrps, sickdays, qloc, opendat, isodat)
+    isolate_by!(postests, test_conds, agegrps, durations, qloc, opendat, isodat)
 end
 
 
 function t_n_t_unquarantine(cnt, qloc::Quar_Loc, opendat, isodat, infectparams)
     ret_conds = [unexposed, recovered, nil, mild, sick, severe] 
-    unisolate_by!(cnt, ret_conds, agegrps, sickdays, qloc, 
+    unisolate_by!(cnt, ret_conds, agegrps, durations, qloc, 
                   opendat, isodat, mode=:plus) # delete the qloc when unq all
 end
 

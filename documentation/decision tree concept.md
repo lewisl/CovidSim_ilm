@@ -23,7 +23,7 @@ while !isempty(todo)
          for i in 1:length(dt_by_age[brk][tocond][:outcomes])
             outcome = dt_by_age[brk][tocond][:outcomes][i]
             prob = dt_by_age[brk][tocond][:probs][i]
-            newseq = vcat(seq, (sickday=brk, fromcond=tocond, tocond=outcome, prob=prob))
+            newseq = vcat(seq, (duration=brk, fromcond=tocond, tocond=outcome, prob=prob))
             if (outcome == dead) | (outcome == recovered)  # terminal node reached--no more nodes to add
                push!(done, newseq)
             else  # not at a terminal outcome: still more nodes to add

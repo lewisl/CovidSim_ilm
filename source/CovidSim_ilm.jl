@@ -82,8 +82,8 @@ const day_ctr = counter(Symbol) # from package DataStructures
 
 # control constants
 const age_dist = [0.251, 0.271, 0.255, 0.184, 0.039]
-const sickdaylim = 25
-const sickdays = 1:sickdaylim   # rows
+const durationlim = 25
+const durations = 1:durationlim   # rows
 
 # geo data: fips,county,city,state,sizecat,pop,density
 const fips = 1
@@ -242,9 +242,7 @@ export
     Seedset,
     seed_case_gen_old,
     seed_case_gen,
-    makesickseedset,
     makesickseedfunc,
-    makenotsickseedset,
     makenotsickseedfunc,
     t_n_t_case_gen,
     case_setter,
@@ -293,8 +291,8 @@ export
 # control constants
 export                  
     age_dist,
-    sickdays,
-    sickdaylim
+    durations,
+    durationlim
 
 # constants for geo data
 export      

@@ -5,9 +5,9 @@ function create_samples(n=10_000)
     status = fill(1,n)
     agegrp = rand(1:5,10000)
     cond = zeros(Int,10000)
-    sickday = zeros(Int,10000)
+    duration = zeros(Int,10000)
 
-    dat = Table(status=status,agegrp=agegrp,cond=cond, sickday=sickday)
+    dat = Table(status=status,agegrp=agegrp,cond=cond, duration=duration)
 end
 
 
@@ -15,7 +15,7 @@ function create_changes_tuple(n=5)
     println("Creating vector of changes as tuple")
     changes = Vector{Tuple{Int64, Symbol, Int64}}(undef, 5)
     for i in 1:n
-        sym = isodd(i) ? :cond : :sickday
+        sym = isodd(i) ? :cond : :duration
         changes[i] = (i*3, sym, i+1 )
     end
     changes
@@ -26,7 +26,7 @@ function create_changes_named_tuple(n=5)
     println("Creating vector of changes as namedtuple")
     changes = Vector{NamedTuple{(:row, :col, :new), Tuple{Int64, Symbol, Int64}}}(undef,n)
     for i in 1:n
-        sym = isodd(i) ? :cond : :sickday
+        sym = isodd(i) ? :cond : :duration
         changes[i] = (row = i*3, col=sym, new=i+1 )
     end   
     changes 

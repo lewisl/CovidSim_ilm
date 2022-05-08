@@ -24,8 +24,8 @@ variant:
   - alpha
   - delta
   - omicron_ba1
-sickdays: 
-  maxsickday: 25
+durations: 
+  maxduration: 25
 vaccine:
   Pfizer:
     infect_fname:     pfizer_spread.yml

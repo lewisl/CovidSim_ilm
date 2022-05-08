@@ -4,7 +4,7 @@
 
         # how many people are contacted by each spreader?  Think of this as reaching out...
         # contacts is the potential number of people contacted by a spreader in each
-        # cell by sickday (sickdaylim), infectious cond (4), and agegrp(5)
+        # cell by duration (durationlim), infectious cond (4), and agegrp(5)
 
     #=  This originally ignores the conditions of the touched--assumes they are 
         all equally likely to be touched

@@ -191,14 +191,14 @@ newdict[5][14][6]
 categorical_sim = CovidSim_ilm.categorical_sim
 
 # %%
-function partial_transition(tree, agegrp, sickday_p, cond_p, foo=0)
-    # node = get_node2(tree[agegrp], sickday_p, cond_p)
-    # if isempty(node) # no transition for this person based on sickday and condition
-    if !haskey(tree, sickday_p) || !haskey(tree[sickday_p], cond_p)
-        # @assert p_tup.sickday < sickdaylim "Person made it to last day and was not removed:\n     $p_tup\n"
+function partial_transition(tree, agegrp, duration_p, cond_p, foo=0)
+    # node = get_node2(tree[agegrp], duration_p, cond_p)
+    # if isempty(node) # no transition for this person based on duration and condition
+    if !haskey(tree, duration_p) || !haskey(tree[duration_p], cond_p)
+        # @assert p_tup.duration < durationlim "Person made it to last day and was not removed:\n     $p_tup\n"
         foo += 1
     else  # change of the person p's state--a transition
-        node = tree[agegrp][sickday_p][cond_p]
+        node = tree[agegrp][duration_p][cond_p]
         choice = categorical_sim(node["probs"]) # rand(Categorical(node["probs"])) # which branch...?
         tocond = node["outcomes"][choice]
         return tocond
@@ -206,10 +206,10 @@ function partial_transition(tree, agegrp, sickday_p, cond_p, foo=0)
 end
 
 # %%
-agegrp = 1; sickday_p = 14; cond_p = 6
+agegrp = 1; duration_p = 14; cond_p = 6
 
 # %%
-@btime partial_transition($newdict, $agegrp, $sickday_p, $cond_p)
+@btime partial_transition($newdict, $agegrp, $duration_p, $cond_p)
 
 # %%
 180 * 1000 * (9 * 1e-9)
@@ -218,7 +218,7 @@ agegrp = 1; sickday_p = 14; cond_p = 6
 isa(6, Dict)
 
 # %%
-@btime newdict[agegrp][sickday_p][cond_p];
+@btime newdict[agegrp][duration_p][cond_p];
 
 # %% [markdown]
 # ### Check allocations of spreading (2 functions)

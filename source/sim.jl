@@ -5,6 +5,7 @@
 
 
 function buildsim(ndays, locales;
+    day1 = Date("2020-01-01", "yyyy-mm-dd"),
     dovax = false,
     paramdir = "../parameters",
     geofilename = "../data/geo2data.csv", 
@@ -15,16 +16,17 @@ function buildsim(ndays, locales;
     locales = locales isa Int ? [locales] : locales
 
     model = setup(ndays, locales; 
+        day1=day1,
         dovax=dovax, 
         paramdir=paramdir,
         geofilename=geofilename, 
         socialfilename=socialfilename,
         vaccinefilename=vaccinefilename,
-        variantfilename=variantfilename
+        variantfilename=variantfilename,
         )
 
         #=
-        model = (ndays=ndays, locales=locales, dat=datadict, series=series, geo=geodata, 
+        model = (ndays=ndays, day1=day1, locales=locales, dat=datadict, series=series, geo=geodata, 
                 transitionset=transitionset, vaxset=vaxset, vaxschedset=vaxschedset, infectset=infectset, 
                 social=socialparams, trvec=trvec)  
         =#    
@@ -44,6 +46,7 @@ function runsim(model;
 
     # split up  members of model and initialize
         ndays = model.ndays
+        day1 = model.day1
         locales = model.locales
         transitionset = model.transitionset  # transition arrays
         trvec = model.trvec # preallocated small vector
@@ -87,7 +90,7 @@ function runsim(model;
 
         silent || println("Simulation starting for location $loc")
         
-        # this should be the first and only place to deref the locale (as loc)
+        # first and only place to deref the locale (as loc)
         locdat = popdat[loc]  
         newhist = series[loc].new
         cumhist = series[loc].cum
@@ -98,10 +101,11 @@ function runsim(model;
         c_cond       = locdat.cond
         c_status     = locdat.status
         c_agegrp     = locdat.agegrp
-        c_sickday    = locdat.sickday
+        c_duration   = locdat.duration
         c_sdcomply   = locdat.sdcomply
         c_variant    = locdat.variant
         c_vaxstatus  = locdat.vaxstatus
+        c_sickday    = locdat.sickday
         c_variant    = locdat.variant
         c_recovday   = locdat.recovday
         c_vaxrcvd    = locdat.vaxrcvd
@@ -130,24 +134,25 @@ function runsim(model;
             # if dovax vaccinate (e.g., give shots)
             dovax && (
                         vaxtime += @elapsed vaccinate!(locdat, vaxschedset, contactable_idx, vaxset)
-                        )
+                    )
 
             # person loop
-            for p in infect_idx    
+            @inbounds for p in infect_idx    
 
                 sprtime += @elapsed begin
                 # is this person ACTIVELY infectious
-                spr_sickday = @inbounds c_sickday[p]
-                spr_variant = @inbounds c_variant[p][end]
-                sendrisk = @inbounds infectset[spr_variant].sendrisk[spr_sickday]
+                spr_duration = c_duration[p]
+                spr_variant = c_variant[p][end]
+                sendrisk = infectset[spr_variant].sendrisk[spr_duration]
                 if sendrisk > 0.0     
-                    spread!(p, contact_vector, sdcases,  socialparams,   
+                    spread!(p, thisday, contact_vector, sdcases,  socialparams,   
                                 infectset, vaxset, density_factor, dovax, poprange, 
                                 c_cond,
                                 c_status,
                                 c_agegrp,
-                                c_sickday,
+                                c_duration,
                                 c_sdcomply,
+                                c_sickday,
                                 c_variant,
                                 c_vaxstatus,
                                 c_recovday,
@@ -156,12 +161,12 @@ function runsim(model;
                 end
                 end  # sprtime
 
-                trtime += @elapsed (
+                trtime += @elapsed begin
                     transition!(p, infectset, transitionset, vaxset, dovax, noop, trvec,   
                                     c_cond,
                                     c_status,
                                     c_agegrp,
-                                    c_sickday,
+                                    c_duration,
                                     c_sdcomply,
                                     c_variant,
                                     c_vaxstatus,
@@ -169,11 +174,11 @@ function runsim(model;
                                     c_vaxrcvd,
                                     c_vaxday,
                                     c_deadday
-                                    ))
+                                    ) end
             end # people loop         
             
             for case in runcases  # cases that run at the end of the day
-                case(locdat, socialparams, infectset, sdcases, age_idx_loc; day=day_ctr[:day], startofday=false, locale=loc)  # TODO extend ages to be any filter for 
+                case(locdat, socialparams, infectset, sdcases, age_idx_loc; day=thisday, startofday=false, locale=loc)  # TODO extend ages to be any filter for 
             end                                                 # who participates in a given case
 
             # r0 displayed every 10 days
@@ -182,18 +187,10 @@ function runsim(model;
                 println("day $(day_ctr[:day]), locale $loc: rt = $current_r0")
             end
 
-            # accumulate simulation statistics in series for plotting: arrays NOT dataframes
-            histtime += @elapsed do_history!(locdat, newhist, cumhist, age_idx_loc)
-            if thisday == 1  # :unexposed special case:  not new people on day 1
-                for colname in seriesbyage[:unexposed]
-                    getproperty(newhist, colname)[thisday] = 0
-                end
-                getproperty(newhist, :unexposed_total)[thisday] = 0
-            end
+            histtime += @elapsed do_history!(locdat, newhist, cumhist, age_idx_loc, thisday)
 
 
         end # day loop
-
 
         histtime += @elapsed begin
             update_total_agegrps!(newhist, cumhist) # sum agegrps to total for all series groups (by agegrp)
@@ -217,8 +214,7 @@ end
 #  Update daily history series
 ################################################################################
 
-@inline function do_history!(locdat, newhist, cumhist, age_idx_loc)  
-    thisday = day_ctr[:day]
+@inline function do_history!(locdat, newhist, cumhist, age_idx_loc, thisday)  
 
     @inbounds for age in agegrps
 
@@ -253,6 +249,14 @@ end
         end
         
     end # for age in agegrps
+
+    # :unexposed special case:  no new people on day 1
+    if thisday == 1  
+        for colname in seriesbyage[:unexposed]
+            getproperty(newhist, colname)[thisday] = 0
+        end
+        getproperty(newhist, :unexposed_total)[thisday] = 0
+    end
 
 end 
 

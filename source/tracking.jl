@@ -115,6 +115,7 @@ function cumplot(series, locale, plotcols=[:unexposed, :infectious, :recovered, 
     # the data is the 2d array cumseries
     n = length(cumhist)
     days = days == "all" ? (1:n) : days
+    caldays = cumhist.caldays[days]
     cumseries = hcat(columns(getproperties(cumhist,Tuple(Symbol(plcol,"_","total") for plcol in plotcols)))...)
 
     # labels and annotations
@@ -134,12 +135,13 @@ function cumplot(series, locale, plotcols=[:unexposed, :infectious, :recovered, 
  
 
     # the plot
-    plot(   days, cumseries[days,1:end], 
+    plot(   caldays, cumseries[days,1:end], 
             size = (700,500),
             label = labels, 
             lw=2.3,
             title = "Covid for $people people for $n days\nActive Cases for Each Day",
             xlabel = "Simulation Days",
+            xticks = caldays[10]:Day(180):caldays[length(caldays)-10],
             ylabel = "People",
             legendfontsize = 10,
             color_palette = co_pal,
@@ -152,18 +154,21 @@ function cumplot(series, locale, plotcols=[:unexposed, :infectious, :recovered, 
 end
 
 
-function newplot(series, locale, plcols=[:infectious]; days="all", geo=[], thm=:ggplot2)
+function newplot(series, locale, plcols=[:infectious]; 
+    days="all", geo=[], thm=:ggplot2)
 
     cumhist = series[locale].cum
     newhist = series[locale].new
 
-    theme(thm, foreground_color_border =:black)
+    theme(thm, foreground_color_border=:black, 
+            tickfontsize=9, gridlinewidth=1)
 
     !(typeof(plcols) <: Array) && (plcols = [plcols])
 
     # the data and labels
-    n = length(series[locale].new)
+    n = length(newhist)
     days = days == "all" ? (1:n) : days
+    caldays = newhist.caldays[days]
     newseries = hcat(columns(getproperties(newhist,Tuple(Symbol(plcol,"_","total") for plcol in plcols)))...)
 
     labels = [titlecase(string(col)) for col in plcols]
@@ -173,19 +178,22 @@ function newplot(series, locale, plcols=[:infectious]; days="all", geo=[], thm=:
      else # this will off by a tiny bit because of rounding
         getproperty(cumhist, :unexposed_total)[1] + getproperty(cumhist, :infectious_total)[1]
      end   
+     co_pal = length(plcols) == 2 ? [theme_palette(thm)[2], theme_palette(thm)[4]] : theme_palette(thm)
+
 
     # the plot
-    groupedbar( days, newseries[days, 1:end], 
+    bar(        caldays, newseries[days, 1:end], 
                 size = (700,500),
                 label = labels, 
                 lw=0.2,
                 bar_width=1,
                 title = "Daily Change for $people people over $n days",
                 xlabel = "Simulation Days",
+                xticks = caldays[10]:Day(180):caldays[length(caldays)-10],
                 yaxis = ("People"),
+                color_palette = co_pal,
                 reuse =false
-        )
-    # gui()
+             )
 end
 
 

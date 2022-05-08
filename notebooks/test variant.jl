@@ -75,6 +75,11 @@ typeof(model180.series) <: Dict
 
 # %%
 lochist = model180.series[locale];
+newhist = lochist.new;
+cumhist = lochist.cum;
+
+# %%
+newhist
 
 # %%
 for col in columnnames(lochist.cum)
@@ -167,7 +172,7 @@ fieldnames(typeof(basetransition))
 fieldnames(typeof(basetransition.tree))
 
 # %%
-age80tree = basetransition.tree.age80_up[1].sickday
+age80tree = basetransition.tree.age80_up[1].duration
 
 # %%
 age80tree = basetransition.tree.age80_up[1].transition
@@ -184,7 +189,7 @@ breakday_idx = 5
 println("for breakday $breakday_idx")
 age80tree
 # println("fieldnames: ", fieldnames(typeof(age80tree[breakday_idx])))
-# println("sickday ",age80tree[breakday_idx].sickday)
+# println("duration ",age80tree[breakday_idx].duration)
 # println("transition \n", age80tree[breakday_idx].transition)
 
 # %% [markdown]
@@ -209,7 +214,7 @@ cs.sanitycheck(basetransition.tree)
 # ### Build the simulation model
 
 # %%
-ndays = 810
+ndays = 850
 locale = 38015
 model = buildsim(ndays, locale;  
     dovax = true,
@@ -220,26 +225,29 @@ model = buildsim(ndays, locale;
     variantfilename = "variants.yml",
 );
 
-# %% [markdown]
-# ### Create a seed case
-
 # %%
-seed20_39_day1 = makesickseedfunc(; cond=nil, variant=:base, sickday=1, filter=[Term(:agegrp, age20_39), Term(:status, unexposed)], 
+seed20_39_day1 = makesickseedfunc(; cond=nil, variant=:base, duration=1, filter=[Term(:agegrp, age20_39), Term(:status, unexposed)], 
                             cnt=3, forlocale=0, triggerdate=1, forstartofday=true);
-seed40_59_day1 = makesickseedfunc(; cond=nil, variant=:base, sickday=1, filter=[Term(:agegrp, age40_59), Term(:status, unexposed)], 
-                            cnt=3, forlocale=0, triggerdate=1, forstartofday=true);                           
+seed40_59_day1 = makesickseedfunc(; cond=nil, variant=:base, duration=1, filter=[Term(:agegrp, age40_59), Term(:status, unexposed)], 
+                            cnt=3, forlocale=0, triggerdate=1, forstartofday=true);           
 
 # %%
-seed20_39_omicron = makesickseedfunc(; cond=nil, variant=:omicron_ba1, sickday=1, filter=[Term(:agegrp, age20_39), Term(:status, unexposed)], 
-                            cnt=3, forlocale=0, triggerdate=360, forstartofday=true);
-seed40_59_omicron = makesickseedfunc(; cond=nil, variant=:omicron_ba1, sickday=1, filter=[Term(:agegrp, age40_59), Term(:status, unexposed)], 
-                            cnt=3, forlocale=0, triggerdate=360, forstartofday=true);                            
+seed20_39_delta = makesickseedfunc(; cond=nil, variant=:delta, duration=1, filter=[Term(:agegrp, age20_39), Term(:status, unexposed)], 
+        cnt=3, forlocale=0, triggerdate=460, forstartofday=true);
+seed40_59_delta = makesickseedfunc(; cond=nil, variant=:delta, duration=1, filter=[Term(:agegrp, age40_59), Term(:status, unexposed)], 
+        cnt=3, forlocale=0, triggerdate=460, forstartofday=true);        
 
 # %%
-seed20_39_omicron_ba2 = makesickseedfunc(; cond=nil, variant=:omicron_ba2, sickday=1, filter=[Term(:agegrp, age20_39), Term(:status, unexposed)], 
-                            cnt=3, forlocale=0, triggerdate=460, forstartofday=true);
-seed40_59_omicron_ba2 = makesickseedfunc(; cond=nil, variant=:omicron_ba2, sickday=1, filter=[Term(:agegrp, age40_59), Term(:status, unexposed)], 
-                            cnt=3, forlocale=0, triggerdate=460, forstartofday=true);                            
+seed20_39_omicron = makesickseedfunc(; cond=nil, variant=:omicron_ba1, duration=1, filter=[Term(:agegrp, age20_39), Term(:status, unexposed)], 
+                            cnt=3, forlocale=0, triggerdate=640, forstartofday=true);
+seed40_59_omicron = makesickseedfunc(; cond=nil, variant=:omicron_ba1, duration=1, filter=[Term(:agegrp, age40_59), Term(:status, unexposed)], 
+                            cnt=3, forlocale=0, triggerdate=640, forstartofday=true);                            
+
+# %%
+seed20_39_omicron_ba2 = makesickseedfunc(; cond=nil, variant=:omicron_ba2, duration=1, filter=[Term(:agegrp, age20_39), Term(:status, unexposed)], 
+                            cnt=6, forlocale=0, triggerdate=720, forstartofday=true);
+seed40_59_omicron_ba2 = makesickseedfunc(; cond=nil, variant=:omicron_ba2, duration=1, filter=[Term(:agegrp, age40_59), Term(:status, unexposed)], 
+                            cnt=6, forlocale=0, triggerdate=720, forstartofday=true);                            
 
 # %% [markdown]
 # ### Run the simulation model
@@ -247,10 +255,11 @@ seed40_59_omicron_ba2 = makesickseedfunc(; cond=nil, variant=:omicron_ba2, sickd
 # %%
 popdat, series = runsim(model;
             dovax=true,
-            runcases=[seed20_39_day1, seed40_59_day1, seed20_39_omicron, seed40_59_omicron,
+            runcases=[seed20_39_day1, seed40_59_day1, seed20_39_delta, seed40_59_delta, seed20_39_omicron, seed40_59_omicron,
                       seed20_39_omicron_ba2, seed40_59_omicron_ba2]   # or seed_1_6 if using old way
             );
 locdat = popdat[locale];
+
 
 # %%
 filt_vaccinated = findall(last.(popdat[38015].vaxrcvd) .!= :none)
@@ -282,7 +291,11 @@ cumplot(series, locale)
 cumplot(series, locale, [:nil, :mild, :sick, :severe, :totinfected])
 
 # %%
-cumplot(series, locale, [:base, :omicron_ba1, :omicron_ba2])
+newplot(series, locale, [:dead])
+
+# %%
+cumplot(series, locale, [:base, :delta, :omicron_ba1, :omicron_ba2])
+
 
 # %% [markdown]
 # ## Examine Vaccination process and outcomes
@@ -308,17 +321,31 @@ dose1 = count(length.(locdat.vaxrcvd[last.(locdat.vaxrcvd) .== vax]) .== 1)
 println("Count people with $vax 1 dose: $dose1 2 doses: $dose2 Any: $(dose1 + dose2)")
 println("Doses used = $(2 * dose2 + dose1)")
 
+
+# %%
+newplot(series, locale, [:Pfizer], days=380:700)
+
+
+# %%
+newplot(series, locale, [:Moderna], days=380:700)
+
+# %%
+newplot(series, locale, :JnJ, days=380:600)
+
+
+# %%
+newplot(series, locale, :unexposed)
+
+
+
+
 # %% [markdown]
-# ## Why did the same number of people die with or without vaccinating nearly half the population?
+# ## How many people got sick multiple times?
+#
+#
 
 # %%
-cumplot(series, locale, :Pfizer,days=160:600)
-
-# %%
-cumplot(series, locale, :Moderna, days=160:600)
-
-# %%
-cumplot(series, locale, :JnJ, days=160:600)
+countmap(length.(locdat.variant))
 
 # %% [markdown]
 # ## Test a social distancing case

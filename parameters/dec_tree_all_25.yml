@@ -1,5 +1,5 @@
 1:                                          # agegrp
-  [5,5]:                                      # node is [sickdayday effective, from condition]
+  [5,5]:                                      # node is [durationday effective, from condition]
     - {tocond: 5, next: [9, 5], pr: 0.4}
     - {tocond: 6, next: [9, 6], pr: 0.5}
     - {tocond: 7, next: [9, 7], pr: 0.1}

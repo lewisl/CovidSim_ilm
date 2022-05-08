@@ -19,8 +19,8 @@ opendatmx and isolatedmx are dicts:
 
 Dimensions are:
 
-- rows: sickdays, which indicated how many days members of a cohort have had the virus
-- columns: conditions => unexposed, infectious, recovered, dead, nil, mild, sick, and severe. nil, mild, sick, and severe are the only columns that use all sickday rows as they are the infectious conditions. Infectious is a convenience total of all 4 disease conditions and is never updated directly.
+- rows: duration, which indicated how many days members of a cohort have had the virus
+- columns: conditions => unexposed, infectious, recovered, dead, nil, mild, sick, and severe. nil, mild, sick, and severe are the only columns that use all duration rows as they are the infectious conditions. Infectious is a convenience total of all 4 disease conditions and is never updated directly.
 - planes (third dimension value): agegrps.  Currently, we use 5 agegroups:
     - 0-20
     - 20-40
@@ -38,10 +38,10 @@ Convenience functions enable accessing values, updating in place, adding in plac
 
 Here are the functions:
 
-- grab: ```grab(condition, agegrp, sickday, locale, openmx)```
-- input!: ```input!(val, condition, agegrp, sickday, locale, dat)```
-- plus!: ```plus!(val, condition, agegrp, sickday, locale, dat)```
-- minus!: ```minus!(val, condition, agegrp, sickday, locale, dat)```
+- grab: ```grab(condition, agegrp, duration, locale, openmx)```
+- input!: ```input!(val, condition, agegrp, duration, locale, dat)```
+- plus!: ```plus!(val, condition, agegrp, duration, locale, dat)```
+- minus!: ```minus!(val, condition, agegrp, duration, locale, dat)```
 
 **Alternative Mappings**
 

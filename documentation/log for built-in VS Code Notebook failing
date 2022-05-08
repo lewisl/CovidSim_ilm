@@ -1,0 +1,336 @@
+Visual Studio Code (1.67.0, undefined, desktop)
+Jupyter Extension Version: 2022.4.1011282140.
+Python Extension Version: 2022.6.0.
+Workspace folder /Users/lewis/Dropbox/Covid Modeling/Covid-ILM
+error 15:43:27.977: Exception while attempting zmq : Error: No native build was found for platform=darwin arch=arm64 runtime=electron abi=101 uv=1 armv=8 libc=glibc node=16.13.0 electron=17.4.1
+    loaded from: /Users/lewis/.vscode/extensions/ms-toolsai.jupyter-2022.4.1011282140/out/node_modules/zeromq
+
+    at Function.load.path (/Users/lewis/.vscode/extensions/ms-toolsai.jupyter-2022.4.1011282140/out/node_modules/node-gyp-build/index.js:1:3163)
+    at load (/Users/lewis/.vscode/extensions/ms-toolsai.jupyter-2022.4.1011282140/out/node_modules/node-gyp-build/index.js:1:648)
+    at Object.<anonymous> (/Users/lewis/.vscode/extensions/ms-toolsai.jupyter-2022.4.1011282140/out/node_modules/zeromq/lib/native.js:1:198)
+    at Module.u._compile (/Applications/Visual Studio Code.app/Contents/Resources/app/out/vs/loader.js:4:1313)
+    at Object.Module._extensions..js (node:internal/modules/cjs/loader:1216:10)
+    at Module.load (node:internal/modules/cjs/loader:1035:32)
+    at Module._load (node:internal/modules/cjs/loader:876:12)
+    at Function.c._load (node:electron/js2c/asar_bundle:5:13343)
+    at Function.s._load (/Applications/Visual Studio Code.app/Contents/Resources/app/out/vs/workbench/api/node/extensionHostProcess.js:102:32307)
+    at Function.b._load (/Applications/Visual Studio Code.app/Contents/Resources/app/out/vs/workbench/api/node/extensionHostProcess.js:102:28750)
+    at Function._._load (/Applications/Visual Studio Code.app/Contents/Resources/app/out/vs/workbench/api/node/extensionHostProcess.js:97:61719)
+    at Module.require (node:internal/modules/cjs/loader:1059:19)
+    at h (/Applications/Visual Studio Code.app/Contents/Resources/app/out/vs/loader.js:4:699)
+    at Object.<anonymous> (/Users/lewis/.vscode/extensions/ms-toolsai.jupyter-2022.4.1011282140/out/node_modules/zeromq/lib/index.js:1:144)
+    at Module.u._compile (/Applications/Visual Studio Code.app/Contents/Resources/app/out/vs/loader.js:4:1313)
+    at Object.Module._extensions..js (node:internal/modules/cjs/loader:1216:10)
+    at Module.load (node:internal/modules/cjs/loader:1035:32)
+    at Module._load (node:internal/modules/cjs/loader:876:12)
+    at Function.c._load (node:electron/js2c/asar_bundle:5:13343)
+    at Function.s._load (/Applications/Visual Studio Code.app/Contents/Resources/app/out/vs/workbench/api/node/extensionHostProcess.js:102:32307)
+    at Function.b._load (/Applications/Visual Studio Code.app/Contents/Resources/app/out/vs/workbench/api/node/extensionHostProcess.js:102:28750)
+    at Function._._load (/Applications/Visual Studio Code.app/Contents/Resources/app/out/vs/workbench/api/node/extensionHostProcess.js:97:61719)
+    at Module.require (node:internal/modules/cjs/loader:1059:19)
+    at h (/Applications/Visual Studio Code.app/Contents/Resources/app/out/vs/loader.js:4:699)
+    at Object.92747 (/Users/lewis/.vscode/extensions/ms-toolsai.jupyter-2022.4.1011282140/out/extension.node.js:2:4028080)
+    at __webpack_require__ (/Users/lewis/.vscode/extensions/ms-toolsai.jupyter-2022.4.1011282140/out/extension.node.js:2:4801729)
+    at u.zmqSupported (/Users/lewis/.vscode/extensions/ms-toolsai.jupyter-2022.4.1011282140/out/extension.node.js:2:539428)
+    at u.isSupportedForLocalLaunch (/Users/lewis/.vscode/extensions/ms-toolsai.jupyter-2022.4.1011282140/out/extension.node.js:2:539171)
+    at u.get isSupported [as isSupported] (/Users/lewis/.vscode/extensions/ms-toolsai.jupyter-2022.4.1011282140/out/extension.node.js:2:539081)
+    at t.registerTypes (/Users/lewis/.vscode/extensions/ms-toolsai.jupyter-2022.4.1011282140/out/extension.node.js:2:551117)
+    at /Users/lewis/.vscode/extensions/ms-toolsai.jupyter-2022.4.1011282140/out/extension.node.js:2:4806637
+    at /Users/lewis/.vscode/extensions/ms-toolsai.jupyter-2022.4.1011282140/out/extension.node.js:2:4807386
+    at /Users/lewis/.vscode/extensions/ms-toolsai.jupyter-2022.4.1011282140/out/extension.node.js:2:4807394
+    at e.activate (/Users/lewis/.vscode/extensions/ms-toolsai.jupyter-2022.4.1011282140/out/extension.node.js:2:4807516)
+    at Function._callActivateOptional (/Applications/Visual Studio Code.app/Contents/Resources/app/out/vs/workbench/api/node/extensionHostProcess.js:88:17454)
+    at Function._callActivate (/Applications/Visual Studio Code.app/Contents/Resources/app/out/vs/workbench/api/node/extensionHostProcess.js:88:17119)
+    at /Applications/Visual Studio Code.app/Contents/Resources/app/out/vs/workbench/api/node/extensionHostProcess.js:88:14937
+    at processTicksAndRejections (node:internal/process/task_queues:96:5)
+    at _activate (/Applications/Visual Studio Code.app/Contents/Resources/app/out/vs/workbench/api/node/extensionHostProcess.js:83:8180)
+    at _waitForDepsThenActivate (/Applications/Visual Studio Code.app/Contents/Resources/app/out/vs/workbench/api/node/extensionHostProcess.js:83:8122)
+    at _initialize (/Applications/Visual Studio Code.app/Contents/Resources/app/out/vs/workbench/api/node/extensionHostProcess.js:83:7486)
+User belongs to experiment group 'jupyterTest'
+User belongs to experiment group 'jupyterEnhancedDataViewer'
+info 15:43:28.218: Old kernelSpecs (created by Jupyter extension) stored in directory /Users/lewis/Library/Jupyter/kernels/__old_vscode_kernelspecs
+info 15:43:28.225: Attempting to start a server because of preload conditions ...
+info 15:43:28.226: Checking for server existence.
+info 15:43:28.226: Checking for server usability.
+info 15:43:28.401: Preferred Remote kernel for /Users/lewis/Dropbox/Covid Modeling/Covid-ILM/notebooks/test variant.ipynb is bb63c4ba-5fb2-4aea-9264-829c64850758
+info 15:43:28.401: Find preferred kernel for /Users/lewis/Dropbox/Covid Modeling/Covid-ILM/notebooks/test variant.ipynb with metadata {"jupytext":{"formats":"jl:percent,ipynb"},"kernelspec":{"display_name":"Julia 4 threads 1.7.2","language":"julia","name":"julia-4-threads-1.7"},"language_info":{"file_extension":".jl","mimetype":"application/julia","name":"julia","version":"1.7.2"}} & preferred interpreter 
+info 15:43:28.402: Preferred Remote kernel for /Users/lewis/Dropbox/Covid Modeling/Covid-ILM/notebooks/test variant.ipynb is bb63c4ba-5fb2-4aea-9264-829c64850758
+info 15:43:28.402: Preferred kernel .julia-4-threads-1.7./Applications/Julia-1.7.app/Contents/Resources/julia/bin/julia././applications/julia-1.7.app/contents/resources/julia/bin/julia#-i#--color=yes#/users/lewis/.julia/packages/ijulia/aqu2h/src/kernel.jl#{connection_file} is exact match
+info 15:43:28.403: PreferredConnection: .julia-4-threads-1.7./Applications/Julia-1.7.app/Contents/Resources/julia/bin/julia././applications/julia-1.7.app/contents/resources/julia/bin/julia#-i#--color=yes#/users/lewis/.julia/packages/ijulia/aqu2h/src/kernel.jl#{connection_file} found for NotebookDocument: /Users/lewis/Dropbox/Covid Modeling/Covid-ILM/notebooks/test variant.ipynb
+info 15:43:28.403: TargetController found ID: .julia-4-threads-1.7./Applications/Julia-1.7.app/Contents/Resources/julia/bin/julia././applications/julia-1.7.app/contents/resources/julia/bin/julia#-i#--color=yes#/users/lewis/.julia/packages/ijulia/aqu2h/src/kernel.jl#{connection_file} for document /Users/lewis/Dropbox/Covid Modeling/Covid-ILM/notebooks/test variant.ipynb
+info 15:43:28.431: Starting Notebook id = .julia-4-threads-1.7./Applications/Julia-1.7.app/Contents/Resources/julia/bin/julia././applications/julia-1.7.app/contents/resources/julia/bin/julia#-i#--color=yes#/users/lewis/.julia/packages/ijulia/aqu2h/src/kernel.jl#{connection_file} for /Users/lewis/Dropbox/Covid Modeling/Covid-ILM/notebooks/test variant.ipynb (disableUI=true)
+info 15:43:28.464: Experiment status for python is {"enabled":true,"optInto":[],"optOutFrom":[]}
+info 15:43:28.476: API called from ms-toolsai.vscode-jupyter-powertoys
+info 15:43:28.541: Process Execution: > /usr/local/bin/python3 -m pip list
+> /usr/local/bin/python3 -m pip list
+info 15:43:28.541: Process Execution: > /usr/local/bin/python3 -c "import notebook"
+> /usr/local/bin/python3 -c "import notebook"
+info 15:43:28.541: Process Execution: > /usr/local/bin/python3 -c "import jupyter"
+> /usr/local/bin/python3 -c "import jupyter"
+info 15:43:28.548: Preferred Remote kernel for /Users/lewis/Dropbox/Covid Modeling/Covid-ILM/notebooks/test variant.ipynb is bb63c4ba-5fb2-4aea-9264-829c64850758
+info 15:43:28.548: Find preferred kernel for /Users/lewis/Dropbox/Covid Modeling/Covid-ILM/notebooks/test variant.ipynb with metadata {"jupytext":{"formats":"jl:percent,ipynb"},"kernelspec":{"display_name":"Julia 4 threads 1.7.2","language":"julia","name":"julia-4-threads-1.7"},"language_info":{"file_extension":".jl","mimetype":"application/julia","name":"julia","version":"1.7.2"}} & preferred interpreter 
+info 15:43:28.548: Preferred Remote kernel for /Users/lewis/Dropbox/Covid Modeling/Covid-ILM/notebooks/test variant.ipynb is bb63c4ba-5fb2-4aea-9264-829c64850758
+info 15:43:28.548: Preferred kernel .julia-4-threads-1.7./Applications/Julia-1.7.app/Contents/Resources/julia/bin/julia././applications/julia-1.7.app/contents/resources/julia/bin/julia#-i#--color=yes#/users/lewis/.julia/packages/ijulia/aqu2h/src/kernel.jl#{connection_file} is exact match
+info 15:43:28.645: Process Execution: > /usr/local/bin/python3 -m jupyter kernelspec --version
+> /usr/local/bin/python3 -m jupyter kernelspec --version
+info 15:43:28.892: Registering dummy command feature
+info 15:43:28.926: Starting notebook server.
+info 15:43:28.927: Connecting to server
+info 15:43:28.927: Launching server
+info 15:43:28.927: Starting Notebook
+info 15:43:29.558: Generating custom default config at /var/folders/9m/q4m1bq1972z9gqw3d7s9rqfh0000gn/T/4d1d9fd0-d36f-45da-bbd2-5ac55b4053c7/jupyter_notebook_config.py
+info 15:43:29.558: Starting Jupyter Notebook
+Starting Jupyter from /usr/local/bin/python3 with command line --no-browser --notebook-dir="/Users/lewis/Dropbox/Covid Modeling/Covid-ILM" --config=/var/folders/9m/q4m1bq1972z9gqw3d7s9rqfh0000gn/T/4d1d9fd0-d36f-45da-bbd2-5ac55b4053c7/jupyter_notebook_config.py --NotebookApp.iopub_data_rate_limit=10000000000.0
+info 15:43:29.563: Creating daemon pool for /usr/local/bin/python3 with env variables count 42
+info 15:43:29.563: Process Execution: > /usr/local/bin/python3 -m vscode_datascience_helpers.daemon --daemon-module=vscode_datascience_helpers.jupyter_daemon -v --ppid 54079
+> /usr/local/bin/python3 -m vscode_datascience_helpers.daemon --daemon-module=vscode_datascience_helpers.jupyter_daemon -v --ppid 54079
+info 15:43:29.564: Process Execution: > /usr/local/bin/python3 -m vscode_datascience_helpers.daemon --daemon-module=vscode_datascience_helpers.jupyter_daemon -v --ppid 54079
+> /usr/local/bin/python3 -m vscode_datascience_helpers.daemon --daemon-module=vscode_datascience_helpers.jupyter_daemon -v --ppid 54079
+info 15:43:29.564: Process Execution: > /usr/local/bin/python3 -m vscode_datascience_helpers.daemon --daemon-module=vscode_datascience_helpers.jupyter_daemon -v --ppid 54079
+> /usr/local/bin/python3 -m vscode_datascience_helpers.daemon --daemon-module=vscode_datascience_helpers.jupyter_daemon -v --ppid 54079
+info 15:43:29.602: Process Execution: > /usr/local/bin/python3 (daemon) -m jupyter notebook --no-browser --notebook-dir="/Users/lewis/Dropbox/Covid Modeling/Covid-ILM" --config=/var/folders/9m/q4m1bq1972z9gqw3d7s9rqfh0000gn/T/4d1d9fd0-d36f-45da-bbd2-5ac55b4053c7/jupyter_notebook_config.py --NotebookApp.iopub_data_rate_limit=10000000000.0
+> /usr/local/bin/python3 (daemon) -m jupyter notebook --no-browser --notebook-dir="/Users/lewis/Dropbox/Covid Modeling/Covid-ILM" --config=/var/folders/9m/q4m1bq1972z9gqw3d7s9rqfh0000gn/T/4d1d9fd0-d36f-45da-bbd2-5ac55b4053c7/jupyter_notebook_config.py --NotebookApp.iopub_data_rate_limit=10000000000.0
+info 15:43:29.603: Waiting for Jupyter Notebook
+/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/traitlets/traitlets.py:2202: FutureWarning: Supporting extra quotes around strings is deprecated in traitlets 5.0. You can use '/Users/lewis/Dropbox/Covid Modeling/Covid-ILM' instead of '"/Users/lewis/Dropbox/Covid Modeling/Covid-ILM"' if you require traitlets >=5.
+  warn(
+info 15:43:29.743: /Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/traitlets/traitlets.py:2202: FutureWarning: Supporting extra quotes around strings is deprecated in traitlets 5.0. You can use '/Users/lewis/Dropbox/Covid Modeling/Covid-ILM' instead of '"/Users/lewis/Dropbox/Covid Modeling/Covid-ILM"' if you require traitlets >=5.
+  warn(
+
+[W 2022-05-06 15:43:29.987 LabApp] 'notebook_dir' has moved from NotebookApp to ServerApp. This config will be passed to ServerApp. Be sure to update your config before our next release.
+info 15:43:29.987: /Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/traitlets/traitlets.py:2202: FutureWarning: Supporting extra quotes around strings is deprecated in traitlets 5.0. You can use '/Users/lewis/Dropbox/Covid Modeling/Covid-ILM' instead of '"/Users/lewis/Dropbox/Covid Modeling/Covid-ILM"' if you require traitlets >=5.
+  warn(
+[W 2022-05-06 15:43:29.987 LabApp] 'notebook_dir' has moved from NotebookApp to ServerApp. This config will be passed to ServerApp. Be sure to update your config before our next release.
+
+[W 2022-05-06 15:43:29.987 LabApp] 'config_file' was found in both NotebookApp and ServerApp. This is likely a recent change. This config will only be set in NotebookApp. Please check if you should also config these traits in ServerApp for your purpose.
+info 15:43:29.987: /Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/traitlets/traitlets.py:2202: FutureWarning: Supporting extra quotes around strings is deprecated in traitlets 5.0. You can use '/Users/lewis/Dropbox/Covid Modeling/Covid-ILM' instead of '"/Users/lewis/Dropbox/Covid Modeling/Covid-ILM"' if you require traitlets >=5.
+  warn(
+[W 2022-05-06 15:43:29.987 LabApp] 'notebook_dir' has moved from NotebookApp to ServerApp. This config will be passed to ServerApp. Be sure to update your config before our next release.
+[W 2022-05-06 15:43:29.987 LabApp] 'config_file' was found in both NotebookApp and ServerApp. This is likely a recent change. This config will only be set in NotebookApp. Please check if you should also config these traits in ServerApp for your purpose.
+
+[W 2022-05-06 15:43:29.987 LabApp] 'iopub_data_rate_limit' has moved from NotebookApp to ServerApp. This config will be passed to ServerApp. Be sure to update your config before our next release.
+info 15:43:29.987: /Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/traitlets/traitlets.py:2202: FutureWarning: Supporting extra quotes around strings is deprecated in traitlets 5.0. You can use '/Users/lewis/Dropbox/Covid Modeling/Covid-ILM' instead of '"/Users/lewis/Dropbox/Covid Modeling/Covid-ILM"' if you require traitlets >=5.
+  warn(
+[W 2022-05-06 15:43:29.987 LabApp] 'notebook_dir' has moved from NotebookApp to ServerApp. This config will be passed to ServerApp. Be sure to update your config before our next release.
+[W 2022-05-06 15:43:29.987 LabApp] 'config_file' was found in both NotebookApp and ServerApp. This is likely a recent change. This config will only be set in NotebookApp. Please check if you should also config these traits in ServerApp for your purpose.
+[W 2022-05-06 15:43:29.987 LabApp] 'iopub_data_rate_limit' has moved from NotebookApp to ServerApp. This config will be passed to ServerApp. Be sure to update your config before our next release.
+
+[W 2022-05-06 15:43:29.987 LabApp] 'iopub_data_rate_limit' has moved from NotebookApp to ServerApp. This config will be passed to ServerApp. Be sure to update your config before our next release.
+info 15:43:29.987: /Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/traitlets/traitlets.py:2202: FutureWarning: Supporting extra quotes around strings is deprecated in traitlets 5.0. You can use '/Users/lewis/Dropbox/Covid Modeling/Covid-ILM' instead of '"/Users/lewis/Dropbox/Covid Modeling/Covid-ILM"' if you require traitlets >=5.
+  warn(
+[W 2022-05-06 15:43:29.987 LabApp] 'notebook_dir' has moved from NotebookApp to ServerApp. This config will be passed to ServerApp. Be sure to update your config before our next release.
+[W 2022-05-06 15:43:29.987 LabApp] 'config_file' was found in both NotebookApp and ServerApp. This is likely a recent change. This config will only be set in NotebookApp. Please check if you should also config these traits in ServerApp for your purpose.
+[W 2022-05-06 15:43:29.987 LabApp] 'iopub_data_rate_limit' has moved from NotebookApp to ServerApp. This config will be passed to ServerApp. Be sure to update your config before our next release.
+[W 2022-05-06 15:43:29.987 LabApp] 'iopub_data_rate_limit' has moved from NotebookApp to ServerApp. This config will be passed to ServerApp. Be sure to update your config before our next release.
+
+[W 2022-05-06 15:43:29.987 LabApp] 'iopub_data_rate_limit' has moved from NotebookApp to ServerApp. This config will be passed to ServerApp. Be sure to update your config before our next release.
+info 15:43:29.987: /Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/traitlets/traitlets.py:2202: FutureWarning: Supporting extra quotes around strings is deprecated in traitlets 5.0. You can use '/Users/lewis/Dropbox/Covid Modeling/Covid-ILM' instead of '"/Users/lewis/Dropbox/Covid Modeling/Covid-ILM"' if you require traitlets >=5.
+  warn(
+[W 2022-05-06 15:43:29.987 LabApp] 'notebook_dir' has moved from NotebookApp to ServerApp. This config will be passed to ServerApp. Be sure to update your config before our next release.
+[W 2022-05-06 15:43:29.987 LabApp] 'config_file' was found in both NotebookApp and ServerApp. This is likely a recent change. This config will only be set in NotebookApp. Please check if you should also config these traits in ServerApp for your purpose.
+[W 2022-05-06 15:43:29.987 LabApp] 'iopub_data_rate_limit' has moved from NotebookApp to ServerApp. This config will be passed to ServerApp. Be sure to update your config before our next release.
+[W 2022-05-06 15:43:29.987 LabApp] 'iopub_data_rate_limit' has moved from NotebookApp to ServerApp. This config will be passed to ServerApp. Be sure to update your config before our next release.
+[W 2022-05-06 15:43:29.987 LabApp] 'iopub_data_rate_limit' has moved from NotebookApp to ServerApp. This config will be passed to ServerApp. Be sure to update your config before our next release.
+
+[I 2022-05-06 15:43:29.990 LabApp] JupyterLab extension loaded from /Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/jupyterlab
+info 15:43:29.991: /Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/traitlets/traitlets.py:2202: FutureWarning: Supporting extra quotes around strings is deprecated in traitlets 5.0. You can use '/Users/lewis/Dropbox/Covid Modeling/Covid-ILM' instead of '"/Users/lewis/Dropbox/Covid Modeling/Covid-ILM"' if you require traitlets >=5.
+  warn(
+[W 2022-05-06 15:43:29.987 LabApp] 'notebook_dir' has moved from NotebookApp to ServerApp. This config will be passed to ServerApp. Be sure to update your config before our next release.
+[W 2022-05-06 15:43:29.987 LabApp] 'config_file' was found in both NotebookApp and ServerApp. This is likely a recent change. This config will only be set in NotebookApp. Please check if you should also config these traits in ServerApp for your purpose.
+[W 2022-05-06 15:43:29.987 LabApp] 'iopub_data_rate_limit' has moved from NotebookApp to ServerApp. This config will be passed to ServerApp. Be sure to update your config before our next release.
+[W 2022-05-06 15:43:29.987 LabApp] 'iopub_data_rate_limit' has moved from NotebookApp to ServerApp. This config will be passed to ServerApp. Be sure to update your config before our next release.
+[W 2022-05-06 15:43:29.987 LabApp] 'iopub_data_rate_limit' has moved from NotebookApp to ServerApp. This config will be passed to ServerApp. Be sure to update your config before our next release.
+[I 2022-05-06 15:43:29.990 LabApp] JupyterLab extension loaded from /Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/jupyterlab
+
+[I 2022-05-06 15:43:29.990 LabApp] JupyterLab application directory is /Library/Frameworks/Python.framework/Versions/3.10/share/jupyter/lab
+info 15:43:29.991: /Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/traitlets/traitlets.py:2202: FutureWarning: Supporting extra quotes around strings is deprecated in traitlets 5.0. You can use '/Users/lewis/Dropbox/Covid Modeling/Covid-ILM' instead of '"/Users/lewis/Dropbox/Covid Modeling/Covid-ILM"' if you require traitlets >=5.
+  warn(
+[W 2022-05-06 15:43:29.987 LabApp] 'notebook_dir' has moved from NotebookApp to ServerApp. This config will be passed to ServerApp. Be sure to update your config before our next release.
+[W 2022-05-06 15:43:29.987 LabApp] 'config_file' was found in both NotebookApp and ServerApp. This is likely a recent change. This config will only be set in NotebookApp. Please check if you should also config these traits in ServerApp for your purpose.
+[W 2022-05-06 15:43:29.987 LabApp] 'iopub_data_rate_limit' has moved from NotebookApp to ServerApp. This config will be passed to ServerApp. Be sure to update your config before our next release.
+[W 2022-05-06 15:43:29.987 LabApp] 'iopub_data_rate_limit' has moved from NotebookApp to ServerApp. This config will be passed to ServerApp. Be sure to update your config before our next release.
+[W 2022-05-06 15:43:29.987 LabApp] 'iopub_data_rate_limit' has moved from NotebookApp to ServerApp. This config will be passed to ServerApp. Be sure to update your config before our next release.
+[I 2022-05-06 15:43:29.990 LabApp] JupyterLab extension loaded from /Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/jupyterlab
+[I 2022-05-06 15:43:29.990 LabApp] JupyterLab application directory is /Library/Frameworks/Python.framework/Versions/3.10/share/jupyter/lab
+
+[I 15:43:30.119 NotebookApp] [Jupytext Server Extension] Deriving a JupytextContentsManager from LargeFileManager
+info 15:43:30.119: /Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/traitlets/traitlets.py:2202: FutureWarning: Supporting extra quotes around strings is deprecated in traitlets 5.0. You can use '/Users/lewis/Dropbox/Covid Modeling/Covid-ILM' instead of '"/Users/lewis/Dropbox/Covid Modeling/Covid-ILM"' if you require traitlets >=5.
+  warn(
+[W 2022-05-06 15:43:29.987 LabApp] 'notebook_dir' has moved from NotebookApp to ServerApp. This config will be passed to ServerApp. Be sure to update your config before our next release.
+[W 2022-05-06 15:43:29.987 LabApp] 'config_file' was found in both NotebookApp and ServerApp. This is likely a recent change. This config will only be set in NotebookApp. Please check if you should also config these traits in ServerApp for your purpose.
+[W 2022-05-06 15:43:29.987 LabApp] 'iopub_data_rate_limit' has moved from NotebookApp to ServerApp. This config will be passed to ServerApp. Be sure to update your config before our next release.
+[W 2022-05-06 15:43:29.987 LabApp] 'iopub_data_rate_limit' has moved from NotebookApp to ServerApp. This config will be passed to ServerApp. Be sure to update your config before our next release.
+[W 2022-05-06 15:43:29.987 LabApp] 'iopub_data_rate_limit' has moved from NotebookApp to ServerApp. This config will be passed to ServerApp. Be sure to update your config before our next release.
+[I 2022-05-06 15:43:29.990 LabApp] JupyterLab extension loaded from /Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/jupyterlab
+[I 2022-05-06 15:43:29.990 LabApp] JupyterLab application directory is /Library/Frameworks/Python.framework/Versions/3.10/share/jupyter/lab
+[I 15:43:30.119 NotebookApp] [Jupytext Server Extension] Deriving a JupytextContentsManager from LargeFileManager
+
+[I 15:43:30.123 NotebookApp] Serving notebooks from local directory: /Users/lewis/Dropbox/Covid Modeling/Covid-ILM
+info 15:43:30.124: /Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/traitlets/traitlets.py:2202: FutureWarning: Supporting extra quotes around strings is deprecated in traitlets 5.0. You can use '/Users/lewis/Dropbox/Covid Modeling/Covid-ILM' instead of '"/Users/lewis/Dropbox/Covid Modeling/Covid-ILM"' if you require traitlets >=5.
+  warn(
+[W 2022-05-06 15:43:29.987 LabApp] 'notebook_dir' has moved from NotebookApp to ServerApp. This config will be passed to ServerApp. Be sure to update your config before our next release.
+[W 2022-05-06 15:43:29.987 LabApp] 'config_file' was found in both NotebookApp and ServerApp. This is likely a recent change. This config will only be set in NotebookApp. Please check if you should also config these traits in ServerApp for your purpose.
+[W 2022-05-06 15:43:29.987 LabApp] 'iopub_data_rate_limit' has moved from NotebookApp to ServerApp. This config will be passed to ServerApp. Be sure to update your config before our next release.
+[W 2022-05-06 15:43:29.987 LabApp] 'iopub_data_rate_limit' has moved from NotebookApp to ServerApp. This config will be passed to ServerApp. Be sure to update your config before our next release.
+[W 2022-05-06 15:43:29.987 LabApp] 'iopub_data_rate_limit' has moved from NotebookApp to ServerApp. This config will be passed to ServerApp. Be sure to update your config before our next release.
+[I 2022-05-06 15:43:29.990 LabApp] JupyterLab extension loaded from /Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/jupyterlab
+[I 2022-05-06 15:43:29.990 LabApp] JupyterLab application directory is /Library/Frameworks/Python.framework/Versions/3.10/share/jupyter/lab
+[I 15:43:30.119 NotebookApp] [Jupytext Server Extension] Deriving a JupytextContentsManager from LargeFileManager
+[I 15:43:30.123 NotebookApp] Serving notebooks from local directory: /Users/lewis/Dropbox/Covid Modeling/Covid-ILM
+
+[I 15:43:30.124 NotebookApp] Jupyter Notebook 6.4.11 is running at:
+info 15:43:30.124: /Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/traitlets/traitlets.py:2202: FutureWarning: Supporting extra quotes around strings is deprecated in traitlets 5.0. You can use '/Users/lewis/Dropbox/Covid Modeling/Covid-ILM' instead of '"/Users/lewis/Dropbox/Covid Modeling/Covid-ILM"' if you require traitlets >=5.
+  warn(
+[W 2022-05-06 15:43:29.987 LabApp] 'notebook_dir' has moved from NotebookApp to ServerApp. This config will be passed to ServerApp. Be sure to update your config before our next release.
+[W 2022-05-06 15:43:29.987 LabApp] 'config_file' was found in both NotebookApp and ServerApp. This is likely a recent change. This config will only be set in NotebookApp. Please check if you should also config these traits in ServerApp for your purpose.
+[W 2022-05-06 15:43:29.987 LabApp] 'iopub_data_rate_limit' has moved from NotebookApp to ServerApp. This config will be passed to ServerApp. Be sure to update your config before our next release.
+[W 2022-05-06 15:43:29.987 LabApp] 'iopub_data_rate_limit' has moved from NotebookApp to ServerApp. This config will be passed to ServerApp. Be sure to update your config before our next release.
+[W 2022-05-06 15:43:29.987 LabApp] 'iopub_data_rate_limit' has moved from NotebookApp to ServerApp. This config will be passed to ServerApp. Be sure to update your config before our next release.
+[I 2022-05-06 15:43:29.990 LabApp] JupyterLab extension loaded from /Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/jupyterlab
+[I 2022-05-06 15:43:29.990 LabApp] JupyterLab application directory is /Library/Frameworks/Python.framework/Versions/3.10/share/jupyter/lab
+[I 15:43:30.119 NotebookApp] [Jupytext Server Extension] Deriving a JupytextContentsManager from LargeFileManager
+[I 15:43:30.123 NotebookApp] Serving notebooks from local directory: /Users/lewis/Dropbox/Covid Modeling/Covid-ILM
+[I 15:43:30.124 NotebookApp] Jupyter Notebook 6.4.11 is running at:
+
+[I 15:43:30.124 NotebookApp] http://localhost:8888/?token=5a707a1226e7e0fcd9b6271b62f479720cfe40bc5ad4697b
+info 15:43:30.124: /Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/traitlets/traitlets.py:2202: FutureWarning: Supporting extra quotes around strings is deprecated in traitlets 5.0. You can use '/Users/lewis/Dropbox/Covid Modeling/Covid-ILM' instead of '"/Users/lewis/Dropbox/Covid Modeling/Covid-ILM"' if you require traitlets >=5.
+  warn(
+[W 2022-05-06 15:43:29.987 LabApp] 'notebook_dir' has moved from NotebookApp to ServerApp. This config will be passed to ServerApp. Be sure to update your config before our next release.
+[W 2022-05-06 15:43:29.987 LabApp] 'config_file' was found in both NotebookApp and ServerApp. This is likely a recent change. This config will only be set in NotebookApp. Please check if you should also config these traits in ServerApp for your purpose.
+[W 2022-05-06 15:43:29.987 LabApp] 'iopub_data_rate_limit' has moved from NotebookApp to ServerApp. This config will be passed to ServerApp. Be sure to update your config before our next release.
+[W 2022-05-06 15:43:29.987 LabApp] 'iopub_data_rate_limit' has moved from NotebookApp to ServerApp. This config will be passed to ServerApp. Be sure to update your config before our next release.
+[W 2022-05-06 15:43:29.987 LabApp] 'iopub_data_rate_limit' has moved from NotebookApp to ServerApp. This config will be passed to ServerApp. Be sure to update your config before our next release.
+[I 2022-05-06 15:43:29.990 LabApp] JupyterLab extension loaded from /Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/jupyterlab
+[I 2022-05-06 15:43:29.990 LabApp] JupyterLab application directory is /Library/Frameworks/Python.framework/Versions/3.10/share/jupyter/lab
+[I 15:43:30.119 NotebookApp] [Jupytext Server Extension] Deriving a JupytextContentsManager from LargeFileManager
+[I 15:43:30.123 NotebookApp] Serving notebooks from local directory: /Users/lewis/Dropbox/Covid Modeling/Covid-ILM
+[I 15:43:30.124 NotebookApp] Jupyter Notebook 6.4.11 is running at:
+[I 15:43:30.124 NotebookApp] http://localhost:8888/?token=5a707a1226e7e0fcd9b6271b62f479720cfe40bc5ad4697b
+
+info 15:43:30.125: Process Execution: > /usr/local/bin/python3 (daemon) ~/.vscode/extensions/ms-toolsai.jupyter-2022.4.1011282140/pythonFiles/vscode_datascience_helpers/getServerInfo.py
+> /usr/local/bin/python3 (daemon) ~/.vscode/extensions/ms-toolsai.jupyter-2022.4.1011282140/pythonFiles/vscode_datascience_helpers/getServerInfo.py
+[I 15:43:30.124 NotebookApp]  or http://127.0.0.1:8888/?token=5a707a1226e7e0fcd9b6271b62f479720cfe40bc5ad4697b
+info 15:43:30.125: /Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/traitlets/traitlets.py:2202: FutureWarning: Supporting extra quotes around strings is deprecated in traitlets 5.0. You can use '/Users/lewis/Dropbox/Covid Modeling/Covid-ILM' instead of '"/Users/lewis/Dropbox/Covid Modeling/Covid-ILM"' if you require traitlets >=5.
+  warn(
+[W 2022-05-06 15:43:29.987 LabApp] 'notebook_dir' has moved from NotebookApp to ServerApp. This config will be passed to ServerApp. Be sure to update your config before our next release.
+[W 2022-05-06 15:43:29.987 LabApp] 'config_file' was found in both NotebookApp and ServerApp. This is likely a recent change. This config will only be set in NotebookApp. Please check if you should also config these traits in ServerApp for your purpose.
+[W 2022-05-06 15:43:29.987 LabApp] 'iopub_data_rate_limit' has moved from NotebookApp to ServerApp. This config will be passed to ServerApp. Be sure to update your config before our next release.
+[W 2022-05-06 15:43:29.987 LabApp] 'iopub_data_rate_limit' has moved from NotebookApp to ServerApp. This config will be passed to ServerApp. Be sure to update your config before our next release.
+[W 2022-05-06 15:43:29.987 LabApp] 'iopub_data_rate_limit' has moved from NotebookApp to ServerApp. This config will be passed to ServerApp. Be sure to update your config before our next release.
+[I 2022-05-06 15:43:29.990 LabApp] JupyterLab extension loaded from /Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/jupyterlab
+[I 2022-05-06 15:43:29.990 LabApp] JupyterLab application directory is /Library/Frameworks/Python.framework/Versions/3.10/share/jupyter/lab
+[I 15:43:30.119 NotebookApp] [Jupytext Server Extension] Deriving a JupytextContentsManager from LargeFileManager
+[I 15:43:30.123 NotebookApp] Serving notebooks from local directory: /Users/lewis/Dropbox/Covid Modeling/Covid-ILM
+[I 15:43:30.124 NotebookApp] Jupyter Notebook 6.4.11 is running at:
+[I 15:43:30.124 NotebookApp] http://localhost:8888/?token=5a707a1226e7e0fcd9b6271b62f479720cfe40bc5ad4697b
+[I 15:43:30.124 NotebookApp]  or http://127.0.0.1:8888/?token=5a707a1226e7e0fcd9b6271b62f479720cfe40bc5ad4697b
+
+info 15:43:30.125: Process Execution: > /usr/local/bin/python3 (daemon) ~/.vscode/extensions/ms-toolsai.jupyter-2022.4.1011282140/pythonFiles/vscode_datascience_helpers/getServerInfo.py
+> /usr/local/bin/python3 (daemon) ~/.vscode/extensions/ms-toolsai.jupyter-2022.4.1011282140/pythonFiles/vscode_datascience_helpers/getServerInfo.py
+[I 15:43:30.124 NotebookApp] Use Control-C to stop this server and shut down all kernels (twice to skip confirmation).
+info 15:43:30.126: /Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/traitlets/traitlets.py:2202: FutureWarning: Supporting extra quotes around strings is deprecated in traitlets 5.0. You can use '/Users/lewis/Dropbox/Covid Modeling/Covid-ILM' instead of '"/Users/lewis/Dropbox/Covid Modeling/Covid-ILM"' if you require traitlets >=5.
+  warn(
+[W 2022-05-06 15:43:29.987 LabApp] 'notebook_dir' has moved from NotebookApp to ServerApp. This config will be passed to ServerApp. Be sure to update your config before our next release.
+[W 2022-05-06 15:43:29.987 LabApp] 'config_file' was found in both NotebookApp and ServerApp. This is likely a recent change. This config will only be set in NotebookApp. Please check if you should also config these traits in ServerApp for your purpose.
+[W 2022-05-06 15:43:29.987 LabApp] 'iopub_data_rate_limit' has moved from NotebookApp to ServerApp. This config will be passed to ServerApp. Be sure to update your config before our next release.
+[W 2022-05-06 15:43:29.987 LabApp] 'iopub_data_rate_limit' has moved from NotebookApp to ServerApp. This config will be passed to ServerApp. Be sure to update your config before our next release.
+[W 2022-05-06 15:43:29.987 LabApp] 'iopub_data_rate_limit' has moved from NotebookApp to ServerApp. This config will be passed to ServerApp. Be sure to update your config before our next release.
+[I 2022-05-06 15:43:29.990 LabApp] JupyterLab extension loaded from /Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/jupyterlab
+[I 2022-05-06 15:43:29.990 LabApp] JupyterLab application directory is /Library/Frameworks/Python.framework/Versions/3.10/share/jupyter/lab
+[I 15:43:30.119 NotebookApp] [Jupytext Server Extension] Deriving a JupytextContentsManager from LargeFileManager
+[I 15:43:30.123 NotebookApp] Serving notebooks from local directory: /Users/lewis/Dropbox/Covid Modeling/Covid-ILM
+[I 15:43:30.124 NotebookApp] Jupyter Notebook 6.4.11 is running at:
+[I 15:43:30.124 NotebookApp] http://localhost:8888/?token=5a707a1226e7e0fcd9b6271b62f479720cfe40bc5ad4697b
+[I 15:43:30.124 NotebookApp]  or http://127.0.0.1:8888/?token=5a707a1226e7e0fcd9b6271b62f479720cfe40bc5ad4697b
+[I 15:43:30.124 NotebookApp] Use Control-C to stop this server and shut down all kernels (twice to skip confirmation).
+
+[C 15:43:30.126 NotebookApp] 
+    
+    To access the notebook, open this file in a browser:
+        file:///Users/lewis/Library/Jupyter/runtime/nbserver-54285-open.html
+    Or copy and paste one of these URLs:
+        http://localhost:8888/?token=5a707a1226e7e0fcd9b6271b62f479720cfe40bc5ad4697b
+     or http://127.0.0.1:8888/?token=5a707a1226e7e0fcd9b6271b62f479720cfe40bc5ad4697b
+info 15:43:30.126: /Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/traitlets/traitlets.py:2202: FutureWarning: Supporting extra quotes around strings is deprecated in traitlets 5.0. You can use '/Users/lewis/Dropbox/Covid Modeling/Covid-ILM' instead of '"/Users/lewis/Dropbox/Covid Modeling/Covid-ILM"' if you require traitlets >=5.
+  warn(
+[W 2022-05-06 15:43:29.987 LabApp] 'notebook_dir' has moved from NotebookApp to ServerApp. This config will be passed to ServerApp. Be sure to update your config before our next release.
+[W 2022-05-06 15:43:29.987 LabApp] 'config_file' was found in both NotebookApp and ServerApp. This is likely a recent change. This config will only be set in NotebookApp. Please check if you should also config these traits in ServerApp for your purpose.
+[W 2022-05-06 15:43:29.987 LabApp] 'iopub_data_rate_limit' has moved from NotebookApp to ServerApp. This config will be passed to ServerApp. Be sure to update your config before our next release.
+[W 2022-05-06 15:43:29.987 LabApp] 'iopub_data_rate_limit' has moved from NotebookApp to ServerApp. This config will be passed to ServerApp. Be sure to update your config before our next release.
+[W 2022-05-06 15:43:29.987 LabApp] 'iopub_data_rate_limit' has moved from NotebookApp to ServerApp. This config will be passed to ServerApp. Be sure to update your config before our next release.
+[I 2022-05-06 15:43:29.990 LabApp] JupyterLab extension loaded from /Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/jupyterlab
+[I 2022-05-06 15:43:29.990 LabApp] JupyterLab application directory is /Library/Frameworks/Python.framework/Versions/3.10/share/jupyter/lab
+[I 15:43:30.119 NotebookApp] [Jupytext Server Extension] Deriving a JupytextContentsManager from LargeFileManager
+[I 15:43:30.123 NotebookApp] Serving notebooks from local directory: /Users/lewis/Dropbox/Covid Modeling/Covid-ILM
+[I 15:43:30.124 NotebookApp] Jupyter Notebook 6.4.11 is running at:
+[I 15:43:30.124 NotebookApp] http://localhost:8888/?token=5a707a1226e7e0fcd9b6271b62f479720cfe40bc5ad4697b
+[I 15:43:30.124 NotebookApp]  or http://127.0.0.1:8888/?token=5a707a1226e7e0fcd9b6271b62f479720cfe40bc5ad4697b
+[I 15:43:30.124 NotebookApp] Use Control-C to stop this server and shut down all kernels (twice to skip confirmation).
+[C 15:43:30.126 NotebookApp] 
+    
+    To access the notebook, open this file in a browser:
+        file:///Users/lewis/Library/Jupyter/runtime/nbserver-54285-open.html
+    Or copy and paste one of these URLs:
+        http://localhost:8888/?token=5a707a1226e7e0fcd9b6271b62f479720cfe40bc5ad4697b
+     or http://127.0.0.1:8888/?token=5a707a1226e7e0fcd9b6271b62f479720cfe40bc5ad4697b
+
+info 15:43:30.244: Connecting to process server
+info 15:43:30.244: Connecting server kernel http://localhost:8888/
+info 15:43:30.244: Creating server with url : http://localhost:8888/
+info 15:43:30.250: Connection complete server
+info 15:43:30.251: Server started.
+info 15:43:30.280: Process Execution: > /usr/local/bin/python3 (daemon) ~/.vscode/extensions/ms-toolsai.jupyter-2022.4.1011282140/pythonFiles/vscode_datascience_helpers/getServerInfo.py
+> /usr/local/bin/python3 (daemon) ~/.vscode/extensions/ms-toolsai.jupyter-2022.4.1011282140/pythonFiles/vscode_datascience_helpers/getServerInfo.py
+info 15:43:30.280: Process Execution: > /usr/local/bin/python3 (daemon) ~/.vscode/extensions/ms-toolsai.jupyter-2022.4.1011282140/pythonFiles/vscode_datascience_helpers/getServerInfo.py
+> /usr/local/bin/python3 (daemon) ~/.vscode/extensions/ms-toolsai.jupyter-2022.4.1011282140/pythonFiles/vscode_datascience_helpers/getServerInfo.py
+[I 15:43:30.332 NotebookApp] Creating new notebook in /notebooks
+[I 15:43:30.334 NotebookApp] Saving Untitled.ipynb
+[I 15:43:30.375 NotebookApp] Kernel started: 1690c083-e83e-49e6-a6e0-e1ac3d73cbf6, name: julia-4-threads-1.7
+info 15:43:30.382: Waiting for idle on (kernel): 1690c083-e83e-49e6-a6e0-e1ac3d73cbf6 -> unknown
+[W 15:43:30.386 NotebookApp] delete /notebooks/test variant-jvsc-f00e52dc-ee37-429e-abf0-b73d30d12256.ipynb
+info 15:43:34.451: Finished waiting for idle on (kernel): 1690c083-e83e-49e6-a6e0-e1ac3d73cbf6 -> idle
+info 15:43:34.452: Started session for kernel .julia-4-threads-1.7./Applications/Julia-1.7.app/Contents/Resources/julia/bin/julia././applications/julia-1.7.app/contents/resources/julia/bin/julia#-i#--color=yes#/users/lewis/.julia/packages/ijulia/aqu2h/src/kernel.jl#{connection_file}
+info 15:43:34.452: Finished connecting kernel .julia-4-threads-1.7./Applications/Julia-1.7.app/Contents/Resources/julia/bin/julia././applications/julia-1.7.app/contents/resources/julia/bin/julia#-i#--color=yes#/users/lewis/.julia/packages/ijulia/aqu2h/src/kernel.jl#{connection_file}
+info 15:43:34.454: Waiting for idle on (kernel): 1690c083-e83e-49e6-a6e0-e1ac3d73cbf6 -> idle
+info 15:43:34.454: Finished waiting for idle on (kernel): 1690c083-e83e-49e6-a6e0-e1ac3d73cbf6 -> idle
+info 15:47:44.537: Execute Cell 57 /Users/lewis/Dropbox/Covid Modeling/Covid-ILM/notebooks/test variant.ipynb
+info 15:47:45.212: Cancel all remaining cells true || Error || undefined
+info 15:47:45.212: Cancel pending cells
+info 15:47:45.212: Cell 57 executed with state Error
+info 15:47:48.724: Execute Cell 60 /Users/lewis/Dropbox/Covid Modeling/Covid-ILM/notebooks/test variant.ipynb
+info 15:47:48.792: Cancel all remaining cells true || Error || undefined
+info 15:47:48.792: Cancel pending cells
+info 15:47:48.792: Cell 60 executed with state Error
+info 15:48:0.8: Execute Cell 0 /Users/lewis/Dropbox/Covid Modeling/Covid-ILM/notebooks/test variant.ipynb
+info 15:48:6.296: Cell 0 executed with state Success
+info 15:48:8.792: Execute Cell 1 /Users/lewis/Dropbox/Covid Modeling/Covid-ILM/notebooks/test variant.ipynb
+info 15:48:13.319: Execute Cell 2 /Users/lewis/Dropbox/Covid Modeling/Covid-ILM/notebooks/test variant.ipynb
+info 15:48:14.819: Cell 1 executed with state Success
+info 15:48:14.863: Cell 2 executed with state Success
+info 15:48:15.46: Execute Cell 3 /Users/lewis/Dropbox/Covid Modeling/Covid-ILM/notebooks/test variant.ipynb
+info 15:48:15.75: Cell 3 executed with state Success
+info 15:48:27.218: Execute Cell 54 /Users/lewis/Dropbox/Covid Modeling/Covid-ILM/notebooks/test variant.ipynb
+info 15:48:38.651: Cell 54 executed with state Success
+info 15:48:40.392: Execute Cell 55 /Users/lewis/Dropbox/Covid Modeling/Covid-ILM/notebooks/test variant.ipynb
+info 15:48:40.471: Cell 55 executed with state Success
+info 15:48:41.909: Execute Cell 56 /Users/lewis/Dropbox/Covid Modeling/Covid-ILM/notebooks/test variant.ipynb
+info 15:48:41.939: Cell 56 executed with state Success
+info 15:48:44.999: Execute Cell 57 /Users/lewis/Dropbox/Covid Modeling/Covid-ILM/notebooks/test variant.ipynb
+info 15:48:45.31: Cell 57 executed with state Success
+info 15:48:46.762: Execute Cell 58 /Users/lewis/Dropbox/Covid Modeling/Covid-ILM/notebooks/test variant.ipynb
+info 15:48:46.794: Cell 58 executed with state Success
+info 15:48:48.845: Execute Cell 60 /Users/lewis/Dropbox/Covid Modeling/Covid-ILM/notebooks/test variant.ipynb
+info 15:49:0.439: Cell 60 executed with state Success
+info 15:49:8.881: Execute Cell 64 /Users/lewis/Dropbox/Covid Modeling/Covid-ILM/notebooks/test variant.ipynb
+error 15:49:15.373: Error in waiting for cell to complete Error: Canceled future for execute_request message before replies were done
+    at a.KernelShellFutureHandler.dispose (/Users/lewis/.vscode/extensions/ms-toolsai.jupyter-2022.4.1011282140/out/node_modules/@jupyterlab/services.js:2:32353)
+    at /Users/lewis/.vscode/extensions/ms-toolsai.jupyter-2022.4.1011282140/out/node_modules/@jupyterlab/services.js:2:26572
+    at Map.forEach (<anonymous>)
+    at y._clearKernelState (/Users/lewis/.vscode/extensions/ms-toolsai.jupyter-2022.4.1011282140/out/node_modules/@jupyterlab/services.js:2:26557)
+    at /Users/lewis/.vscode/extensions/ms-toolsai.jupyter-2022.4.1011282140/out/node_modules/@jupyterlab/services.js:2:29000
+    at processTicksAndRejections (node:internal/process/task_queues:96:5)
+warn 15:49:15.375: Cell completed with errors {
+  message: 'Canceled future for execute_request message before replies were done'
+}
+info 15:49:15.376: Cancel all remaining cells true || Error || undefined
+info 15:49:15.376: Cancel pending cells
+info 15:49:15.376: Cell 64 executed with state Error

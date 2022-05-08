@@ -171,7 +171,7 @@ end
 
 
 """
-    function isinfected(infectparams, spreadersickday, contactagegrp)::Bool
+    function isinfected(infectparams, spreaderduration, contactagegrp)::Bool
 
 Returns true if the spreader infected the contact. 
 """
@@ -301,10 +301,11 @@ Immunity from vaccination for a single person.
 
     # rise and decay of vaccine effectiveness
     rise_lower=0.5    # TODO need to make these inputs somewhere
-    decay_lower=0.05
+    decay_lower=0.1   # lindecay argument
+    csig = 10.0       # sigdecay argument
     rise = riseup(today - days_after_vax, full_effect_days, rise_lower, 1.0)
     days_after_full_effect = today - (days_after_vax + full_effect_days)     #clamp(today - (lastshotday + full_effect_days), 0, Int)
-    decay = lindecay(days_after_full_effect, halflife, decay_lower)
+    decay =  sigdecay(days_after_full_effect, halflife, csig=csig)     #   lindecay(days_after_full_effect, halflife, decay_lower)
     vaxmod = rise * decay
 
     factor = 1.0 - (vaxmod * vaxeffect * infectfactor) 
@@ -329,7 +330,11 @@ Immunity from recovery for a single person.
 
             # get the declined value
             immhalflife = infectset[targ_variant].immunehalflife
-            immdecline = lindecay(days_post_recov, immhalflife, 0.05)
+
+            decay_lower=0.1   # lindecay argument
+            csig = 10.0       # sigdecay argument
+            # immdecline = lindecay(days_post_recov, immhalflife, decay_lower)
+            immdecline = sigdecay(days_post_recov, immhalflife, csig=csig)
 
             factor = 1.0 - (immdecline * immstrength)
         else
@@ -341,10 +346,10 @@ end
 
 
 
-@inline @fastmath function infectrisk(infectset, spr_variant, spr_sickday, targ_agegrp, recovfactor, vaxfactor)
+@inline @fastmath function infectrisk(infectset, spr_variant, spr_duration, targ_agegrp, recovfactor, vaxfactor)
 
     # spreader person characteristics
-    sendrisk = @inbounds infectset[spr_variant].sendrisk[spr_sickday]
+    sendrisk = @inbounds infectset[spr_variant].sendrisk[spr_duration]
 
     # target person characteristics
     recvrisk = @inbounds infectset[spr_variant].recvrisk[Int(targ_agegrp)]
@@ -367,13 +372,14 @@ altrisk(risk) = sigmoid(spreadin(risk))
 Infectious people spread the virus to susceptible people for a single locale. Changes attribute
 columns in the population table. Runs social distancing cases.
 """
-@inline function spread!(spr::Int, contact_vector::Vector{Int}, sdcases, socialparams,   
+@inline function spread!(spr::Int, thisday::Int, contact_vector::Vector{Int}, sdcases, socialparams,   
      infectset, vaxset, density_factor, dovax, poprange,    
         c_cond,
         c_status,
         c_agegrp,
-        c_sickday,
+        c_duration,
         c_sdcomply,
+        c_sickday,
         c_variant,
         c_vaxstatus,
         c_recovday,
@@ -395,11 +401,11 @@ columns in the population table. Runs social distancing cases.
     lencv = length(contact_vector)
 
     # determine number of outbound contacts 
-    contact_param = c_sdcomply[spr] == :none ? contactfactors : sdcases[c_sdcomply[spr]]
+    @inbounds contact_param = c_sdcomply[spr] == :none ? contactfactors : sdcases[c_sdcomply[spr]]
     nc = @inbounds numcontacts(density_factor, gammashape, c_agegrp[spr], c_cond[spr], contact_param)  
-    sample!(poprange, contact_vector)
+    @inbounds sample!(poprange, contact_vector)
     sel = 0
-    for i = 1:nc
+    @inbounds for i = 1:nc
         if sel >= lencv
             sample!(poprange, contact_vector)  # draw another sample
             sel = 1
@@ -407,38 +413,47 @@ columns in the population table. Runs social distancing cases.
             sel += 1
         end
     
-        target = @inbounds contact_vector[sel]
-        target_status = @inbounds c_status[target]
+        target = contact_vector[sel]
+        target_status = c_status[target]
 
-        @inbounds if (target_status == unexposed) | (target_status == recovered)  # only conditions that can get infected   
+        if (target_status == unexposed) | (target_status == recovered)  # only conditions that can get infected   
             # choose the touch_param for the social distancing case or the input social parameters
             touch_param = c_sdcomply[target] == :none ? touchfactors : sdcases[c_sdcomply[target]]
-            touched = @inbounds istouched(c_agegrp[target], unexposed, touch_param)   # is the contact significant?
+            touched = istouched(c_agegrp[target], unexposed, touch_param)   # is the contact significant?
 
             # infection outcome
             if touched  # if the contact is consequential
                 # gather characteristics of target and spreader
-                    recovday = @inbounds c_recovday[target][end]
-                    targ_variant = @inbounds c_variant[target][end]
-                    spr_variant = @inbounds c_variant[spr][end]
-                    recovfactor = target_status == recovered ? spr_recoveffect(recovday, targ_variant, spr_variant, infectset) : 1.0
+                    recovday = c_recovday[target][end]
+                    spr_variant = c_variant[spr][end]
+                    recovfactor = if target_status == recovered
+                                      targ_variant = c_variant[target][end]
+                                      spr_recoveffect(recovday, targ_variant, spr_variant, infectset)
+                                  else 
+                                      1.0
+                                  end
 
-                    vaxstatus = @inbounds c_vaxstatus[target]
-                    vaxrcvd = @inbounds c_vaxrcvd[target][end]
-                    vaxday = @inbounds c_vaxday[target][end]
-                    vaxfactor = vaxstatus != :none ? spr_vaxeffect(infectset, vaxset, vaxstatus, spr_variant, vaxrcvd, vaxday) : 1.0
+                    vaxstatus = c_vaxstatus[target]
+                    vaxfactor = if vaxstatus != :none
+                                    vaxrcvd = c_vaxrcvd[target][end]
+                                    vaxday = c_vaxday[target][end]
+                                    spr_vaxeffect(infectset, vaxset, vaxstatus, spr_variant, vaxrcvd, vaxday)
+                                else
+                                    1.0
+                                end
 
-                    spr_sickday = @inbounds c_sickday[spr]
-                    targ_agegrp = @inbounds c_agegrp[target]
+                    spr_duration = c_duration[spr]
+                    targ_agegrp = c_agegrp[target]
 
-                risk = infectrisk(infectset, spr_variant, spr_sickday, targ_agegrp, recovfactor, vaxfactor)
+                risk = infectrisk(infectset, spr_variant, spr_duration, targ_agegrp, recovfactor, vaxfactor)
 
                 if isinfected(risk)
-                    @inbounds push!(c_variant[target], c_variant[spr][end])
-                    c_sickday[target] = 1
+                    # push!(c_variant[target], c_variant[spr][end])
+                    push!(c_variant[target], c_variant[spr][end])  # first of possibly several infections...
+                    push!(c_sickday[target], thisday)
+                    c_duration[target] = 1
                     c_cond[target] = nil
                     c_status[target] = infectious
-                    # set_infected!(target, c_cond, tocond, c_status, tostatus, c_sickday, tosickday, c_variant, tovariant)
                 end
             end  # if (touched ...)
         end  # if contactstatus
@@ -447,27 +462,17 @@ columns in the population table. Runs social distancing cases.
     return  nothing # n_contacts, n_touched, n_newly_infected
 end       
 
-@inline function set_infected!(target, condcol, condval, statcol, statval, sickdaycol, sickdayval, variantcol, variantval)
-    # wrapping args in some containers and deref'ing the containers will take too much time in the hottest loop of the simulation
-    @inbounds begin
-        condcol[target] = condval
-        statcol[target] = statval
-        sickdaycol[target] = sickdayval
-        push!(variantcol[target], variantval)
-    end
-end
-
 
 # simple make_sick! for a single person. Assumes that caller doesn't invoke structure of population data
-function make_sick!(locdat, target::Int; cond, variant, sickday)
+function make_sick!(locdat, target::Int; cond, variant, duration)
     @inbounds locdat.condition[target] = cond
     @inbounds locdat.status[target] = infectious
     push!(locdat.variant, variant)
-    @inbounds locdat.sickday[target] = sickday
+    @inbounds locdat.duration[target] = duration
 end
 
 # complex make sick
-function make_sick!(dat; cnt, ages, tocond, tovariant, tosickday=1) 
+function make_sick!(dat; cnt, ages, tocond, tovariant, toduration=1) 
 
     @assert size(cnt, 1) == size(ages, 1) "size(cnt, 1) = $(size(cnt,1)) not equal size(ages, 1) = $(size(ages,1))"
 
@@ -485,7 +490,7 @@ function make_sick!(dat; cnt, ages, tocond, tovariant, tosickday=1)
 
         dat.status[do_filt] .= infectious
         dat.cond[do_filt] .= tocond
-        dat.sickday[do_filt] .= tosickday
+        dat.duration[do_filt] .= toduration
         push!.(dat.variant[do_filt], tovariant)
 
     end
@@ -522,7 +527,7 @@ function r0_sim(; pop=200_000, age_dist=age_dist, dectree=dectree, socialparams=
         for j = 1:cnt_by_agedist[Int(i)]
             r0pop.status[idx] = infectious
             r0pop.cond[idx] = nil
-            r0pop.sickday[idx] = 1
+            r0pop.duration[idx] = 1
             idx += 1
         end
     end
@@ -534,7 +539,7 @@ function r0_sim(; pop=200_000, age_dist=age_dist, dectree=dectree, socialparams=
     sdcases = []   # TODO MAYBE this should be an input based on current context of simulation
     r0_infected = 0
 
-    for i = 1:sickdaylim        
+    for i = 1:durationlim        
         contactable_idx = findall(r0pop.status .!= dead)
         n_newly_infected = spread!(r0pop, gen1_infect_idx, contactable_idx,  sdcases, socialparams, infectparams, density_factor)  
         infect_idx = findall(r0pop.status .== infectious)
@@ -569,13 +574,13 @@ function r0_sim(locdat; age_dist=age_dist, dectree=dectree, socialparams=socialp
             spr = idx[j]
             r0pop.status[spr] = infectious
             r0pop.cond[spr] = nil
-            r0pop.sickday[spr] = 1
+            r0pop.duration[spr] = 1
         end
     end     
 
     r0_infected = 0 
-    for i = 1:sickdaylim      
-        infect_idx = findall((r0pop.status .== infectious) .& (r0pop.sickday .> 0))
+    for i = 1:durationlim      
+        infect_idx = findall((r0pop.status .== infectious) .& (r0pop.duration .> 0))
         contactable_idx = findall(r0pop.status .!= dead)
         # spread!(locdat, infect_idx, contactable_idx, sdcases, socialparams, infectparams, density_factor)                                    
         r0_infected += spread!(r0pop, infect_idx, contactable_idx, sdcases, socialparams, infectparams, density_factor)  
@@ -583,7 +588,7 @@ function r0_sim(locdat; age_dist=age_dist, dectree=dectree, socialparams=socialp
         transition!(r0pop, infect_idx, dectree) 
 
         # eliminate the new spreaders so we only track the original spreaders
-        newsick_idx = findall(r0pop.sickday .== 1)
+        newsick_idx = findall(r0pop.duration .== 1)
 
         # r0pop.status[newsick_idx] .= unexposed
         r0pop.status[newsick_idx] .= recovered # only works because infectious and recovered are treated as immune

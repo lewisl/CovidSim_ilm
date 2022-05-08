@@ -18,7 +18,7 @@ vaxesincluded:
     alternate:      [Pfizer, Moderna]
     booster:        false
 
-dayrange:       [160,600]
+dayrange:       [400,700]
 targetpct:      1.0    # 0.65
 filterfunc:
 shotmode:       all

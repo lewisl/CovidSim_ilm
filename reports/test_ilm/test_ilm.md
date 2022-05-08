@@ -42,7 +42,7 @@ alldat = setup(150, [locale])
       "geo"     => [1m15×10 DataFrame[0m…
       "sp"      => (contactfactors = Dict(5=>Dict("sick"=>0.6, "nil"=>1.0, "severe…
       "dat"     => Dict{String, Dict{Int64, V} where V}("agegrp_idx"=>Dict(38015=>D…
-      "dt_dict" => Dict{String, Dict{Int64, V} where V}("sickdays"=>Dict(5=>[5, 9, …
+      "dt_dict" => Dict{String, Dict{Int64, V} where V}("durations"=>Dict(5=>[5, 9, …
 
 
 
@@ -71,7 +71,7 @@ ilmat = alldat.dat["popdat"][locale]
 
 
     Table with 14 columns and 95626 rows:
-          status  agegrp  cond  sickday  recovday  deadday  cluster  sdcomply  ⋯
+          status  agegrp  cond  duration  recovday  deadday  cluster  sdcomply  ⋯
         ┌───────────────────────────────────────────────────────────────────────────
      1  │ 1       1       0     0        0          0         0        none        ⋯
      2  │ 1       1       0     0        0          0         0        none        ⋯
@@ -125,7 +125,7 @@ columnnames(ilmat)
 
 
 
-    (:status, :agegrp, :cond, :sickday, :recovday, :deadday, :cluster, :sdcomply, :vax, :vaxday, :test, :testday, :quar, :quarday)
+    (:status, :agegrp, :cond, :duration, :recovday, :deadday, :cluster, :sdcomply, :vax, :vaxday, :test, :testday, :quar, :quarday)
 
 
 
@@ -326,8 +326,8 @@ typeof(dectree[5][25][7]["outcomes"])
 
 
 ```julia
-function get_node(dectree, agegrp, sickday, fromcond)
-    dectree[agegrp][sickday][fromcond]
+function get_node(dectree, agegrp, duration, fromcond)
+    dectree[agegrp][duration][fromcond]
 end
 ```
 
@@ -409,7 +409,7 @@ result_dict
       "geo"     => [1m15×10 DataFrame[0m…
       "sp"      => (contactfactors = Dict(5=>Dict("sick"=>0.6, "nil"=>1.0, "severe…
       "dat"     => Dict{String, Dict{Int64, V} where V}("agegrp_idx"=>Dict(38015=>D…
-      "dt_dict" => Dict{String, Dict{Int64, V} where V}("sickdays"=>Dict(5=>[5, 9, …
+      "dt_dict" => Dict{String, Dict{Int64, V} where V}("durations"=>Dict(5=>[5, 9, …
 
 
 
@@ -422,7 +422,7 @@ popdat = result_dict["dat"]["popdat"][locale]
 
 
     Table with 14 columns and 95626 rows:
-          status  agegrp  cond  sickday  recovday  deadday  cluster  sdcomply  ⋯
+          status  agegrp  cond  duration  recovday  deadday  cluster  sdcomply  ⋯
         ┌───────────────────────────────────────────────────────────────────────────
      1  │ 3       1       0     9        68         0         0        none        ⋯
      2  │ 3       1       0     14       99         0         0        none        ⋯
@@ -587,7 +587,7 @@ outdat = result_dict["dat"]["popdat"][locale]
 
 
     Table with 14 columns and 95626 rows:
-          status  agegrp  cond  sickday  recovday  deadday  cluster  sdcomply  ⋯
+          status  agegrp  cond  duration  recovday  deadday  cluster  sdcomply  ⋯
         ┌───────────────────────────────────────────────────────────────────────────
      1  │ 1       1       0     0        0          0         0        none        ⋯
      2  │ 1       1       0     0        0          0         0        none        ⋯

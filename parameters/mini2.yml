@@ -1,5 +1,5 @@
 5:                                  # agegrp
-  25:                               # sickday
+  25:                               # duration
     7:                              # fromcond
       probs: [0.682, 0.318]
       outcomes: [3, 4]

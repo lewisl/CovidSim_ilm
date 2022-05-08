@@ -70,7 +70,7 @@ age3_sick_idx = findall((tst.agegrp .== 3) .& (tst.status .== 2))
 # %%
 foo = @elapsed for i in eachindex(tst.status)
     if tst.status[i] == 2
-        tst.sickday[i] = 1
+        tst.duration[i] = 1
     end
 end
 
@@ -78,7 +78,7 @@ end
 bar = @elapsed begin
     infect_idx = CovidSim_ilm.optfindall(==(2), tst.status, 0.5)
     for p in infect_idx
-        tst.sickday[p] = 2
+        tst.duration[p] = 2
     end
 end
 

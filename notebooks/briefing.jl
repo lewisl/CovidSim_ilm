@@ -229,7 +229,7 @@ end
 #
 # Because Maricopa County has a large population of over 4 million, 18 people coming in with infections takes a while to get the exponential growth curve "rolling".  What would be more typical is a double bump.  Social distancing starts after significant growth is observed; then it brings the curve down; the people cheer; social distancing ends. 
 #
-# The death rate is not as high because deaths sickdays infections--it *will* nearly catch up.
+# The death rate is not as high because deaths infections--it *will* nearly catch up.
 #
 
 # %% [markdown]

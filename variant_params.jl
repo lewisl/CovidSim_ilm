@@ -54,7 +54,7 @@
                                                                                      0.0, 
                                                                                      0.0],
                                                                         },
-                                                          :sickday : 5,
+                                                          :duration : 5,
                                                         },
                                           Symbol("2") : {
                                                           :transition : {
@@ -83,7 +83,7 @@
                                                                                      0.0, 
                                                                                      0.0],
                                                                         },
-                                                          :sickday : 9,
+                                                          :duration : 9,
                                                         },
                                           Symbol("4") : {
                                                           :transition : {
@@ -112,7 +112,7 @@
                                                                                      0.126, 
                                                                                      0.018],
                                                                         },
-                                                          :sickday : 19,
+                                                          :duration : 19,
                                                         },
                                           Symbol("3") : {
                                                           :transition : {

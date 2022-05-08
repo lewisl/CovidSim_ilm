@@ -20,7 +20,7 @@ locdat must be a population table for a single locale.
             c_cond,
             c_status,
             c_agegrp,
-            c_sickday,
+            c_duration,
             c_sdcomply,
             c_variant,
             c_vaxstatus,
@@ -40,29 +40,38 @@ locdat must be a population table for a single locale.
 
     # for p in infect_idx  # p for infected person    
     @inbounds begin
-        p_sickday = c_sickday[p]
+        p_duration = c_duration[p]
         p_cond = c_cond[p]
         p_status = c_status[p]
         p_agegrp = c_agegrp[p]  # agegroup of person p = agegrp column of locale data, row p 
-        p_variant = c_variant[p][end]
         p_vaxstatus = c_vaxstatus[p]
-        p_vaxrcvd = c_vaxrcvd[p][end]
-        p_vaxday = c_vaxday[p][end]
         p_recovday = c_recovday[p][end]
     end
 
 
-        # if person's agegrp, sickday, and condition match a transition stage
-        transvec = has(getfield(transarray, Symbol(p_agegrp)), p_sickday, p_cond, trvec) 
+        # if person's agegrp, duration, and condition match a transition stage
+        transvec = has(getfield(transarray, Symbol(p_agegrp)), p_duration, p_cond, trvec) 
 
-        recoveff = p_status == recovered ? tr_recoveffect(p_recovday, p_variant, p_variant, infectset) : 1.0
+        recoveff =  @inbounds if p_status == recovered
+                        p_variant = c_variant[p][end]
+                        tr_recoveffect(p_recovday, p_variant, infectset)
+                    else
+                        1.0
+                    end
 
-        vaxeff = p_vaxstatus != :none ? tr_vaxeffect(infectset, vaxset, p_vaxstatus, p_variant, p_vaxrcvd, p_vaxday) : 1.0
+        vaxeff = @inbounds if p_vaxstatus != :none
+                        p_vaxrcvd = c_vaxrcvd[p][end]
+                        p_vaxday = c_vaxday[p][end]
+                        p_variant = c_variant[p][end]
+                        tr_vaxeffect(infectset, vaxset, p_vaxstatus, p_variant, p_vaxrcvd, p_vaxday)
+                    else
+                        1.0
+                    end
 
         vaxfn!(transvec, recoveff, vaxeff) #vaxfn! will be function noop or function vaxtransitioneffect
 
         dotransition!(p, p_cond, transvec, # perform transition logic and update population table  
-                c_sickday,
+                c_duration,
                 c_deadday,
                 c_status,
                 c_cond,
@@ -74,9 +83,9 @@ locdat must be a population table for a single locale.
 end
 
 
-@inline function has(agetr, sickday::Int, p_cond::condition, trvec)::Union{Vector{Float64}, Nothing}
+@inline function has(agetr, duration::Int, p_cond::condition, trvec)::Union{Vector{Float64}, Nothing}
     @inbounds for trdef in agetr
-        if trdef.sickday == sickday
+        if trdef.duration == duration
             trvec[:] = trdef.transition[mapcondition(p_cond), :]
             if sum(trvec) > 0.0
                 return trvec
@@ -90,6 +99,7 @@ end
 # TODO: need to do effect of immunity, vax, variant
 # this function set to the variable vaxfn!
 @inline function vaxtransitioneffect!(transvec, recoveff, vaxeff, varianteff=1.0)
+    @inbounds begin
     if transvec === nothing
         return
     end
@@ -98,12 +108,12 @@ end
     riskfactor = squashfunc(combinedfactor)  
 
     for c in (sick, severe, dead)
-        @inbounds transvec[maptransition(c)] *= riskfactor
+        transvec[maptransition(c)] *= riskfactor
     end
 
     correction = 1.0 / sum(transvec)  # normalize to sum to 1.0
     transvec[:] .*= correction
-
+    end
 end
 
 """
@@ -113,8 +123,8 @@ Transition an infected person to a new condition or status if called
 with a transition vector (trvec) or increment
 the number of days the person has been sick.
 """
-@inline function dotransition!(p, p_cond, trvec::Union{Vector{Float64}, Nothing},
-                c_sickday,
+function dotransition!(p, p_cond, trvec::Union{Vector{Float64}, Nothing},
+                c_duration,
                 c_deadday,
                 c_status,
                 c_cond,
@@ -123,7 +133,7 @@ the number of days the person has been sick.
 
     if isnothing(trvec)
 
-        @inbounds c_sickday[p] += 1  
+        c_duration[p] += 1  
         return ()
 
     else
@@ -134,18 +144,24 @@ the number of days the person has been sick.
 
         tocond = maptransition(choice)
 
-        @inbounds if tocond == dead  
+        if tocond == dead  
+            @inbounds begin
             c_deadday[p] = day_ctr[:day]
             c_status[p] = dead  # change the status
             c_cond[p] = uninfected # change the condition--> kept to know what cause of death was
+            end
         elseif tocond == recovered
+            @inbounds begin
             push!(c_recovday[p], day_ctr[:day])
             c_status[p] = recovered
             c_cond[p] = uninfected   # TODO decide if this makes sense--using this to maintain a history of past infection
+            end
         else   
+            @inbounds begin
             condchange = (tocond, 1)
             c_cond[p] = tocond   # change the condition = degree of sickness
-            c_sickday[p] += 1    # advance number of days person has been sick
+            c_duration[p] += 1    # advance number of days person has been sick
+            end
         end    
     end
 end
@@ -174,10 +190,12 @@ Immunity from vaccination for a single person.
 
     # rise and decay of vaccine effectiveness
     rise_lower=0.5    # TODO need to make these inputs somewhere
-    decay_lower=0.05
+    decay_lower=0.10   # lindecay argument
+    csig = 10.0       # sigdecay argument
     rise = riseup(today - days_after_vax, full_effect_days, rise_lower, 1.0)
     days_after_full_effect = today - (days_after_vax + full_effect_days)     #clamp(today - (lastshotday + full_effect_days), 0, Int)
-    decay = lindecay(days_after_full_effect, halflife, decay_lower)
+    # decay = lindecay(days_after_full_effect, halflife, decay_lower)
+    decay = sigdecay(days_after_full_effect, halflife, csig=csig)
     vaxmod = rise * decay
 
     factor = 1.0 - (vaxmod * tr_vaxeffect * infectfactor) 
@@ -191,18 +209,21 @@ end
 
 Immunity from recovery for a single person.
 """
-@inline function tr_recoveffect(recovday, targ_variant, spr_variant, infectset)
+@inline function tr_recoveffect(recovday, targ_variant, infectset)
 
         today = day_ctr[:day]
         days_post_recov = today - recovday 
 
         if days_post_recov > 0   # TODO should be an assert: does this run day of or day after recovery?
             # get the max immunity
-            immstrength = infectset[targ_variant].recovery_immunity[spr_variant]
+            immstrength = infectset[targ_variant].recovery_immunity[targ_variant]
 
             # get the declined value
+            decay_lower=0.1   # lindecay argument
+            csig = 10.0       # sigdecay argument
             immhalflife = infectset[targ_variant].immunehalflife
-            immdecline = lindecay(days_post_recov, immhalflife, 0.05)
+            # immdecline = lindecay(days_post_recov, immhalflife, decay_lower)
+            immdecline = sigdecay(days_post_recov, immhalflife, csig=csig)
 
             factor = 1.0 - (immdecline * immstrength)
         else
@@ -223,7 +244,7 @@ other locale. Add to the travelq.
 function travelout!(fromloc, locales, rules=[])    # TODO THIS WON'T WORK ANY MORE!
     # 10.5 microseconds for 5 locales
     # choose distribution of people traveling by age and condition:
-        # unexposed, infectious, recovered -> ignore sickday for now
+        # unexposed, infectious, recovered -> ignore duration for now
     # TODO: more frequent travel to and from Major and Large cities
     # TODO: should the caller do the loop across locales?   YES
     travdests = collect(locales)
@@ -232,8 +253,8 @@ function travelout!(fromloc, locales, rules=[])    # TODO THIS WON'T WORK ANY MO
     for agegrp in agegrps
         for cond in [unexposed, infectious, recovered]
             name = string(cond)
-            for sickday in sickdays
-                numfolks = sum(grab(cond, agegrp, sickday, fromloc)) # the from locale, all sickdays
+            for duration in durations
+                numfolks = sum(grab(cond, agegrp, duration, fromloc)) # the from locale, all durations
                 travcnt = floor(Int, gamma_prob(travprobs[agegrp]) * numfolks)  # interpret as fraction of people who will travel
                 x = rand(travdests, travcnt)  # randomize across destinations
                 bydest = bucket(x, vals=1:length(travdests))
@@ -241,7 +262,7 @@ function travelout!(fromloc, locales, rules=[])    # TODO THIS WON'T WORK ANY MO
                     isempty(bydest) && continue
                     cnt = bydest[dest]
                     iszero(cnt) && continue
-                    enqueue!(travelq, travitem(cnt, fromloc, dest, agegrp, sickday, name))
+                    enqueue!(travelq, travitem(cnt, fromloc, dest, agegrp, duration, name))
                 end
             end
         end
@@ -252,15 +273,15 @@ end
 """
 Assuming a daily cycle, at the beginning of the day
 process the queue of travelers from the end of the previous day.
-Remove groups of travelers by agegrp, sickday, and condition
+Remove groups of travelers by agegrp, duration, and condition
 from where they departed.  Add them to their destination.
 """
 function travelin!(dat=popdat)   # TODO THIS DOESN'T WORK ANYMORE
     while !isempty(travelq)
         g = dequeue!(travelq)
         cond = eval(Symbol(g.cond))
-        minus!(g.cnt, cond, g.agegrp, g.sickday, g.from, dat=dat)
-        plus!(g.cnt, cond, g.agegrp, g.sickday, g.to, dat=dat)
+        minus!(g.cnt, cond, g.agegrp, g.duration, g.from, dat=dat)
+        plus!(g.cnt, cond, g.agegrp, g.duration, g.to, dat=dat)
     end
 end
 
