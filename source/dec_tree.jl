@@ -10,14 +10,21 @@
             transition::Matrix{Float64}
         end
 
-Base.@kwdef struct Agetree
-    age0_19::Vector{Transitiondef}
-    age20_39::Vector{Transitiondef}
-    age40_59::Vector{Transitiondef}
-    age60_79::Vector{Transitiondef}
-    age80_up::Vector{Transitiondef}
-end
+# Base.@kwdef struct Agetree
+#     age0_19::Vector{Transitiondef}
+#     age20_39::Vector{Transitiondef}
+#     age40_59::Vector{Transitiondef}
+#     age60_79::Vector{Transitiondef}
+#     age80_up::Vector{Transitiondef}
+# end
 
+Base.@kwdef struct Agetree
+    age0_19::Dict{Int, Matrix{Float64}}
+    age20_39::Dict{Int, Matrix{Float64}}
+    age40_59::Dict{Int, Matrix{Float64}}
+    age60_79::Dict{Int, Matrix{Float64}}
+    age80_up::Dict{Int, Matrix{Float64}}
+end
 
 Base.@kwdef struct Transitionfactors
     riskadjust::Union{Vector{Float64}, Nothing}
@@ -92,13 +99,14 @@ another disease state (condition or status).
 """
 function setup_dt(trdict::Dict)
 
-    prepdict = Dict(age_key => [Transitiondef(brk[:duration], 
+    prepdict2 = Dict(age_key => Dict(brk[:duration] =>
                                     vcat(brk[:transition][:nil]',brk[:transition][:mild]',
-                                        brk[:transition][:sick]',brk[:transition][:severe]')) 
-                                for (_, brk) in sort(age)] 
+                                        brk[:transition][:sick]',brk[:transition][:severe]')
+                                for (_, brk) in sort(age))
                         for (age_key, age) in sort(trdict))
 
-    return Agetree([prepdict[age] for age in keys(sort(trdict))]...) # sort and splat the arguments without using keywords
+    return Agetree([prepdict2[age] for age in keys(sort(trdict))]...)
+
 end
 
 

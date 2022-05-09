@@ -148,14 +148,13 @@ function cumplot(series, locale, plotcols=[:unexposed, :infectious, :recovered, 
             reuse = false,
             legend_position = :right
         )
-    annotate!(days[1] + 6, 0.51 * ylims()[2],              # half_yscale,
+    annotate!(caldays[1] + Day(6), 0.51 * ylims()[2],              # half_yscale,
             text("Died: $died\nInfected: $infected\nRecovered: $recovered\nUnexposed: $unexp", 
                 11, :left))
 end
 
 
-function newplot(series, locale, plcols=[:infectious]; 
-    days="all", geo=[], thm=:ggplot2)
+function newplot(series, locale, plotcols=[:infectious]; days="all", geo=[], thm=:ggplot2)
 
     cumhist = series[locale].cum
     newhist = series[locale].new
@@ -163,22 +162,22 @@ function newplot(series, locale, plcols=[:infectious];
     theme(thm, foreground_color_border=:black, 
             tickfontsize=9, gridlinewidth=1)
 
-    !(typeof(plcols) <: Array) && (plcols = [plcols])
+    !(typeof(plotcols) <: Array) && (plotcols = [plotcols])
 
     # the data and labels
     n = length(newhist)
     days = days == "all" ? (1:n) : days
     caldays = newhist.caldays[days]
-    newseries = hcat(columns(getproperties(newhist,Tuple(Symbol(plcol,"_","total") for plcol in plcols)))...)
+    newseries = hcat(columns(getproperties(newhist,Tuple(Symbol(plcol,"_","total") for plcol in plotcols)))...)
 
-    labels = [titlecase(string(col)) for col in plcols]
+    labels = [titlecase(string(col)) for col in plotcols]
     labels = reshape([labels...], 1, length(labels))
     people = if !isempty(geo)
         geo[geo[:,fips] .== locale, popsize][1]
      else # this will off by a tiny bit because of rounding
         getproperty(cumhist, :unexposed_total)[1] + getproperty(cumhist, :infectious_total)[1]
      end   
-     co_pal = length(plcols) == 2 ? [theme_palette(thm)[2], theme_palette(thm)[4]] : theme_palette(thm)
+     co_pal = length(plotcols) == 2 ? [theme_palette(thm)[2], theme_palette(thm)[4]] : theme_palette(thm)
 
 
     # the plot

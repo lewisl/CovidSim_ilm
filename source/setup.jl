@@ -263,7 +263,7 @@ function build_transition_params(infectdict)
     for variant in loadvariants
         
         transitionset[Symbol(variant)] = Transitionparams(
-            tree=(isnothing(infectdict[variant][:transition][:tree]) ? nothing : 
+            tree=(  isnothing(infectdict[variant][:transition][:tree]) ? nothing : 
                     setup_dt(infectdict[variant][:transition][:tree])),
             factors=Transitionfactors(infectdict[variant][:transition][:factors])
             )
@@ -271,11 +271,10 @@ function build_transition_params(infectdict)
     end
 
     # pre-allocate trvec used in hot loop: no. of columns in transition array
-    # sz = size(first(first(transitionset[:base])[end])[end][:transition], 2)
-    sz = size(transitionset[:base].tree.age0_19[1].transition, 2)
+    sz = size(transitionset[:base].tree.age0_19[5], 2)
     trvec = zeros(sz)
  
-     return (transitionset, trvec)
+    return (transitionset, trvec)
 end
 
 

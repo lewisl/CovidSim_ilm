@@ -143,6 +143,11 @@ function runsim(model;
                 # is this person ACTIVELY infectious
                 spr_duration = c_duration[p]
                 spr_variant = c_variant[p][end]
+
+                # if p == 24003
+                #     @show p, c_cond[p], c_duration[p], spr_duration, spr_variant
+                # end
+
                 sendrisk = infectset[spr_variant].sendrisk[spr_duration]
                 if sendrisk > 0.0     
                     spread!(p, thisday, contact_vector, sdcases,  socialparams,   
@@ -188,7 +193,6 @@ function runsim(model;
             end
 
             histtime += @elapsed do_history!(locdat, newhist, cumhist, age_idx_loc, thisday)
-
 
         end # day loop
 

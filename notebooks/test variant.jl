@@ -8,9 +8,9 @@
 #       format_version: '1.3'
 #       jupytext_version: 1.13.7
 #   kernelspec:
-#     display_name: Julia 4 threads 1.7.2
+#     display_name: Julia 1.7.2
 #     language: julia
-#     name: julia-4-threads-1.7
+#     name: julia-1.7
 # ---
 
 # %%
@@ -27,6 +27,7 @@ using Distributions
 using YAML
 using PrettyPrint
 using LinearAlgebra
+using Dates
 
 # %%
 cd(joinpath(homedir(),"Dropbox/Covid Modeling/Covid-ILM/source"))
@@ -38,6 +39,7 @@ cd(joinpath(homedir(),"Dropbox/Covid Modeling/Covid-ILM/source"))
 ndays = 180
 locale = 38015
 model180 = buildsim(ndays, locale;  
+    day1 = Date("2020-01-01", "yyyy-mm-dd"),
     dovax = true,
     paramdir = "../parameters",
     geofilename = "../data/geo2data.csv", 
@@ -162,20 +164,19 @@ model180.transitionset # the decision transition matrices for all age groups are
 
 # %%
 basetransition = model180.transitionset[:base]
-typeof(basetransition)
 pprintln(basetransition)
-
-# %%
-fieldnames(typeof(basetransition))
 
 # %%
 fieldnames(typeof(basetransition.tree))
 
 # %%
-age80tree = basetransition.tree.age80_up[1].duration
+keys(basetransition.tree.age0_19)
 
 # %%
-age80tree = basetransition.tree.age80_up[1].transition
+age0_19tree = basetransition.tree.age0_19
+
+# %%
+age0_19tree[5]
 
 # %%
 basetransition.factors
@@ -217,6 +218,7 @@ cs.sanitycheck(basetransition.tree)
 ndays = 850
 locale = 38015
 model = buildsim(ndays, locale;  
+    day1 = Date("2020-01-01", "yyyy-mm-dd"),
     dovax = true,
     paramdir = "../parameters",
     geofilename = "../data/geo2data.csv", 
