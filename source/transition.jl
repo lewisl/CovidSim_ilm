@@ -7,14 +7,15 @@
 
     
 """
-    transition!(locdat, infect_idx, dectree)
+    transition!(p, infectset, transitionset, vaxset, dovax, vaxfn!, transvec, <columns of locdat>)
 
 People who have become infectious transition through cases from
 nil (asymptomatic) to mild to sick to severe, depending on their
 agegroup, days of being exposed, and some probability. Finally,  
 they move to recovered or dead.
 
-locdat must be a population table for a single locale.
+Required columns of locdat are cond, status, agegrp, duration, sdcomply, variant, vaxstatus, recovday
+vaxrcvd, vaxday, deadday.
 """
 @inline function transition!(p, infectset, transitionset, vaxset, dovax, vaxfn!, transvec,
             c_cond,
@@ -34,35 +35,29 @@ locdat must be a population table for a single locale.
         vaxfn! = vaxfn! == noop ? vaxtransitioneffect! : vaxfn!  # last branch new vaxfn! was passed in
     end
 
-    # TODO test variant of each person
-    # TODO based on variant use adjustment of :base or :base
-    transtree = transitionset[:base].tree   
-
-    # extract traits for this person p
+    # extract traits for this person p where p is the row index in locdat
     @inbounds begin
         p_duration = c_duration[p]
         p_cond = c_cond[p]
         p_status = c_status[p]
-        p_agegrp = c_agegrp[p]  # agegroup of person p = agegrp column of locale data, row p 
+        p_agegrp = c_agegrp[p]  
         p_vaxstatus = c_vaxstatus[p]
         p_recovday = c_recovday[p][end]
+        p_variant = c_variant[p][end]
     end
 
+    transtree = transitionset[p_variant].tree   
 
-    # if person's agegrp, duration, and condition match a transition stage
-    # transvec = has(getfield(transtree, Symbol(p_agegrp)), p_duration, p_cond, trvec) 
-    # @inbounds for trdef in getfield(transtree, Symbol(p_agegrp))  # transition array for an agegrp
+    # if person's agegrp and duration match a transition stage
+    tr_arr = get( getfield(transtree, Symbol(p_agegrp)), p_duration, [])
 
-
-    tr_arr = get(getfield(transtree, Symbol(p_agegrp)), p_duration, [])
-    if !isempty(tr_arr)  # transition person p                         # trdef.duration == p_duration  # we will transition person p
-        transvec[:] = tr_arr[mapcondition(p_cond), :] # probabilities of recovery, nil, mild, sick, severe, dead
+    if !isempty(tr_arr)  # let's transition person p 
+        transvec[:] = tr_arr[mapcondition(p_cond), :] # probabilities of recovery, nil, mild, sick, severe, dead given current condition
 
         # TODO we need to update transitioning for the variant the person has NOW--Build this into setup
 
         # effect on severity and transitioning based on recovery from a previous infection
         recoveff =  @inbounds if p_status == recovered
-                        p_variant = c_variant[p][end]
                         tr_recoveffect(p_recovday, p_variant, infectset)
                     else
                         1.0
@@ -78,44 +73,26 @@ locdat must be a population table for a single locale.
                         1.0
                     end
         
-
         vaxfn!(transvec, recoveff, vaxeff) #vaxfn! will be function noop or function vaxtransitioneffect
 
-        dotransition!(p, transvec, # perform transition logic and update population table  
-                c_duration,
-                c_deadday,
-                c_status,
-                c_cond,
-                c_recovday
-                )
-    else
+        dotransition!(p, transvec, # perform transition logic and update population table->must pass columns, not scalars  
+                        c_duration,
+                        c_deadday,
+                        c_status,
+                        c_cond,
+                        c_recovday
+                    )
+    else # no transition
         c_duration[p] += 1  # one more day in current condition
     end
+    
     return    
 end
 
 
-@inline function has(agetr, duration::Int, p_cond::condition, trvec)::Union{Vector{Float64}, Nothing}
-    @inbounds for trdef in agetr
-        if trdef.duration == duration
-            trvec[:] = trdef.transition[mapcondition(p_cond), :]
-            if sum(trvec) > 0.0
-                return trvec
-            end
-        end
-    end
-    return nothing
-end
-
-
-# TODO: need to do effect of immunity, vax, variant
 # this function set to the variable vaxfn!
 @inline function vaxtransitioneffect!(transvec, recoveff, vaxeff, varianteff=1.0)
     @inbounds begin
-    if transvec === nothing
-        return
-    end
-
     combinedfactor = varianteff * min(recoveff, vaxeff)
     riskfactor = squashfunc(combinedfactor)  
 
@@ -143,13 +120,12 @@ function dotransition!(p, transvec,             #::Union{Vector{Float64}, Nothin
                 c_recovday
             )
 
-
         choice = categorical_sim(transvec) # which outcome based on probability...?
 
         # debugging
         @assert choice != 0 "choice of to condition resulted in 0. Must be 1 through 6"
 
-        tocond = maptransition(choice)
+        tocond = maptransition(choice) # 1->recover, 2->nil, 3->mild, 4->sick, 5->severe, 6->dead  see data_mapping.jl
 
         if tocond == dead  
             @inbounds begin
@@ -163,9 +139,8 @@ function dotransition!(p, transvec,             #::Union{Vector{Float64}, Nothin
             c_status[p] = recovered
             c_cond[p] = uninfected   # TODO decide if this makes sense--using this to maintain a history of past infection
             end
-        else   
+        else  # tocond to another infectious condition 
             @inbounds begin
-            condchange = (tocond, 1)
             c_cond[p] = tocond   # change the condition = degree of sickness
             c_duration[p] += 1    # advance number of days person has been sick
             end

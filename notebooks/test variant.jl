@@ -145,11 +145,6 @@ sendbase = model180.infectset[:base].sendrisk
 recvbase = model180.infectset[:base].recvrisk
 
 # %%
-newomisend = zeros(25)
-newomisend[1:11] = 1.5 .* sendbase[1:11]
-newomisend
-
-# %%
 pprint(model180.infectset[:alpha])
 
 # %%
@@ -159,15 +154,24 @@ pprintln(model180.infectset[:omicron_ba1])
 # is shifter working?
 shifter(touchfactors, (.18, .3)...)[:, Int(age40_59)]
 
+# %% [markdown]
+# ## Transitionset
+
 # %%
 model180.transitionset # the decision transition matrices for all age groups are loaded
 
 # %%
 basetransition = model180.transitionset[:base]
-pprintln(basetransition)
+fieldnames(typeof(basetransition))
 
 # %%
 fieldnames(typeof(basetransition.tree))
+
+# %%
+display(basetransition.tree.age0_19)
+
+# %%
+alphatransition = model180.transitionset[:alpha].tree
 
 # %%
 keys(basetransition.tree.age0_19)
@@ -235,21 +239,21 @@ seed40_59_day1 = makesickseedfunc(; cond=nil, variant=:base, duration=1, filter=
 
 # %%
 seed20_39_delta = makesickseedfunc(; cond=nil, variant=:delta, duration=1, filter=[Term(:agegrp, age20_39), Term(:status, unexposed)], 
-        cnt=3, forlocale=0, triggerdate=460, forstartofday=true);
+        cnt=3, forlocale=0, triggerdate=300, forstartofday=true);
 seed40_59_delta = makesickseedfunc(; cond=nil, variant=:delta, duration=1, filter=[Term(:agegrp, age40_59), Term(:status, unexposed)], 
-        cnt=3, forlocale=0, triggerdate=460, forstartofday=true);        
+        cnt=3, forlocale=0, triggerdate=300, forstartofday=true);        
 
 # %%
 seed20_39_omicron = makesickseedfunc(; cond=nil, variant=:omicron_ba1, duration=1, filter=[Term(:agegrp, age20_39), Term(:status, unexposed)], 
-                            cnt=3, forlocale=0, triggerdate=640, forstartofday=true);
+                            cnt=3, forlocale=0, triggerdate=660, forstartofday=true);
 seed40_59_omicron = makesickseedfunc(; cond=nil, variant=:omicron_ba1, duration=1, filter=[Term(:agegrp, age40_59), Term(:status, unexposed)], 
-                            cnt=3, forlocale=0, triggerdate=640, forstartofday=true);                            
+                            cnt=3, forlocale=0, triggerdate=660, forstartofday=true);                            
 
 # %%
 seed20_39_omicron_ba2 = makesickseedfunc(; cond=nil, variant=:omicron_ba2, duration=1, filter=[Term(:agegrp, age20_39), Term(:status, unexposed)], 
-                            cnt=6, forlocale=0, triggerdate=720, forstartofday=true);
+                            cnt=6, forlocale=0, triggerdate=690, forstartofday=true);
 seed40_59_omicron_ba2 = makesickseedfunc(; cond=nil, variant=:omicron_ba2, duration=1, filter=[Term(:agegrp, age40_59), Term(:status, unexposed)], 
-                            cnt=6, forlocale=0, triggerdate=720, forstartofday=true);                            
+                            cnt=6, forlocale=0, triggerdate=690, forstartofday=true);                            
 
 # %% [markdown]
 # ### Run the simulation model
@@ -263,23 +267,6 @@ popdat, series = runsim(model;
 locdat = popdat[locale];
 
 
-# %%
-filt_vaccinated = findall(last.(popdat[38015].vaxrcvd) .!= :none)
-if length(filt_vaccinated) > 0
-    vax_today = @inbounds countmap(last.(popdat[38015].vaxrcvd[filt_vaccinated]))  # keys are symbol
-else
-    vax_today = Dict()
-end
-println(vax_today)
-println("Doses given: ",sum(values(vax_today)))
-
-
-# %%
-vaxsym = :Pfizer
-dose1 = count(length.(locdat.vaxrcvd[last.(locdat.vaxrcvd) .== vaxsym]) .== 1)
-dose2 = count(length.(locdat.vaxrcvd[last.(locdat.vaxrcvd) .== vaxsym]) .== 2)
-println(vaxsym, " 1 dose cnt: ", dose1, " 2 dose cnt: ", dose2, " total ", 2*dose2 + dose1, " people cnt: ", dose1 + dose2)
-
 # %% [markdown]
 # ### Plot results
 
@@ -289,10 +276,10 @@ cumplot(series, locale)
 # %% [markdown]
 # Note that the orange line labeled Infectious, which shows the current number of infected people, is *not* what you see in newspaper accounts. In this plot Infectious shows the net infected people: There were some sick people as of the day before. Some more people got sick today. Some people got better: they're not infectious any more--they recovered and are on the blue line. Sadly, some people died--they're not infectious either--they're dead and are on the green line. So net infected is yesterday + new today - recovered today - died today. Newspaper tracking shows the new infections of each day--who got sick today? Tomorrow, if no one new got sick the line would be at zero--even though the people who got sick yesterday aren't better yet. So, the newspaper line goes up and down faster. Yet another approach is to show the cumulative number of infected people: This keeps going up until no one new gets infected--then the line is high but levels off. 
 
-# %%
+# %% jupyter={"outputs_hidden": true} tags=[]
 cumplot(series, locale, [:nil, :mild, :sick, :severe, :totinfected])
 
-# %%
+# %% jupyter={"outputs_hidden": true} tags=[]
 newplot(series, locale, [:dead])
 
 # %%
@@ -304,25 +291,28 @@ cumplot(series, locale, [:base, :delta, :omicron_ba1, :omicron_ba2])
 
 # %%
 vax = :Pfizer
-dose2 = count(length.(locdat.vaxrcvd[last.(locdat.vaxrcvd) .== vax]) .== 2)
-dose1 = count(length.(locdat.vaxrcvd[last.(locdat.vaxrcvd) .== vax]) .== 1)
-println("Count people with $vax 1 dose: $dose1 2 doses: $dose2 Any: $(dose1 + dose2)")
-println("Doses used = $(2 * dose2 + dose1)")
+pfdose2 = count(length.(locdat.vaxrcvd[last.(locdat.vaxrcvd) .== vax]) .== 2)
+pfdose1 = count(length.(locdat.vaxrcvd[last.(locdat.vaxrcvd) .== vax]) .== 1)
+println("Count people with $vax 1 dose: $pfdose1 2 doses: $pfdose2 Any: $(pfdose1 + pfdose2)")
+println("Doses used = $(2 * pfdose2 + pfdose1)")
 
 # %%
 vax = :Moderna
-dose2 = count(length.(locdat.vaxrcvd[last.(locdat.vaxrcvd) .== vax]) .== 2)
-dose1 = count(length.(locdat.vaxrcvd[last.(locdat.vaxrcvd) .== vax]) .== 1)
-println("Count people with $vax 1 dose: $dose1 2 doses: $dose2 Any: $(dose1 + dose2)")
-println("Doses used = $(2 * dose2 + dose1)")
+modose2 = count(length.(locdat.vaxrcvd[last.(locdat.vaxrcvd) .== vax]) .== 2)
+modose1 = count(length.(locdat.vaxrcvd[last.(locdat.vaxrcvd) .== vax]) .== 1)
+println("Count people with $vax 1 dose: $modose1 2 doses: $modose2 Any: $(modose1 + modose2)")
+println("Doses used = $(2 * modose2 + modose1)")
 
 # %%
 vax = :JnJ
-dose2 = count(length.(locdat.vaxrcvd[last.(locdat.vaxrcvd) .== vax]) .== 2)
-dose1 = count(length.(locdat.vaxrcvd[last.(locdat.vaxrcvd) .== vax]) .== 1)
-println("Count people with $vax 1 dose: $dose1 2 doses: $dose2 Any: $(dose1 + dose2)")
-println("Doses used = $(2 * dose2 + dose1)")
+# jjdose2 = count(length.(locdat.vaxrcvd[last.(locdat.vaxrcvd) .== vax]) .== 2)
+jjdose1 = count(length.(locdat.vaxrcvd[last.(locdat.vaxrcvd) .== vax]) .== 1)
+println("Count people with $vax 1 dose: $jjdose1 Any: $(jjdose1)")
+println("Doses used = $(jjdose1)")
 
+
+# %%
+println("People with any vaccine: $(pfdose2+pfdose1+modose2+modose1+jjdose1)")
 
 # %%
 newplot(series, locale, [:Pfizer], days=380:700)
@@ -332,7 +322,7 @@ newplot(series, locale, [:Pfizer], days=380:700)
 newplot(series, locale, [:Moderna], days=380:700)
 
 # %%
-newplot(series, locale, :JnJ, days=380:600)
+newplot(series, locale, :JnJ, days=380:700)
 
 
 # %%
@@ -347,7 +337,7 @@ newplot(series, locale, :unexposed)
 #
 
 # %%
-countmap(length.(locdat.variant))
+sort(countmap(length.(locdat.variant)))
 
 # %% [markdown]
 # ## Test a social distancing case

@@ -3,7 +3,7 @@
 # base variant must exist!
 # base variant must have spread arrays for sendrisk and recvrisk
 # base variant must have full transition tree
-# other variants modify base!
+# other variants may modify base using input factors!
 # variant name
 base:
   
@@ -33,9 +33,9 @@ base:
       # the variants below are the variant of the spreader
       base: 0.8
       alpha: 0.8
-      delta: 0.7
-      omicron_ba1: 0.5
-      omicron_ba2: 0.5
+      delta: 0.6
+      omicron_ba1: 0.6
+      omicron_ba2: 0.6
 
     # half-life of recovery_immunity after recovering
     immunehalflife: 360   # 240
@@ -51,7 +51,7 @@ base:
           # transition matrix (row vectors)
             # rows are fromcond
             # columns are to status or condition
-                #   recover, tonil, tomild, tosick, tosevere, todead
+                #     recover, nil, mild, sick, severe, dead
       age0_19:       
         1:
           duration: 5
@@ -239,11 +239,6 @@ base:
         Moderna:    0.9
 
 
-  # UNUSED: from an earlier version of the parameters file format
-  # infect_fname:     base_spread.yml
-  # transition_fname: base_transition_array.yml
-  # directory_name:   base_variant
-
 # variant name (new section)
 alpha:
   # spread section
@@ -272,8 +267,8 @@ alpha:
       base: 0.8
       alpha: 0.8
       delta: 0.7
-      omicron_ba1: 0.6
-      omicron_ba2: 0.6
+      omicron_ba1: 0.7
+      omicron_ba2: 0.7
 
     # half-life of recovery_immunity after recovering
     immunehalflife: 360    # 240
@@ -289,10 +284,6 @@ alpha:
         Pfizer:     0.8
         Moderna:    0.9
 
-    # UNUSED: these are unused from an earlier version of the parameters file format
-    # infect_fname:     alpha_spread.yml
-    # transition_fname: alpha_transition_array.yml
-    # directory_name:   alpha_variant
 
 # variant name (new section)
 delta:
@@ -311,7 +302,7 @@ delta:
     recvrisk: []
 
     # muliplier for infectiousness compared to base
-    basemultiplier: 1.2
+    basemultiplier: 1.1
 
   immunity:
     # immunity section: how does recovery provide immunity to subsequent re-infection?
@@ -319,9 +310,9 @@ delta:
       # partial recovery_immunity strength: 1.0 means total immunity from infection
       base: 0.8
       alpha: 0.8
-      delta: 0.7
-      omicron_ba1: 0.5
-      omicron_ba2: 0.5
+      delta: 0.9
+      omicron_ba1: 0.8
+      omicron_ba2: 0.7
 
     # half-life of recovery_immunity after recovering
     immunehalflife: 240
@@ -337,11 +328,6 @@ delta:
         Pfizer:     0.9
         Moderna:    0.9
 
-
-  # UNUSED:  from an earlier version of the parameters file format
-  # infect_fname:     delta_spread.yml
-  # transition_fname: delta_transition_array.yml
-  # directory_name:   delta_variant
 
 # variant name (new section)
 omicron_ba1:
@@ -361,7 +347,7 @@ omicron_ba1:
     recvrisk: [0.1, 0.39, 0.44, 0.54, 0.56]
 
       # muliplier for infectiousness compared to base
-    basemultiplier: 1.1
+    basemultiplier: 1.2
 
   immunity:
     # immunity section: how does recovery provide immunity to subsequent re-infection?
@@ -370,8 +356,8 @@ omicron_ba1:
       base: 0.95
       alpha: 0.95
       delta: 0.8
-      omicron_ba1: 0.8
-      omicron_ba2: 0.8
+      omicron_ba1: 0.9
+      omicron_ba2: 0.9
 
     # half-life of recovery_immunity after recovering
     immunehalflife: 360
@@ -386,7 +372,7 @@ omicron_ba1:
         JnJ:        0.5
         Pfizer:     0.8
         Moderna:    0.9
-#
+# variant name (new section)
 omicron_ba2:
   # spread section
   spread:
@@ -413,8 +399,8 @@ omicron_ba2:
       base: 0.95
       alpha: 0.95
       delta: 0.8
-      omicron_ba1: 0.8
-      omicron_ba2: 0.8
+      omicron_ba1: 0.9
+      omicron_ba2: 0.9
 
     # half-life of recovery_immunity after recovering
     immunehalflife: 360

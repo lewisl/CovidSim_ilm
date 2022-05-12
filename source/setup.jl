@@ -98,7 +98,7 @@ function pop_data(pop; age_dist=age_dist)
             agegrp = reduce(vcat,[fill(age, parts[Int(age)]) for age in agegrps]),  # enum agegrp
             cond = fill(uninfected, pop),                                           # enum condition
             duration = zeros(Int, pop),                                             # Int
-            variant = [Symbol[] for _ in 1:pop],                                     # Vector{Symbol}
+            variant = [Symbol[] for _ in 1:pop],                                    # Vector{Symbol}
             sickday = [[0] for _ in 1:pop],                                         # Vector{Int}
             recovday = [[0] for _ in 1:pop],                                        # Vector{Int}
             deadday = zeros(Int, pop),                                              # Int
@@ -117,11 +117,11 @@ end
 
 
 function build_series_table(locales, agegrp, n_days, day1)
-    caldays = range(day1, step=Day(1), length=n_days)
+    calday = range(day1, step=Day(1), length=n_days)
     cols = [Symbol(col,"_", age) for col in seriesgroups for age in vcat(collect(string.(instances(agegrp))),"total")]
     colvals = [zeros(Int,n_days) for _ in 1:length(cols)]
-    series = Dict(loc => (cum = Table(; caldays=caldays, zip(cols,[zeros(Int,n_days) for _ in 1:length(cols)])...), 
-                          new = Table(; caldays=caldays, zip(cols,[zeros(Int,n_days) for _ in 1:length(cols)])...))
+    series = Dict(loc => (cum = Table(; calday=calday, zip(cols,[zeros(Int,n_days) for _ in 1:length(cols)])...), 
+                          new = Table(; calday=calday, zip(cols,[zeros(Int,n_days) for _ in 1:length(cols)])...))
              for loc in locales)
 
     return series
@@ -143,12 +143,11 @@ function buildgeodata(filename)
 end
 
 """
-    function build_spread_params(variantfilename, paramdir)
+    function build_infect_params(variantfilename, paramdir)
 
 Build parameters for the spread of infection and the immunity conferred by recovering
-from infection for each variant.
-
-Method to build infect params from one file that contains all variants.
+from infection for each variant. Build paramaters for transitioning infected people to
+different conditions of the virus and to recover or die at the end.
 """
 function build_infect_params(variantfilename, paramdir)
     infectdict = YAML.load_file(joinpath(paramdir, variantfilename), dicttype=Dict{Symbol, Any})
@@ -161,32 +160,10 @@ end
 
 
 """
-    function build_spread_params(variants, paramdir)
+    function build_spread_params(infectdict)
 
 Build parameters for the spread of infection and the immunity conferred by recovering
 from infection for each variant.
-
-Method to build spread params from a separate file for each variant.
-"""
-function build_spread_params(variants, paramdir)
-    infectset = Dict{Symbol, Infectparams}()
-    for variant in keys(variants)
-        v = YAML.load_file(joinpath(paramdir, "variant_parameters", variants[variant][:directory_name],
-            variants[variant][:infect_fname]), dicttype=Dict{Symbol, Any})
-        v = Infectparams(v)
-        infectset[variant] = v  # access a param as infectset[:alpha].recvrisk
-    end
-
-    return infectset
-end
-
-
-"""
-    function build_spread_params(infectdict)
-
-Method to build spread params from dict containing params for all variants.
-
-This is the method model building actually uses!
 """
 function build_spread_params(infectdict::Dict)
     infectset = LittleDict{Symbol, Infectparams}()
@@ -211,38 +188,9 @@ function build_spread_params(infectdict::Dict)
             append!(infectset[variant].recvrisk, infectset[:base].recvrisk .* infectset[variant].basemultiplier)
             append!(infectset[variant].sendrisk, infectset[:base].sendrisk)
         end
-        # if isempty(infectset[variant].sendrisk)
-        #     append!(infectset[variant].sendrisk, infectset[:base].sendrisk .* infectset[variant].basemultiplier)
-        # end
     end
 
     return infectset
-end
-
-
-"""
-    function build_transition_params(variants, paramdir)
-
-Build transition matrix from each illness condition to outcomes at each transition day
-for someone who is infected.
-
-Method for loading from transition params from a separate yaml file per each variant.
-
-Returns (transitionset, trvec)
-"""
-function build_transition_params(variants, paramdir)
-    transitionset = Dict()
-
-    for variant in keys(variants)
-        transitionset[variant] = setup_dt(joinpath(paramdir, "variant_parameters", variants[variant][:directory_name], 
-            variants[variant][:transition_fname])) 
-    end
-
-    # pre-allocate trvec used in hot loop: no. of columns in transition array
-    sz = size(first(first(transitionset[:base])[end])[end][:transition], 2)
-    trvec = zeros(sz)
-
-    return (transitionset, trvec)
 end
 
 
@@ -252,20 +200,30 @@ end
 This method loads all transition params for all variants from one dict, which contains
 all variants.
 
-This is the method model building actually uses!
-
 Returns (transitionset, trvec)
 """
 function build_transition_params(infectdict)
     loadvariants = keys(infectdict) # array of strings to array of symbols
-    transitionset = Dict()
+    transitionset = Dict{Symbol, Transitionparams}()
+
+    @assert :base in loadvariants "Variants parameter file must contain a variant called :base--not there!"
+
+    # build the transitionset for :base-->needed to build for other variants
+    variant = :base
+    @assert !isnothing(infectdict[variant][:transition][:tree]) "transition tree for variant must be provided in parameter file--not there!"
+    transitionset[Symbol(variant)] = Transitionparams(
+            tree=setup_dt(infectdict[variant][:transition][:tree]),
+            factors=Transitionfactors(infectdict[variant][:transition][:factors])
+        )
 
     for variant in loadvariants
-        
+        variant == :base && continue
         transitionset[Symbol(variant)] = Transitionparams(
-            tree=(  isnothing(infectdict[variant][:transition][:tree]) ? nothing : 
-                    setup_dt(infectdict[variant][:transition][:tree])),
-            factors=Transitionfactors(infectdict[variant][:transition][:factors])
+                tree=(  !isnothing(infectdict[variant][:transition][:tree]) ?   
+                            setup_dt(infectdict[variant][:transition][:tree]) :    # transition tree was provided for this variant
+                            setup_dt(deepcopy(transitionset[:base].tree), infectdict[variant][:transition][:factors][:riskadjust])  # build the tree by adjusting :base
+                        ),          
+                factors=Transitionfactors(infectdict[variant][:transition][:factors])
             )
 
     end
@@ -317,9 +275,6 @@ function build_socialparams(socialfilename, paramdir)
 end
 
 
-
-
-
 #####################################################################################
 # Other helper functions
 #####################################################################################
@@ -353,8 +308,6 @@ end
 function makemaptup(keys, values)
     NamedTuple{keys}(values)
 end
-
-
 
 
 #####################################################################################
@@ -435,6 +388,3 @@ function apportion(x::Int, splits::Array)
     parts[maxidx] -= diff
     return parts
 end
-
-
-

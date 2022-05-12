@@ -115,7 +115,7 @@ function cumplot(series, locale, plotcols=[:unexposed, :infectious, :recovered, 
     # the data is the 2d array cumseries
     n = length(cumhist)
     days = days == "all" ? (1:n) : days
-    caldays = cumhist.caldays[days]
+    caldays = cumhist.calday[days]
     cumseries = hcat(columns(getproperties(cumhist,Tuple(Symbol(plcol,"_","total") for plcol in plotcols)))...)
 
     # labels and annotations
@@ -167,7 +167,7 @@ function newplot(series, locale, plotcols=[:infectious]; days="all", geo=[], thm
     # the data and labels
     n = length(newhist)
     days = days == "all" ? (1:n) : days
-    caldays = newhist.caldays[days]
+    caldays = newhist.calday[days]
     newseries = hcat(columns(getproperties(newhist,Tuple(Symbol(plcol,"_","total") for plcol in plotcols)))...)
 
     labels = [titlecase(string(col)) for col in plotcols]
