@@ -36,7 +36,6 @@ end
 # method for creating from Dict to nested structs
 """
     function setup_dt(trdict::Dict)
-
 A decision tree is:
 - an instance of struct Agetree with members:
     - age0_19
@@ -45,15 +44,14 @@ A decision tree is:
     - age60_79
     - age80_up
 - Each field value of Agetree is a dict:
-    - key is duration: the day on which transitions to different disease outcomes occur
-    - value is transition array: maps from current conditions (rows) to outcomes (columns) that are the probability of
-      either a different infectious condition or a final outcome of recover or dead) 
+    - key is duration: the day on which transitions to different disease outcomes occur;
+    - value is transition array: maps from current conditions (rows) to outcomes (columns) based on the probability of
+      transitioning from the current condition to a different infectious condition or a final outcome of recover or dead.
 
 
-      setup_dt(basetree::Agetree, adjust::Vector{Float64})
-
-This method builds the decision tree based on the required variant input called :base, using an adjustment
-vector for the other target variant.
+    function setup_dt(basetree::Agetree, adjust::Vector{Float64})
+This method builds the decision tree based on the transition array for the variant called :base (required input), using an adjustment
+vector for another variant.
 
 """
 function setup_dt(trdict::Dict)
@@ -70,11 +68,12 @@ end
 
 
 function setup_dt(basetree::Agetree, adjust::Vector{Float64})
+
     prepdict = Dict{Symbol, Dict{Int, Matrix{Float64}}}()
 
     for age in Symbol.(agegrps)
         prepdict[age] = getfield(basetree, age)
-        for (duration, arr) in prepdict[age]  # duration==key::Int, arr==transition array 4 x 6
+        for arr in values(prepdict[age])  # duration==key::Int, arr==transition array 4 x 6
             for r in eachrow(arr)
                 if sum(r) != 0.0
                     r[:] = r .* adjust

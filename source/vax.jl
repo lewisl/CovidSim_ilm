@@ -181,11 +181,12 @@ end
 """
 Give people shots!
 """
-@inline function vaccinate!(locdat, vaxschedset, contactable_idx, vaxset)
+@inline function vaccinate!(locdat, vaxschedset, contactable_idx, vaxset, vaxscheds)
         
     today = day_ctr[:day]
 
-    for vxsched in values(vaxschedset)
+    for schedname in Symbol.(vaxscheds)      #values(vaxschedset)   # vaxshedset is Dict{Symbol, Vaxsched} where Symbol is Symbol(schedname)
+        vxsched = vaxschedset[schedname]
 
         # setup this schedule
         vaxprops = vxsched.vaxesincluded  # this is an alias to a mutable object
@@ -228,6 +229,30 @@ Give people shots!
 
     end  
 end
+
+# front-end methods (interfaces) for vaccinate!
+@inline function vaccinate!(locdat, vaxschedset, contactable_idx, vaxset, vaxscheds::String)
+    if vaxscheds == "all"
+        vaxscheds = keys(vaxschedset)
+        vaccinate!(locdat, vaxschedset, contactable_idx, vaxset, vaxscheds)
+    elseif vaxscheds == "none"
+        # don't do anything
+    else
+        vaccinate!(locdat, vaxschedset, contactable_idx, vaxset, [Symbol(vaxscheds)])
+    end
+end
+
+@inline function vaccinate!(locdat, vaxschedset, contactable_idx, vaxset, vaxscheds::Symbol)
+    if vaxscheds == :all
+        vaxscheds = keys(vaxschedset)
+        vaccinate!(locdat, vaxschedset, contactable_idx, vaxset, vaxscheds)
+    elseif vaxscheds == :none
+        # don't do anything
+    else
+        vaccinate!(locdat, vaxschedset, contactable_idx, vaxset, [vaxscheds])
+    end
+end
+
 
 
 @inline function doshots!(vaxrcvdcol, vaxdaycol, vaxstatuscol,         # arrays to update

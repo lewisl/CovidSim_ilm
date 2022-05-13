@@ -1,10 +1,5 @@
 # TODO
-    # vaccine effect changes
-        # explicitly test vaccine transition factors for null
-        # if a factor is missing for a variant use :base or 1.0?
     # implement vxsched filterfunc using new seeding approach
-    # variant effect changes
-        # are we using the basemultiplier on base?
     # more info
         # get fatality rate by age and co-morbidity CDC, Italian NIH
         # by agegroup, hospitalization %, ICU admission %, fatality %
@@ -13,9 +8,6 @@
     # rewrite quarantine to fit new population matrix--think through social distancing
     # fix all the travel functions to latest APIs
     # put in an inflection measure
-    # make setting up vaccination optional
-    # add transq to ilm and test
-    # support variants for transition, spread and vaccination
     # use currying to simplify case APIs
     # should quarantine be special or is it extreme social distancing--with no contacts?
         #= 
@@ -27,7 +19,6 @@
         #=
         this changes spread logic a lot
         =#
-    # decouple spread process from current specifics for "contact", "touch" and "infect"
 
 
 
@@ -53,7 +44,6 @@ using StatsPlots
 using Dates
 using YAML
 using TypedTables
-using SplitApplyCombine
 using Interpolations
 
 

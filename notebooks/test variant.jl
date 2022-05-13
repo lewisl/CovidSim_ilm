@@ -32,7 +32,7 @@ using Dates
 # %%
 cd(joinpath(homedir(),"Dropbox/Covid Modeling/Covid-ILM/source"))
 
-# %% [markdown]
+# %% [markdown] jp-MarkdownHeadingCollapsed=true tags=[]
 # # Test setup and population matrix
 
 # %% tags=[]
@@ -260,7 +260,7 @@ seed40_59_omicron_ba2 = makesickseedfunc(; cond=nil, variant=:omicron_ba2, durat
 
 # %%
 popdat, series = runsim(model;
-            dovax=true,
+            dovax=true, vaxscheds=:loc38015,
             runcases=[seed20_39_day1, seed40_59_day1, seed20_39_delta, seed40_59_delta, seed20_39_omicron, seed40_59_omicron,
                       seed20_39_omicron_ba2, seed40_59_omicron_ba2]   # or seed_1_6 if using old way
             );

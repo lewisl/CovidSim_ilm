@@ -146,7 +146,9 @@ function cumplot(series, locale, plotcols=[:unexposed, :infectious, :recovered, 
             legendfontsize = 10,
             color_palette = co_pal,
             reuse = false,
-            legend_position = :right
+            legend_position = :right,
+            background_color_legend=nothing,
+            foreground_color_legend=nothing
         )
     annotate!(caldays[1] + Day(6), 0.51 * ylims()[2],              # half_yscale,
             text("Died: $died\nInfected: $infected\nRecovered: $recovered\nUnexposed: $unexp", 
@@ -191,7 +193,9 @@ function newplot(series, locale, plotcols=[:infectious]; days="all", geo=[], thm
                 xticks = caldays[10]:Day(180):caldays[length(caldays)-10],
                 yaxis = ("People"),
                 color_palette = co_pal,
-                reuse =false
+                reuse =false,
+                background_color_legend=nothing,
+                foreground_color_legend=nothing
              )
 end
 

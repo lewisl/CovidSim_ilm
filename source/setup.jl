@@ -212,20 +212,18 @@ function build_transition_params(infectdict)
     variant = :base
     @assert !isnothing(infectdict[variant][:transition][:tree]) "transition tree for variant must be provided in parameter file--not there!"
     transitionset[Symbol(variant)] = Transitionparams(
-            tree=setup_dt(infectdict[variant][:transition][:tree]),
-            factors=Transitionfactors(infectdict[variant][:transition][:factors])
-        )
+                                            tree=setup_dt(infectdict[variant][:transition][:tree]),
+                                            factors=Transitionfactors(infectdict[variant][:transition][:factors])
+                                            )
 
     for variant in loadvariants
         variant == :base && continue
         transitionset[Symbol(variant)] = Transitionparams(
-                tree=(  !isnothing(infectdict[variant][:transition][:tree]) ?   
+                tree=(  !isnothing(infectdict[variant][:transition][:tree])   ?   
                             setup_dt(infectdict[variant][:transition][:tree]) :    # transition tree was provided for this variant
                             setup_dt(deepcopy(transitionset[:base].tree), infectdict[variant][:transition][:factors][:riskadjust])  # build the tree by adjusting :base
-                        ),          
-                factors=Transitionfactors(infectdict[variant][:transition][:factors])
-            )
-
+                     ),          
+                factors=Transitionfactors(infectdict[variant][:transition][:factors]))
     end
 
     # pre-allocate trvec used in hot loop: no. of columns in transition array

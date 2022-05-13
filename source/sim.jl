@@ -39,7 +39,8 @@ function runsim(model;
             runcases=[], 
             showr0 = false, 
             silent=true, 
-            dovax=false
+            dovax=false,
+            vaxscheds=:none
             )
 
     empty_all_caches!() # from previous runs
@@ -133,7 +134,7 @@ function runsim(model;
 
             # if dovax vaccinate (e.g., give shots)
             dovax && (
-                        vaxtime += @elapsed vaccinate!(locdat, vaxschedset, contactable_idx, vaxset)
+                        vaxtime += @elapsed vaccinate!(locdat, vaxschedset, contactable_idx, vaxset, vaxscheds)
                     )
 
             # person loop

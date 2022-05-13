@@ -424,26 +424,26 @@ columns in the population table. Runs social distancing cases.
             # infection outcome
             if touched  # if the contact is consequential
                 # gather characteristics of target and spreader
-                    recovday = c_recovday[target][end]
-                    spr_variant = c_variant[spr][end]
-                    recovfactor = if target_status == recovered
-                                      targ_variant = c_variant[target][end]
-                                      spr_recoveffect(recovday, targ_variant, spr_variant, infectset)
-                                  else 
-                                      1.0
-                                  end
-
-                    vaxstatus = c_vaxstatus[target]
-                    vaxfactor = if vaxstatus != :none
-                                    vaxrcvd = c_vaxrcvd[target][end]
-                                    vaxday = c_vaxday[target][end]
-                                    spr_vaxeffect(infectset, vaxset, vaxstatus, spr_variant, vaxrcvd, vaxday)
-                                else
+                recovday = c_recovday[target][end]
+                spr_variant = c_variant[spr][end]
+                recovfactor = if target_status == recovered
+                                    targ_variant = c_variant[target][end]
+                                    spr_recoveffect(recovday, targ_variant, spr_variant, infectset)
+                                else 
                                     1.0
                                 end
 
-                    spr_duration = c_duration[spr]
-                    targ_agegrp = c_agegrp[target]
+                vaxstatus = c_vaxstatus[target]
+                vaxfactor = if vaxstatus != :none
+                                vaxrcvd = c_vaxrcvd[target][end]
+                                vaxday = c_vaxday[target][end]
+                                spr_vaxeffect(infectset, vaxset, vaxstatus, spr_variant, vaxrcvd, vaxday)
+                            else
+                                1.0
+                            end
+
+                spr_duration = c_duration[spr]
+                targ_agegrp = c_agegrp[target]
 
                 risk = infectrisk(infectset, spr_variant, spr_duration, targ_agegrp, recovfactor, vaxfactor)
 

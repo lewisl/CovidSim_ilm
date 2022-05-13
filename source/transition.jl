@@ -54,8 +54,6 @@ vaxrcvd, vaxday, deadday.
     if !isempty(tr_arr)  # let's transition person p 
         transvec[:] = tr_arr[mapcondition(p_cond), :] # probabilities of recovery, nil, mild, sick, severe, dead given current condition
 
-        # TODO we need to update transitioning for the variant the person has NOW--Build this into setup
-
         # effect on severity and transitioning based on recovery from a previous infection
         recoveff =  @inbounds if p_status == recovered
                         tr_recoveffect(p_recovday, p_variant, infectset)
@@ -149,7 +147,6 @@ function dotransition!(p, transvec,             #::Union{Vector{Float64}, Nothin
 end
 
 
-
 """
     vaximmunity(infectset, vaxset, vaxstatus, spr_variant, vaxrcvd, vaxday)
 
@@ -214,8 +211,6 @@ Immunity from recovery for a single person.
 
     return factor
 end
-
-
 
 
 """

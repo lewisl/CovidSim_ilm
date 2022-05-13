@@ -4,7 +4,7 @@ This is a classic SEIR (Susceptible, Exposed, Infected, Removed) simulation of t
 
 Beginning as group or compartment model, a shift was made to an agent-based model in this repository Covidilmsim. The compartment model contained 1000 groups before considering variants, vaccination, and social distancing. The compartment model ran very quickly but as more conditions and public health policies were added, the logic became very tangled. 
 
-The agent-based model (or indivudual level model, "ilm", from now on) tracks each individual in a locale with an individual's specific traits and outcomes. Because a simulation doesn't know actual individual people, we use the same age groups, disease status conditions, and infection durations as in the group model. But, the ilm enables more complex policy scenarios to be simulated with more understandable logic. However, the ilm runs slower than the group model because each individual must be queried and updated. The rest of the readme describes the individual level model.
+The agent-based model (or individual level model, "ilm", from now on) tracks each individual in a locale with an individual's specific traits and outcomes. Because a simulation doesn't know actual individual people, we use the same age groups, disease status conditions, and infection durations as in the group model. But, the ilm enables more complex policy scenarios to be simulated with more understandable logic. However, the ilm runs slower than the group model because each individual must be queried and updated. The rest of the readme describes the individual level model.
 
 The statuses are:
 
@@ -13,7 +13,7 @@ The statuses are:
 - Recovered
 - Dead
 
-The conditions are:
+The disease conditions are:
 
 - Nil (infected and asymptomatic)
 - Mild
@@ -31,7 +31,7 @@ The agegroups are:
 The basic processes of the simulation are:
 - Spread
 
-	The disease spreads from those who are infected to those who are not. Transmissibility varies with the number of days that someone spreading has had it, with asymptomatic transmission assumed. Susceptibility varies by age group of the recipient. Variants, vaccination, and recovery from prior infection all affect spread.
+	The disease spreads from those who are infected to those who are not. Transmissibility varies with the number of days that an infected person has had it, with asymptomatic transmission assumed. Susceptibility varies by the age group of the recipient. Variants, vaccination, and recovery from prior infection all affect spread. Partial, temporary immunity conferred by recovering from an infection or being vaccinated declines over time.
 
 - Transition
 
@@ -56,19 +56,19 @@ There are many input parameters that control the behavior of the simulation. Key
 
     The model is more complicated than assuming one r0 applies to the entire population. R0 is *not* an input; it is an outcome.  The factors above provide different effective transmission rates for different age groups, disease conditions, and stage of infection. The r0 simulation provides a sanity check on transmission to see the resulting r0 for a single cohort that includes all age groups and durations. The model defaults provide for an early stage R0 of roughly 1.8. (Early stage assumes that the infected group is small relative to the population so that transmission is *not* affected by a large group of non-susceptible people, who may be dead, recovered, or already infected).  The r0 simulation can be run "mid-stream" during a simulation to see how case scenarios and epidemic dynamics change shortrun r0, which is as much socially determined as biologically.
 
-Transition of infected individuals (in the disease cell groups above) is controlled by input transition matrices:
+Transition of infected individuals (in the disease cell groups above) is controlled by input transition arrays:
 
-- transition matrices 
+- transition tree of arrays 
 
-    1 per age group, determine when the condition of an infected person shifts from nil, to mild, to sick, to severe, to recovering or dying. The tree provides different paths through the stages in varying number of days and probabilities, including skipping disease states.
+    1 per age group, determine when the condition of an infected person shifts from nil, to mild, to sick, to severe, to recovering or dying. The tree provides different paths through the stages of the illness to eventual recovering or dying.
 
 - checkpoints
 
-    Rather than assign probabilities at disease inception that determine how many infected individuals experience each severity for a given number of days, all infected progress through 25 days of infection. At set intervals, each infected individual probabilistically transitions to a new infection condition, recovery, or death.
+    Rather than assign probabilities at disease inception to determine the severity and duration of an infected individual's sickness, each infected person progresses through up to 25 days of infection. At set intervals--checkpoints--each infected person probabilistically transitions to a new infection condition, recovery, or death.
 
 - sanity check on checkpoints and transition matrices
 
-   Each decision tree (for an age group) must insure that all infected individuals resolve to recovered or dead at the end of the maximum duration period (25 days by default). Total probability across all outcomes must sum to 1.0.  The sanity check can be quickly run on a set of decision trees for all 5 age groups. In addition to verifying that probabilities sum to 1, this provides the expected (mean) % of recovered and dead by age group, which can be compared to reported clinical outcomes. [Read more...](https://github.com/lewisl/CovidSim/blob/master/documentation/decision%20tree%20concept.md)
+   Each decision tree (for an age group) must resolve all infected individuals to recovered or dead at the end of the maximum duration period (25 days by default). Total probability across all outcomes must sum to 1.0.  The sanity check can be quickly run on a set of decision trees for all 5 age groups. In addition to verifying that probabilities sum to 1, this reports the expected % of recovered and dead by age group, which can be compared to reported clinical outcomes. [Read more...](https://github.com/lewisl/CovidSim/blob/master/documentation/decision%20tree%20concept.md)
 
 A benefit of the model is comparative ease for running a variety of test cases to examine the response of disease progression to events and potential policy interventions:
 
