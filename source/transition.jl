@@ -46,10 +46,10 @@ vaxrcvd, vaxday, deadday.
         p_variant = c_variant[p][end]
     end
 
-    transtree = transitionset[p_variant].tree   
+    trtree = transitionset[p_variant].tree   
 
     # if person's agegrp and duration match a transition stage
-    tr_arr = get( getfield(transtree, Symbol(p_agegrp)), p_duration, [])
+    tr_arr = get( getfield(trtree, Symbol(p_agegrp)), p_duration, [])
 
     if !isempty(tr_arr)  # let's transition person p 
         transvec[:] = tr_arr[mapcondition(p_cond), :] # probabilities of recovery, nil, mild, sick, severe, dead given current condition

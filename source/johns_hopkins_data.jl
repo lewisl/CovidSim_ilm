@@ -39,7 +39,7 @@ function loc2df(;confdat=nothing, deaddat=nothing, loc=53033, days="all")
     infected = []
     dead = []
     confdays = deaddays = 0:0
-    if typeof(loc) <: Integer || typeof(loc) <: AbstractString
+    if isa(loc, Integer)  || typeof(loc) <: AbstractString
         search_item = loc
     else
         @warn "loc must be a valid FIPS number for a US county or a \"<county>, <state>, US\" string"

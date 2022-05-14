@@ -61,9 +61,9 @@ Calls pop_data for each locale.
 """
 function build_data(locales, geodata, n_days)
 
-    pop = [geodata[geodata[:, "fips"] .== loc, "pop"][1] for loc in locales]
+    # pop = [geodata[geodata[:, "fips"] .== loc, "pop"][1] for loc in locales]
 
-    popdat = Dict(loc => pop_data(geodata[geodata[:, "fips"] .== loc, "pop"][1]) for loc in locales)
+    popdat = Dict(loc => pop_data(geodata.pop[geodata.fips .== loc][1]) for loc in locales)
 
     # precalculate agegrp indices
     agegrp_idx = Dict(loc => precalc_agegrp_filt(popdat[loc]).idx for loc in locales)
@@ -89,7 +89,6 @@ Returns a TypedTable which is a tuple of arrays:
 - rows are days of the simulatoin
 """
 function pop_data(pop; age_dist=age_dist)
-
         parts = apportion(pop, age_dist)
 
         # must use comprehension to initialize vector of vector NOT fill--fill creates identical vectors
@@ -129,17 +128,13 @@ end
 
 
 function buildgeodata(filename)
-    geo = DataFrame(CSV.File(filename))
-    insertcols!(geo, "density_factor" => shifter(geo[:, "density"],0.9,1.25))
-
-    # fix dates   
-    insertcols!(geo, "anchor2" => quickdate(geo[:, "anchor"]))
-    insertcols!(geo, "limit2" => quickdate(geo[:, "limit"]))
-    select!(geo, Not(["anchor", "limit"]))
-    rename!(geo, "anchor2" => "anchor")
-    rename!(geo, "limit2" => "limit")
-
-    return geo
+    tmp = Table(CSV.File(filename))
+    
+    Table(tmp, 
+        density_factor = shifter(tmp.density,0.9,1.25), 
+        anchor         = quickdate(tmp.anchor),
+        limit          = quickdate(tmp.limit)
+        )
 end
 
 """

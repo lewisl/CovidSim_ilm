@@ -172,7 +172,7 @@ geodf = alldat.geo   # the date for all locales has been read into a dataframe
 
 
 ```julia
-density_factor = geodf[geodf[!, :fips] .== locale, :density_factor][]
+density_factor = geodf.density_factor[geodf.fips .== locale]
 ```
 
 

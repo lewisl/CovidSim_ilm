@@ -19,6 +19,8 @@
         #=
         this changes spread logic a lot
         =#
+    # do we need spreadq and other quick outcome tracking?  (it was already removed...)
+    
 
 
 
@@ -31,7 +33,6 @@ using DelimitedFiles
 using DataStructures
 using OrderedCollections
 using OrderedCollections: FrozenLittleDict
-using DataFrames
 using CSV
 using Random
 using Distributions
@@ -40,7 +41,6 @@ using Printf
 using PrettyPrint
 using Plots
 using PlotThemes
-using StatsPlots
 using Dates
 using YAML
 using TypedTables
@@ -64,6 +64,8 @@ using Debugger
 - use day_ctr[:day] to return current value of day
 """
 const day_ctr = counter(Symbol) # from package DataStructures
+
+hash(x::Integer) = uint(x)  # speed up dicts that use integers as keys--especially for transition
 
 
 ################################################################

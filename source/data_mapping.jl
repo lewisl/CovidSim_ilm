@@ -57,7 +57,7 @@ end
 end
 
 
-@inline function mapcondition(x::Integer) # from ordinal int to enum
+@inline function mapcondition(x::Int) # from ordinal int to enum
     if 0 <= x <= 4
         if x == 0
             uninfected

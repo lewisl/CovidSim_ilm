@@ -39,16 +39,18 @@ function reviewdays(q=spreadq)
     end
 end
 
-function reviewdays(df::DataFrame)
-    for it in eachrow(df)
-        display(it)
-        print("\nPress enter to continue, q enter to quit.> ");
-        ans = chomp(readline())
-        if ans == "q"
-            break
-        end
-    end
-end
+
+# TODO do we need this? replace with TypedTable?
+# function reviewdays(df::DataFrame)
+#     for it in eachrow(df)
+#         display(it)
+#         print("\nPress enter to continue, q enter to quit.> ");
+#         ans = chomp(readline())
+#         if ans == "q"
+#             break
+#         end
+#     end
+# end
 
 
 #################################################################################
@@ -122,7 +124,7 @@ function cumplot(series, locale, plotcols=[:unexposed, :infectious, :recovered, 
     labels = [titlecase(string(col)) for col in plotcols]
     labels = reshape([labels...], 1, length(labels))
     people = if !isempty(geo)
-                geo[geo[:,fips] .== locale, popsize][1]
+                geo.pop[geo.fips .== locale]
              else # this will off by a tiny bit because of rounding
                 getproperty(cumhist, :unexposed_total)[1] + getproperty(cumhist, :infectious_total)[1]
              end   
@@ -175,7 +177,7 @@ function newplot(series, locale, plotcols=[:infectious]; days="all", geo=[], thm
     labels = [titlecase(string(col)) for col in plotcols]
     labels = reshape([labels...], 1, length(labels))
     people = if !isempty(geo)
-        geo[geo[:,fips] .== locale, popsize][1]
+        geo.pop[geo.fips .== locale]
      else # this will off by a tiny bit because of rounding
         getproperty(cumhist, :unexposed_total)[1] + getproperty(cumhist, :infectious_total)[1]
      end   
@@ -199,81 +201,82 @@ function newplot(series, locale, plotcols=[:infectious]; days="all", geo=[], thm
              )
 end
 
+# TODO:    do we need this? can we do with Typed Tables?
 
-function day2df(spreadq::Array)
-    spreadseries = DataFrame(spreadq)
+# function day2df(spreadq::Array)
+#     spreadseries = DataFrame(spreadq)
 
-    spreadseries[!, :cuminfected] .= zeros(Int, size(spreadseries,1))
-    spreadseries[1, :cuminfected] = copy(spreadseries[1,:infected])
-    for i = 2:size(spreadseries,1)
-       spreadseries[i,:cuminfected] = spreadseries[i-1,:cuminfected] + spreadseries[i,:infected]
-    end
+#     spreadseries[!, :cuminfected] .= zeros(Int, size(spreadseries,1))
+#     spreadseries[1, :cuminfected] = copy(spreadseries[1,:infected])
+#     for i = 2:size(spreadseries,1)
+#        spreadseries[i,:cuminfected] = spreadseries[i-1,:cuminfected] + spreadseries[i,:infected]
+#     end
 
-    return spreadseries
-end
-
-
-function dayplot(spreadq, plseries=[])
-    dayplot(DataFrame(spreadq), plseries)
-end
+#     return spreadseries
+# end
 
 
-function dayplot(spreadseries::DataFrame, plseries=[])
+# function dayplot(spreadq, plseries=[])
+#     dayplot(DataFrame(spreadq), plseries)
+# end
+
+
+# function dayplot(spreadseries::DataFrame, plseries=[])
     
-    theme(:ggplot2, foreground_color_border =:black)
+#     theme(:ggplot2, foreground_color_border =:black)
     
-    pl = bar(   spreadseries[!,:day], spreadseries[!,:infected],label="Infected", 
-            lw=0.2,
-            bar_width=1,
-            size = (700,300),
-            dpi=180,
-            xlabel="Simulation Days", 
-            ylabel="People", 
-            title="Daily Spread of Covid",
-            bg_legend=:white)
+#     pl = bar(   spreadseries[!,:day], spreadseries[!,:infected],label="Infected", 
+#             lw=0.2,
+#             bar_width=1,
+#             size = (700,300),
+#             dpi=180,
+#             xlabel="Simulation Days", 
+#             ylabel="People", 
+#             title="Daily Spread of Covid",
+#             bg_legend=:white)
     
-    for addlseries in plseries
-        lbl = titlecase(string(addlseries))
-        plot!(spreadseries[!,:day], spreadseries[!,addlseries],label=lbl, lw=2)
-    end
-    # gui()  # force instant plot window
-    return pl
-end
+#     for addlseries in plseries
+#         lbl = titlecase(string(addlseries))
+#         plot!(spreadseries[!,:day], spreadseries[!,addlseries],label=lbl, lw=2)
+#     end
+#     # gui()  # force instant plot window
+#     return pl
+# end
 
+# TODO rewrite this to work with TypedTable series
+# function day_animate2(spreadseries)
+#     n = size(spreadseries,1)
+#     # daymat = Matrix(spreadseries)
 
-function day_animate2(spreadseries)
-    n = size(spreadseries,1)
-    # daymat = Matrix(spreadseries)
+#     xd = spreadseries[1:5,:]
 
-    xd = spreadseries[1:5,:]
+#     topy = max(maximum(spreadseries[!,:spreaders]),maximum(spreadseries[!,:contacts]),
+#                 maximum(spreadseries[!,:touched]),maximum(spreadseries[!,:infected]) )
 
-    topy = max(maximum(spreadseries[!,:spreaders]),maximum(spreadseries[!,:contacts]),
-                maximum(spreadseries[!,:touched]),maximum(spreadseries[!,:infected]) )
+#     @df xd plot(:day, [:spreaders :contacts :touched :infected], color=^([:red :blue :green :orange]),
+#                 labels=^(["Spreaders" "Contacts" "Touched" "Infected"]),dpi=200, lw=2,ylim=(0,topy))
 
-    @df xd plot(:day, [:spreaders :contacts :touched :infected], color=^([:red :blue :green :orange]),
-                labels=^(["Spreaders" "Contacts" "Touched" "Infected"]),dpi=200, lw=2,ylim=(0,topy))
+#     for i = 5:2:n
+#         xd = spreadseries[i-2:i,:]
 
-    for i = 5:2:n
-        xd = spreadseries[i-2:i,:]
+#         @df xd plot!(:day, [:spreaders :contacts :touched :infected], color=^([:red :blue :green :orange]),
+#                  labels=false, dpi=200, lw=2, ylim=(0,3e4))
+#         gui()
 
-        @df xd plot!(:day, [:spreaders :contacts :touched :infected], color=^([:red :blue :green :orange]),
-                 labels=false, dpi=200, lw=2, ylim=(0,3e4))
-        gui()
-
-        if i < round(Int, n/4)
-            sleep(0.3)
-        elseif i < round(Int,n/2)
-            sleep(0.1)
-        else
-            sleep(.001)
-        end
-        # print("\nPress enter to continue, q enter to quit.> ");
-        # ans = chomp(readline()) 
-        # if ans == "q"
-        #     break
-        # end    
-    end
-end
+#         if i < round(Int, n/4)
+#             sleep(0.3)
+#         elseif i < round(Int,n/2)
+#             sleep(0.1)
+#         else
+#             sleep(.001)
+#         end
+#         # print("\nPress enter to continue, q enter to quit.> ");
+#         # ans = chomp(readline()) 
+#         # if ans == "q"
+#         #     break
+#         # end    
+#     end
+# end
 
 function catplot()
     # groupedbar(datpct', bar_position=:stack,label=labels)

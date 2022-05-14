@@ -24,7 +24,7 @@ end
                 reqdshots                = vd[:reqdshots],
                 delay2ndshot             = vd[:delay2ndshot],
                 halflife                 = vd[:halflife],
-                infectreduce            = vd[:infectreduce], 
+                infectreduce             = vd[:infectreduce], 
                 full_effect_days         = vd[:full_effect_days],
                 day1_effect              = vd[:day1_effect],
                 infectfactor             = vd[:infectfactor]
@@ -61,7 +61,7 @@ end
         end
 
 
-@Base.kwdef struct Vaxsched  # mutable
+@Base.kwdef struct Vaxsched  
     vaxesincluded::Dict{Symbol, Vaxinclude}
     dayrange::UnitRange{Int64}
     targetpct::Float64
@@ -82,7 +82,9 @@ end
 
             vaxesincluded = Dict(k => Vaxinclude(v) for (k,v) in vs[:vaxesincluded])
             vaxmix = [v.mix for v in values(vaxesincluded)]
-            @assert sum(vaxmix) == 1.0 "Sum of mixes for vaccines does not equal 1: $vaxmix"
+
+            @assert sum(vaxmix) == 1.0 "Sum of mix for vaccines does not equal 1: $vaxmix"
+            @assert 0.0 <= targetpct <= 1.0 "targetpct must be in [0.0, 1.0], got: $targetpct"
 
             vx =Vaxsched(
                 vaxesincluded = vaxesincluded,
@@ -109,14 +111,7 @@ function build_vaxset(vaccinefilename; paramdir="../parameters")
 
     vaxset = Dict{Symbol, Vaccineparams}()
     for vax in keys(vaccines)
-        # vparamsdict = YAML.load_file(joinpath(paramdir, "vaccine_parameters", vaccinefiles[vax][:directory_name],
-        #     vaccinefiles[vax][:infect_fname]), dicttype=Dict{Symbol, Any})
-        vparams = Vaccineparams(vaccines[vax])
-        # not planning to use hard-code transition params for vaccines
-        # vtrans = setup_dt(joinpath("../parameters", "vaccine_parameters", vaccinefiles[vax][:directory_name], 
-        #             vaccinefiles[vax][:transition_fname]))
-        # TODO: will we ever do a transition decistion tree specific to a vaccine instead of adjustment calcs?
-        vaxset[vax] = vparams  
+        vaxset[vax] = Vaccineparams(vaccines[vax])  
     end
 
     # clean vaxlist
@@ -185,8 +180,8 @@ Give people shots!
         
     today = day_ctr[:day]
 
-    for schedname in Symbol.(vaxscheds)      #values(vaxschedset)   # vaxshedset is Dict{Symbol, Vaxsched} where Symbol is Symbol(schedname)
-        vxsched = vaxschedset[schedname]
+    for schedname in Symbol.(vaxscheds)      
+        vxsched = vaxschedset[schedname]   # vaxshedset is Dict{Symbol, Vaxsched} where Symbol is Symbol(schedname)
 
         # setup this schedule
         vaxprops = vxsched.vaxesincluded  # this is an alias to a mutable object

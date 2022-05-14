@@ -96,7 +96,7 @@ function runsim(model;
         newhist = series[loc].new
         cumhist = series[loc].cum
         age_idx_loc = agegrp_idx[loc]  # indices by agegrp
-        density_factor = geodf[geodf[!, :fips] .== loc, :density_factor][]  # for the loc
+        density_factor = geodf.density_factor[geodf.fips .== loc][1]
 
         # Deref columns once per locale and not in the deeper loops. Pass needed columns to spread! and transition!
         c_cond       = locdat.cond
@@ -221,9 +221,18 @@ end
 
 @inline function do_history!(locdat, newhist, cumhist, age_idx_loc, thisday)  
 
+    # temporarily get rid of unused columns for performance
+        # only using status, cond, vaxrcvd, variant
+        # cuts time by 60%!
+    tmpdat = Table(locdat, duration=nothing, sickday=nothing, recovday=nothing,
+                    deadday=nothing, ring=nothing, sdcomply=nothing, agegrp=nothing,
+                    vaxstatus=nothing, vaxday=nothing, tested=nothing, testday=nothing,
+                    quar=nothing, quarday=nothing)  # this is FAST--reduces time to subset the rows
+
     @inbounds for age in agegrps
 
-        dat_age = locdat[age_idx_loc[age]]
+        age_idx = age_idx_loc[age]
+        dat_age = tmpdat[age_idx]
 
         # get the source data: status
         status_today = zeros(Int, 4)
