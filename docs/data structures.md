@@ -82,7 +82,18 @@ The calday column has a date for the day. The simulation internally uses days fr
 | Vaccine      | :Pfizer, :Moderna, :JnJ, :totvaccinated by agegrp and total |   24   |
 | Variant      |  :base, :alpha, :delta, :omicron_ba1, :omicron_ba2 by agegrp and total  |  30    |
 
-Example fully qualified column names: :unexposed_age80_up, :totvaccinated_age60_79, :totvaccinated_total. Unfortunately, there is no hierarchical grouping of columns in a TypedTable. Separate tables could be used but it is easy to programmatically reference the columns for updating as one table.
+Here are examples of fully qualified column names: :unexposed_age80_up, :totvaccinated_age60_79, :totvaccinated_total. Unfortunately, there is no hierarchical grouping of columns in a TypedTable. Separate tables could be used but it is easier to programmatically reference the columns for updating as one table.
+
+Here is the path for accessing history tables:
+
+```
+-dict- locale
+series[38015].cum.unexposed_age_0_19   
+                 |                  |  
+---NamedTuple----|                  |  
+-----------Table columns------------|     
+
+```
 
 Here is the output of a fragment of a history series table:
 

@@ -8,9 +8,9 @@
 #       format_version: '1.3'
 #       jupytext_version: 1.13.7
 #   kernelspec:
-#     display_name: Julia 1.7.2
+#     display_name: Julia 4 threads 1.7.2
 #     language: julia
-#     name: julia-1.7
+#     name: julia-4-threads-1.7
 # ---
 
 # %%
@@ -32,7 +32,7 @@ using Dates
 # %%
 cd(joinpath(homedir(),"Dropbox/Covid Modeling/Covid-ILM/source"))
 
-# %% [markdown] jp-MarkdownHeadingCollapsed=true tags=[] jp-MarkdownHeadingCollapsed=true
+# %% [markdown] jp-MarkdownHeadingCollapsed=true tags=[] jp-MarkdownHeadingCollapsed=true tags=[] jp-MarkdownHeadingCollapsed=true jp-MarkdownHeadingCollapsed=true tags=[]
 # # Test setup and population matrix
 
 # %% tags=[]

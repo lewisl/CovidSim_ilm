@@ -1,8 +1,0 @@
-5:                                  # agegrp
-  25:                               # duration
-    7:                              # fromcond
-      probs: [0.682, 0.318]
-      outcomes: [3, 4]
-    8:
-      probs: [0.676, 0.324]
-      outcomes: [3, 4]

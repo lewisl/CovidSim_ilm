@@ -1,0 +1,15 @@
+name = "CovidSim_ilm"
+uuid = "c70e2dfc-8e06-4fce-bc57-ad774aa1cb0a"
+authors = ["Lewis Levin <lewis@neilson-levin.org> and contributors"]
+version = "0.8.0"
+
+[compat]
+julia = "1.6"
+
+[deps]
+
+[extras]
+
+
+[targets]
+

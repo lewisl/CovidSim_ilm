@@ -64,7 +64,6 @@ function runsim(model;
                 vax.doses = vax.starting_doses   
             end
         end
-        contact_vector = zeros(Int, 8)    
 
     # restart the day counter to zero
     reset!(day_ctr, :day)  # return and reset key to 0 :day leftover from prior runs
@@ -78,7 +77,6 @@ function runsim(model;
     trtime = 0      # transition infected population through stages of illness
     idxtime = 0     # calculate indices for infectious and susceptible
     histtime = 0    # update history time series
-    misc_time = 0
     totalsimtime = 0
 
 
@@ -127,13 +125,11 @@ function runsim(model;
             end                                                 # who participates in a given case
 
             # filter for key people
-            idxtime += @elapsed begin
-                infect_idx = findall(locdat.status .== infectious)
-                contactable_idx = findall(locdat.status .!= dead)
-            end
-
+            idxtime += @elapsed infect_idx = findall(locdat.status .== infectious) # all the sick and maybe infectious
+            
             # if dovax vaccinate (e.g., give shots)
             dovax && (
+                        idxtime += @elapsedcontactable_idx = findall(locdat.status .!= dead)
                         vaxtime += @elapsed vaccinate!(locdat, vaxschedset, contactable_idx, vaxset, vaxscheds)
                     )
 
@@ -144,15 +140,11 @@ function runsim(model;
                 # is this person ACTIVELY infectious
                 spr_duration = c_duration[p]
                 spr_variant = c_variant[p][end]
-
-                # if p == 24003
-                #     @show p, c_cond[p], c_duration[p], spr_duration, spr_variant
-                # end
-
+                # duration determines if the spreader is really able to spread the virus
                 sendrisk = infectset[spr_variant].sendrisk[spr_duration]
+                
                 if sendrisk > 0.0     
-                    spread!(p, thisday, contact_vector, sdcases,  socialparams,   
-                                infectset, vaxset, density_factor, dovax, poprange, 
+                    spread!(p, thisday, sdcases,  socialparams, infectset, vaxset, density_factor, dovax, poprange, 
                                 c_cond,
                                 c_status,
                                 c_agegrp,
@@ -164,7 +156,7 @@ function runsim(model;
                                 c_recovday,
                                 c_vaxrcvd,
                                 c_vaxday,)        
-                end
+                    end
                 end  # sprtime
 
                 trtime += @elapsed begin
@@ -180,7 +172,8 @@ function runsim(model;
                                     c_vaxrcvd,
                                     c_vaxday,
                                     c_deadday
-                                    ) end
+                                    ) 
+                    end
             end # people loop         
             
             for case in runcases  # cases that run at the end of the day
@@ -208,7 +201,7 @@ function runsim(model;
     end # locale loop
     end # for totalsimtime
 
-    print_timings(idxtime, vaxtime, sprtime, trtime, histtime, totalsimtime, misc_time)
+    print_timings(idxtime, vaxtime, sprtime, trtime, histtime, totalsimtime)
 
     return popdat, series
 end
@@ -221,13 +214,10 @@ end
 
 @inline function do_history!(locdat, newhist, cumhist, age_idx_loc, thisday)  
 
-    # temporarily get rid of unused columns for performance
+    # create a 'view' to get rid of unused columns for performance
         # only using status, cond, vaxrcvd, variant
-        # cuts time by 60%!
-    tmpdat = Table(locdat, duration=nothing, sickday=nothing, recovday=nothing,
-                    deadday=nothing, ring=nothing, sdcomply=nothing, agegrp=nothing,
-                    vaxstatus=nothing, vaxday=nothing, tested=nothing, testday=nothing,
-                    quar=nothing, quarday=nothing)  # this is FAST--reduces time to subset the rows
+        # cuts time by 60%! # this is FAST--reduces time to subset the rows
+    tmpdat = @Select(status, cond, vaxrcvd, variant)(locdat)  
 
     @inbounds for age in agegrps
 
@@ -334,14 +324,13 @@ end
 #  other functions used in simulation
 #####################################################################################
 
-function print_timings(idxtime, vaxtime, sprtime, trtime, histtime, totalsimtime, misc_time)
+function print_timings(idxtime, vaxtime, sprtime, trtime, histtime, totalsimtime)
     println("\nExecution Times")
     @printf "Indexing    %.3f\n" idxtime
     @printf "Vaccination %.3f\n" vaxtime
     @printf "Spread      %.3f\n" sprtime
     @printf "Transition  %.3f\n" trtime
     @printf "History     %.3f\n" histtime
-    @printf "Misc Time   %.3f\n" misc_time
     @printf "Total       %.3f\n" totalsimtime
 end
 

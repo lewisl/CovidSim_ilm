@@ -372,7 +372,7 @@ altrisk(risk) = sigmoid(spreadin(risk))
 Infectious people spread the virus to susceptible people for a single locale. Changes attribute
 columns in the population table. Runs social distancing cases.
 """
-@inline function spread!(spr::Int, thisday::Int, contact_vector::Vector{Int}, sdcases, socialparams,   
+@inline function spread!(spr::Int, thisday::Int, sdcases, socialparams,   
      infectset, vaxset, density_factor, dovax, poprange,    
         c_cond,
         c_status,
@@ -398,22 +398,14 @@ columns in the population table. Runs social distancing cases.
     tovariant = :base
     targ_agegrp = age0_19
     target_status = unexposed
-    lencv = length(contact_vector)
 
     # determine number of outbound contacts 
     @inbounds contact_param = c_sdcomply[spr] == :none ? contactfactors : sdcases[c_sdcomply[spr]]
     nc = @inbounds numcontacts(density_factor, gammashape, c_agegrp[spr], c_cond[spr], contact_param)  
-    @inbounds sample!(poprange, contact_vector)
-    sel = 0
+
     @inbounds for i = 1:nc
-        if sel >= lencv
-            sample!(poprange, contact_vector)  # draw another sample
-            sel = 1
-        else
-            sel += 1
-        end
-    
-        target = contact_vector[sel]
+        
+        target = rand(poprange)
         target_status = c_status[target]
 
         if (target_status == unexposed) | (target_status == recovered)  # only conditions that can get infected   
@@ -448,7 +440,6 @@ columns in the population table. Runs social distancing cases.
                 risk = infectrisk(infectset, spr_variant, spr_duration, targ_agegrp, recovfactor, vaxfactor)
 
                 if isinfected(risk)
-                    # push!(c_variant[target], c_variant[spr][end])
                     push!(c_variant[target], c_variant[spr][end])  # first of possibly several infections...
                     push!(c_sickday[target], thisday)
                     c_duration[target] = 1

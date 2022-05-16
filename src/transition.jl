@@ -110,7 +110,7 @@ Transition an infected person to a new condition or status if called
 with a transition vector (trvec) or increment
 the number of days the person has been sick.
 """
-function dotransition!(p, transvec,             #::Union{Vector{Float64}, Nothing},
+function dotransition!(p, transvec,         
                 c_duration,
                 c_deadday,
                 c_status,
@@ -129,7 +129,7 @@ function dotransition!(p, transvec,             #::Union{Vector{Float64}, Nothin
             @inbounds begin
             c_deadday[p] = day_ctr[:day]
             c_status[p] = dead  # change the status
-            c_cond[p] = uninfected # change the condition--> kept to know what cause of death was
+            c_cond[p] = uninfected # change the condition
             end
         elseif tocond == recovered
             @inbounds begin
