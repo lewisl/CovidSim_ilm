@@ -7,7 +7,7 @@
 function buildsim(ndays, locales;
     day1 = Date("2020-01-01", "yyyy-mm-dd"),
     dovax = false,
-    paramdir = "../parameters",
+    paramdir = "../sample_parameters",
     geofilename = "../data/geo2data.csv", 
     socialfilename = "socialparams.yml",
     vaccinefilename = "vaccines.yml",
@@ -128,10 +128,10 @@ function runsim(model;
             idxtime += @elapsed infect_idx = findall(locdat.status .== infectious) # all the sick and maybe infectious
             
             # if dovax vaccinate (e.g., give shots)
-            dovax && (
-                        idxtime += @elapsedcontactable_idx = findall(locdat.status .!= dead)
+            dovax && begin
+                        idxtime += @elapsed contactable_idx = findall(locdat.status .!= dead)
                         vaxtime += @elapsed vaccinate!(locdat, vaxschedset, contactable_idx, vaxset, vaxscheds)
-                    )
+                     end
 
             # person loop
             @inbounds for p in infect_idx    

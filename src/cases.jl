@@ -6,30 +6,11 @@
 ####################################################################
 
 
+
+
 ####################################################################
 # seeding cases
 ####################################################################
-
-"""
-Generate seeding cases.
-inputs: day, cnt, duration, cond, agegrp
-Two of the inputs may refer to multiple items and must match in number of items.
-
-Returns a function that can be used in runcases input to run_a_sim.
-"""
-function seed_case_gen_old(cnt, duration, cond, variant, agegrp; forlocale, triggerdate, forstartofday) # these args go into the returned seed! case
-    # caserunner gets returned; assign it a value at the cmdline; use as an input to run_a_sim
-
-    function caserunner(locdat, socialparams, infectset, sdcases, age_idx_loc; startofday, locale, day)  # args must match runcases loop in run_a_sim
-        if (day == triggerdate) & (startofday == forstartofday) 
-            if (forlocale == 0) | (forlocale == locale)
-                seed!(cnt, duration, cond, variant, agegrp, locdat)  # payload: this is what the function will do when run
-            end
-        end
-    end
-
-end
-
 
 """
     seed!(cnt, duration, conds, agegrps, locale, dat)
@@ -175,6 +156,11 @@ function makenotsickseedfunc( ; status, filter::Vector{Term}, cnt, forlocale=0, 
     seed_case_gen(ss; forlocale=forlocale, triggerdate=triggerdate, forstartofday=forstartofday)
 end
 
+####################################################################
+# functions to generate the callback functions for cases, specifically
+#   seeding cases or setting sets of traits in the population
+####################################################################
+
 """
 Generate seeding cases.
 
@@ -215,6 +201,26 @@ function seed_case_gen(ss::Seedset; forlocale=0, triggerdate, forstartofday) # t
         if (day == triggerdate) & (startofday == forstartofday) 
             if (forlocale == 0) | (forlocale == locale)
                 settraits!(locdat, ss::Seedset)
+            end
+        end
+    end
+
+end
+
+"""
+Generate seeding cases.
+inputs: day, cnt, duration, cond, agegrp
+Two of the inputs may refer to multiple items and must match in number of items.
+
+Returns a function that can be used in runcases input to run_a_sim.
+"""
+function seed_case_gen_old(cnt, duration, cond, variant, agegrp; forlocale, triggerdate, forstartofday) # these args go into the returned seed! case
+    # caserunner gets returned; assign it a value at the cmdline; use as an input to run_a_sim
+
+    function caserunner(locdat, socialparams, infectset, sdcases, age_idx_loc; startofday, locale, day)  # args must match runcases loop in run_a_sim
+        if (day == triggerdate) & (startofday == forstartofday) 
+            if (forlocale == 0) | (forlocale == locale)
+                seed!(cnt, duration, cond, variant, agegrp, locdat)  # payload: this is what the function will do when run
             end
         end
     end

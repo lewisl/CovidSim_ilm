@@ -8,7 +8,6 @@
     # rewrite quarantine to fit new population matrix--think through social distancing
     # fix all the travel functions to latest APIs
     # put in an inflection measure
-    # use currying to simplify case APIs
     # should quarantine be special or is it extreme social distancing--with no contacts?
         #= 
         tricky because we only using contacts for outgoing contacts by spreaders.

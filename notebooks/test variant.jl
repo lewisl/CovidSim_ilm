@@ -8,9 +8,9 @@
 #       format_version: '1.3'
 #       jupytext_version: 1.13.7
 #   kernelspec:
-#     display_name: Julia 4 threads 1.7.2
+#     display_name: Julia 1.7.2
 #     language: julia
-#     name: julia-4-threads-1.7
+#     name: julia-1.7
 # ---
 
 # %%
@@ -30,9 +30,9 @@ using LinearAlgebra
 using Dates
 
 # %%
-cd(joinpath(homedir(),"Dropbox/Covid Modeling/Covid-ILM/source"))
+cd(joinpath(homedir(),"Dropbox/Covid Modeling/Covid-ILM/src"))
 
-# %% [markdown] jp-MarkdownHeadingCollapsed=true tags=[] jp-MarkdownHeadingCollapsed=true tags=[] jp-MarkdownHeadingCollapsed=true jp-MarkdownHeadingCollapsed=true tags=[]
+# %% [markdown] jp-MarkdownHeadingCollapsed=true tags=[] jp-MarkdownHeadingCollapsed=true tags=[] jp-MarkdownHeadingCollapsed=true tags=[] jp-MarkdownHeadingCollapsed=true
 # # Test setup and population matrix
 
 # %% tags=[]
@@ -41,7 +41,7 @@ locale = 38015
 model180 = buildsim(ndays, locale;  
     day1 = Date("2020-01-01", "yyyy-mm-dd"),
     dovax = true,
-    paramdir = "../parameters",
+    paramdir = "../sample_parameters",
     geofilename = "../data/geo2data.csv", 
     socialfilename = "socialparams.yml",
     vaccinefilename = "vaccines.yml",
@@ -224,7 +224,7 @@ locale = 38015
 model = buildsim(ndays, locale;  
     day1 = Date("2020-01-01", "yyyy-mm-dd"),
     dovax = true,
-    paramdir = "../parameters",
+    paramdir = "../sample_parameters",
     geofilename = "../data/geo2data.csv", 
     socialfilename = "socialparams.yml",
     vaccinefilename = "vaccines.yml",
@@ -349,9 +349,13 @@ sd1 = sd_gen(startday = 55, comply=0.9, cf=(.2,1.0), tf=(.18,.6), name=:mod_80, 
 sd1_end = sd_gen(startday = 90, comply=0.0, cf=(.2,1.5), tf=(.18,.6), name=:mod_80, include_ages=[])
 
 # %%
-result_dict, series = run_a_sim(ndays, locale, showr0=false, silent=true, runcases=[seed_1_6, sd1, sd1_end]);
+popdat, series = runsim(model;
+            dovax=true, vaxscheds=:loc38015, showr0=false, silent=true, 
+            runcases=[seed20_39_day1, seed40_59_day1, seed20_39_delta, seed40_59_delta, seed20_39_omicron, seed40_59_omicron,
+                      seed20_39_omicron_ba2, seed40_59_omicron_ba2, sd1, sd1_end]);
+locdat = popdat[locale];
 
-# %%
+# %% jupyter={"outputs_hidden": true} tags=[]
 virus_outcome(series, locale, base=:pop)
 
 # %%
@@ -377,7 +381,12 @@ sdolder_end = sd_gen(startday = 90, comply=0.0, cf=(.2,1.5), tf=(.18,.6), name=:
 
 # %%
 popdat, series = runsim(model; 
-                    runcases=[seed_1_6, sdolder, sdolder_end]);
+                        dovax=true, vaxscheds=:loc38015,
+                        runcases=[seed20_39_day1, seed40_59_day1, seed20_39_delta, seed40_59_delta, 
+                                  seed20_39_omicron, seed40_59_omicron,
+                                  seed20_39_omicron_ba2, seed40_59_omicron_ba2, 
+                                  sdolder, sdolder_end]);
+locdat = popdat[locale];
 
 
 # %%
@@ -402,7 +411,12 @@ sdyoung_end = sd_gen(startday = 90, comply=0.0, cf=(.2,1.5), tf=(.18,.6), name=:
 
 # %%
 popdat, series = runsim(model,
-    runcases=[seed_1_6, sd1, sdyoung_end]);
+                        dovax=true, vaxscheds=:loc38015,
+                        runcases=[seed20_39_day1, seed40_59_day1, seed20_39_delta, seed40_59_delta, 
+                                  seed20_39_omicron, seed40_59_omicron,
+                                  seed20_39_omicron_ba2, seed40_59_omicron_ba2, 
+                                  sd1, sdyoung_end]);
+locdat = popdat[locale];
 
 # %%
 mixdat = popdat[locale]

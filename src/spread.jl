@@ -58,7 +58,7 @@ end
 
 function sd_gen(;startday::Int, comply::Float64, cf::Tuple{Float64, Float64},
                 tf::Tuple{Float64, Float64}, name::Symbol, include_ages=[])
-    function caserunner(locdat, socialparams, infectset, sdcases, age_idx_loc; startofday)   
+    function caserunner(locdat, socialparams, infectset, sdcases, age_idx_loc; day, startofday, locale)   
         s_d_seed!(locdat, sdcases, startday, comply, cf, tf, name, include_ages, socialparams, infectset, age_idx_loc;
                     startofday=startofday)
     end
@@ -79,14 +79,14 @@ end
 
         # create the Spreadcase in sdcases
         sdcases[name] = Spreadcase(
-                        name    = name,   # TODO  if we never use this get rid of it
-                        day     = startday,   
-                        cfdelta = cf,         
-                        tfdelta = tf,         
-                        comply  = comply,     
-                        cfcase  = shifter(socialparams.contactfactors, cf...),  
-                        tfcase  = shifter(socialparams.touchfactors, tf...)     
-                        )
+                            name    = name,   # TODO  if we never use this get rid of it
+                            day     = startday,   
+                            cfdelta = cf,         
+                            tfdelta = tf,         
+                            comply  = comply,     
+                            cfcase  = shifter(socialparams.contactfactors, cf...),  
+                            tfcase  = shifter(socialparams.touchfactors, tf...)     
+                            )
 
         # load the sdcomply column of the population table
         # filter1 is everyone who is unexposed, recovered or sick: nil or mild
