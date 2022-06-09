@@ -39,6 +39,7 @@ using StatsBase
 using Printf
 using PrettyPrint
 using Plots
+#using PlotlyBase
 using PlotThemes
 using Dates
 using YAML
@@ -160,6 +161,9 @@ const seriesbyage =  Dict(:unexposed => (:unexposed_age0_19, :unexposed_age20_39
                           :omicron_ba2 => (:omicron_ba2_age0_19, :omicron_ba2_age20_39,:omicron_ba2_age40_59, :omicron_ba2_age60_79, :omicron_ba2_age80_up)
                         ) 
 
+const serieslevels = Dict(k1 => Dict(k2 => Symbol(k1, "_", k2) 
+                                for k2 in [:total, instances(agegrp)...]) 
+                          for k1 in seriesgroups)
 
 # other columns used only in series 
 const totinfected       = 9
@@ -238,7 +242,6 @@ export
     t_n_t_case_gen,
     case_setter,
     bayes,
-    tntq,
     shifter
 
 # functions for setup
@@ -249,7 +252,6 @@ export
 # functions for tracking
 export                  
     reviewdays,
-    showq,
     cumplot,
     newplot,
     dayplot,
@@ -261,8 +263,6 @@ export
 export     
     seriesgroups,       
     travelq,
-    spreadq,
-    transq,
     day2df,
     map2series
 

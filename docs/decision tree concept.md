@@ -20,7 +20,7 @@ while !isempty(todo)
    nxtidx = findfirst(isequal(breakday), breakdays) + 1
    for brk in breakdays[nxtidx:end]
       if tocond in keys(dt_by_age[brk])   # keys are the fromcond at the next break day so previous tocond == current fromcond
-         for i in 1:length(dt_by_age[brk][tocond][:outcomes])
+         for i in eachindex(dt_by_age[brk][tocond][:outcomes])
             outcome = dt_by_age[brk][tocond][:outcomes][i]
             prob = dt_by_age[brk][tocond][:probs][i]
             newseq = vcat(seq, (duration=brk, fromcond=tocond, tocond=outcome, prob=prob))

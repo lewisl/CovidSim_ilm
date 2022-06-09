@@ -164,7 +164,6 @@ Second method uses the spreadcase for the recipient.
 end
 
 
-
 @inline function istouched(agegrp, lookup, acase::Spreadcase)::Bool
     return @inbounds @fastmath rand(Binomial(1, acase.tfcase[maptouch(lookup), mapagegrp(agegrp)])) == 1
 end
@@ -400,7 +399,7 @@ columns in the population table. Runs social distancing cases.
     target_status = unexposed
 
     # determine number of outbound contacts 
-    @inbounds contact_param = c_sdcomply[spr] == :none ? contactfactors : sdcases[c_sdcomply[spr]]
+    @inbounds contact_param = c_sdcomply[spr] === :none ? contactfactors : sdcases[c_sdcomply[spr]]
     nc = @inbounds numcontacts(density_factor, gammashape, c_agegrp[spr], c_cond[spr], contact_param)  
 
     @inbounds for i = 1:nc
@@ -410,7 +409,7 @@ columns in the population table. Runs social distancing cases.
 
         if (target_status == unexposed) | (target_status == recovered)  # only conditions that can get infected   
             # choose the touch_param for the social distancing case or the input social parameters
-            touch_param = c_sdcomply[target] == :none ? touchfactors : sdcases[c_sdcomply[target]]
+            touch_param = c_sdcomply[target] === :none ? touchfactors : sdcases[c_sdcomply[target]]
             touched = istouched(c_agegrp[target], unexposed, touch_param)   # is the contact significant?
 
             # infection outcome
@@ -426,12 +425,12 @@ columns in the population table. Runs social distancing cases.
                                 end
 
                 vaxstatus = c_vaxstatus[target]
-                vaxfactor = if vaxstatus != :none
+                vaxfactor = if vaxstatus === :none
+                               1.0 
+                            else
                                 vaxrcvd = c_vaxrcvd[target][end]
                                 vaxday = c_vaxday[target][end]
                                 spr_vaxeffect(infectset, vaxset, vaxstatus, spr_variant, vaxrcvd, vaxday)
-                            else
-                                1.0
                             end
 
                 spr_duration = c_duration[spr]

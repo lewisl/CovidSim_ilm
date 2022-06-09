@@ -17,7 +17,7 @@ function setup(ndays, locales;  # must provide following inputs
         geodata = buildgeodata(geofilename)
 
     # simulation data matrix
-        datadict = build_data(locales, geodata, ndays)
+        dat = build_data(locales, geodata, ndays)
 
     # history series
         series = build_series_table(locales, agegrp, ndays, day1)
@@ -38,7 +38,7 @@ function setup(ndays, locales;  # must provide following inputs
         vaxschedset = Dict()  # nothing
     end
 
-    model = (ndays=ndays, day1=day1, locales=locales, dat=datadict, series=series, geo=geodata, 
+    model = (ndays=ndays, day1=day1, locales=locales, dat=dat, series=series, geo=geodata, 
             transitionset=transitionset, vaxset=vaxset, vaxschedset=vaxschedset, infectset=infectset, 
             social=socialparams, trvec=trvec)  
 
@@ -68,7 +68,7 @@ function build_data(locales, geodata, n_days)
     # precalculate agegrp indices
     agegrp_idx = Dict(loc => precalc_agegrp_filt(popdat[loc]).idx for loc in locales)
     
-    return Dict("popdat"=>popdat, "agegrp_idx"=>agegrp_idx)
+    return (popdat=popdat, agegrp_idx=agegrp_idx)
 end
 
 
@@ -176,7 +176,7 @@ function build_spread_params(infectdict::Dict)
 
     # set recvrisk and sendrisk
     for variant in loadvariants
-        if variant == :base
+        if variant === :base
             continue
         end
         if isempty(infectset[variant].recvrisk)
@@ -212,7 +212,7 @@ function build_transition_params(infectdict)
                                             )
 
     for variant in loadvariants
-        variant == :base && continue
+        variant === :base && continue
         transitionset[Symbol(variant)] = Transitionparams(
                 tree=(  !isnothing(infectdict[variant][:transition][:tree])   ?   
                             setup_dt(infectdict[variant][:transition][:tree]) :    # transition tree was provided for this variant

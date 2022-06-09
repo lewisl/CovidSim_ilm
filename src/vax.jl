@@ -238,10 +238,10 @@ end
 end
 
 @inline function vaccinate!(locdat, vaxschedset, contactable_idx, vaxset, vaxscheds::Symbol)
-    if vaxscheds == :all
+    if vaxscheds === :all
         vaxscheds = keys(vaxschedset)
         vaccinate!(locdat, vaxschedset, contactable_idx, vaxset, vaxscheds)
-    elseif vaxscheds == :none
+    elseif vaxscheds === :none
         # don't do anything
     else
         vaccinate!(locdat, vaxschedset, contactable_idx, vaxset, [vaxscheds])
@@ -262,7 +262,7 @@ end
         # break out if no more doses left of any vaccine 
         mapreduce(vi->vi.doses, +, values(vaxprops)) <= 0 && break  # sum doses of all included vaccines w/ no allocations
         
-        if vaxstatuscol[p] == :none  # maybe give the first shot
+        if vaxstatuscol[p] === :none  # maybe give the first shot
 
             # which vaccine to give?
             vxnum = categorical_sim(mix)  # our first choice, if available
@@ -294,7 +294,7 @@ end
                 end
             end
 
-        elseif (vaxstatuscol[p] == :first) | (vaxstatuscol[p] == :multiple)
+        elseif (vaxstatuscol[p] === :first) | (vaxstatuscol[p] === :multiple)
             vaxchoice = last(vaxrcvdcol[p]) # assume we don't mix vaccines for multiple shots
 
             if vaxprops[vaxchoice].doses > 0

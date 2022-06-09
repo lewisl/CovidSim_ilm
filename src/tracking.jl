@@ -2,15 +2,7 @@
 # tracking.jl
 #########################################################################################
 
-# gr()   # initialize plotting backend for Plots
-
-
-# for debugging simulations: daily outcome entries as named tuples
-const spreadq = []
-const transq = []
-const tntq = []
-const r0q = []
-
+plotly()
 
 # for Johns Hopkins US actual data
 struct Col_ref
@@ -19,55 +11,104 @@ struct Col_ref
 end
 
 
-# tracking statistics
 
-function showq(qname)
-    for item in qname
-        println(item)
+#################################################################################
+#  Simulation Stats -- very preliminary
+#################################################################################
+"""
+    function stat1(series, locale)
+
+Returns a table of status outcomes for the simulation by age group.
+"""
+function stat1(series, locale)
+    cumhist = series[locale].cum
+    newhist = series[locale].new
+
+    stat1 = Table(item=Symbol[], total=Int[], age0_19=Int[], age20_39=Int[], age40_59=Int[], age60_79=Int[], age80_up=Int[])
+    calc_cols = [:total, :age0_19, :age20_39, :age40_59, :age60_79, :age80_up]
+
+    stat1 = push!(stat1, (item=:pop,
+                    total    = getproperty(cumhist, :unexposed_total)[1] + getproperty(cumhist, :infectious_total)[1],
+                    age0_19  = getproperty(cumhist, :unexposed_age0_19)[1] + getproperty(cumhist, :infectious_age0_19)[1],
+                    age20_39 = getproperty(cumhist, :unexposed_age20_39)[1] + getproperty(cumhist, :infectious_age20_39)[1],
+                    age40_59 = getproperty(cumhist, :unexposed_age40_59)[1] + getproperty(cumhist, :infectious_age40_59)[1],
+                    age60_79 = getproperty(cumhist, :unexposed_age60_79)[1] + getproperty(cumhist, :infectious_age60_79)[1],
+                    age80_up = getproperty(cumhist, :unexposed_age80_up)[1] + getproperty(cumhist, :infectious_age80_up)[1])
+                )
+                
+    push!(stat1, (item=:died,
+                  total    = getproperty(cumhist, :dead_total)[end],
+                  age0_19  = getproperty(cumhist, :dead_age0_19)[end],
+                  age20_39 = getproperty(cumhist, :dead_age20_39)[end],
+                  age40_59 = getproperty(cumhist, :dead_age40_59)[end],
+                  age60_79 = getproperty(cumhist, :dead_age60_79)[end],
+                  age80_up = getproperty(cumhist, :dead_age80_up)[end])
+                  )
+
+    push!(stat1, (item=:unexposed,
+                  total    = getproperty(cumhist, :unexposed_total)[end],
+                  age0_19  = getproperty(cumhist, :unexposed_age0_19)[end],
+                  age20_39 = getproperty(cumhist, :unexposed_age20_39)[end],
+                  age40_59 = getproperty(cumhist, :unexposed_age40_59)[end],
+                  age60_79 = getproperty(cumhist, :unexposed_age60_79)[end],
+                  age80_up = getproperty(cumhist, :unexposed_age80_up)[end])
+                  )
+
+    # inter-row calculation infected = pop - unexposed
+    poprow = stat1[stat1.item .=== :pop]
+    unexprow = stat1[stat1.item .=== :unexposed]
+    newrow = zeros(Int, 6)
+    for (i, col) in enumerate(calc_cols)
+        newrow[i] = getproperty(poprow, col)[] - getproperty(unexprow, col)[]
     end
+
+    push!(stat1, (item = :ever_infected,
+        total = newrow[1],
+        age0_19 = newrow[2],
+        age20_39 = newrow[3],
+        age40_59 = newrow[4],
+        age60_79 = newrow[5],
+        age80_up = newrow[6])
+        )
+
+    # inter-row calculation recovered = infected - died
+    diedrow = stat1[stat1.item .=== :died]
+    infectedrow = stat1[stat1.item .=== :ever_infected]
+    newrow[:] .= 0
+    for (i, col) in enumerate(calc_cols)
+        newrow[i] = (getproperty(infectedrow, col)[] - getproperty(diedrow, col)[] 
+                    - getproperty(cumhist, Symbol(:infectious, "_", col))[end])
+    end
+
+    push!(stat1, (item=:recovered,
+                  total    = newrow[1],
+                  age0_19  = newrow[2],
+                  age20_39 = newrow[3],
+                  age40_59 = newrow[4],
+                  age60_79 = newrow[5],
+                  age80_up = newrow[6])
+                  )
+
+    return stat1
+
 end
 
 
-function reviewdays(q=spreadq)
-    for it in q
-        println(it)
-        print("\nPress enter to continue, q enter to quit.> ");
-        ans = chomp(readline())
-        if ans == "q"
-            break
-        end
-    end
-end
-
-
-# TODO do we need this? replace with TypedTable?
-# function reviewdays(df::DataFrame)
-#     for it in eachrow(df)
-#         display(it)
-#         print("\nPress enter to continue, q enter to quit.> ");
-#         ans = chomp(readline())
-#         if ans == "q"
-#             break
-#         end
-#     end
-# end
-
-
-#################################################################################
-#  Epidemiological Stats -- very preliminary
-#################################################################################
-
-# outcomes per agegrp
+# outcomes per agegrp  THIS IS REALLY JUST THE PCT CALCULATION:  PUT IT IN STAT1
 function virus_outcome(series, locale; agegrp=totalcol, base=:infected)  # denom in (:infected, :pop, :none)
-    map2series = series[locale].cols
 
     n = size(series[locale].cum, 1)
     outcomes = Dict{Symbol, Float64}()  # TODO should we have integer outcomes for totals when base=:none?
-    agegrp = Int(agegrp)
+    # agegrp = Int(agegrp)
+    if agegrp == totalcol
+        agegrp = :total
+    end
     
     # each denominator for data summary
-    total_pop = series[locale].cum[1, map2series[:unexposed][agegrp]] + series[locale].cum[1, map2series[:infectious][agegrp]]
-    total_infected = series[locale].cum[end, map2series[:totinfected][agegrp]]
+    # total_pop = series[locale].cum[1, map2series[:unexposed][agegrp]] + series[locale].cum[1, map2series[:infectious][agegrp]]
+    total_pop = getproperty(series[locale].cum, Symbol(unexposed, "_", agegrp))[1] + getproperty(series[locale].cum, Symbol(infectious, "_", agegrp))[1]
+    # total_infected = series[locale].cum[end, map2series[:totinfected][agegrp]]
+    total_infected = getproperty(series[locale].cum, Symbol(:totinfected, "_", agegrp))[end]
 
     denom = if base == :pop 
                 total_pop 
@@ -78,8 +119,8 @@ function virus_outcome(series, locale; agegrp=totalcol, base=:infected)  # denom
             end
 
     for cond in statuses
-        ssym = Symbol(cond)
-        outcomes[ssym] = series[locale].cum[n, map2series[ssym][agegrp]] / denom
+        stsym = Symbol(cond)
+        outcomes[stsym] = getproperty(series[locale].cum, Symbol(stsym, "_", agegrp))[n] / denom
     end
 
     return outcomes
@@ -108,7 +149,6 @@ function cumplot(series, locale, plotcols=[:unexposed, :infectious, :recovered, 
     cumhist = series[locale].cum
     newhist = series[locale].new
 
-    # theme(:ggplot2, foreground_color_border =:black, reuse = false)
     theme(thm, foreground_color_border=:black, 
           tickfontsize=9, gridlinewidth=1)
 
@@ -201,92 +241,3 @@ function newplot(series, locale, plotcols=[:infectious]; days="all", geo=[], thm
              )
 end
 
-# TODO:    do we need this? can we do with Typed Tables?
-
-# function day2df(spreadq::Array)
-#     spreadseries = DataFrame(spreadq)
-
-#     spreadseries[!, :cuminfected] .= zeros(Int, size(spreadseries,1))
-#     spreadseries[1, :cuminfected] = copy(spreadseries[1,:infected])
-#     for i = 2:size(spreadseries,1)
-#        spreadseries[i,:cuminfected] = spreadseries[i-1,:cuminfected] + spreadseries[i,:infected]
-#     end
-
-#     return spreadseries
-# end
-
-
-# function dayplot(spreadq, plseries=[])
-#     dayplot(DataFrame(spreadq), plseries)
-# end
-
-
-# function dayplot(spreadseries::DataFrame, plseries=[])
-    
-#     theme(:ggplot2, foreground_color_border =:black)
-    
-#     pl = bar(   spreadseries[!,:day], spreadseries[!,:infected],label="Infected", 
-#             lw=0.2,
-#             bar_width=1,
-#             size = (700,300),
-#             dpi=180,
-#             xlabel="Simulation Days", 
-#             ylabel="People", 
-#             title="Daily Spread of Covid",
-#             bg_legend=:white)
-    
-#     for addlseries in plseries
-#         lbl = titlecase(string(addlseries))
-#         plot!(spreadseries[!,:day], spreadseries[!,addlseries],label=lbl, lw=2)
-#     end
-#     # gui()  # force instant plot window
-#     return pl
-# end
-
-# TODO rewrite this to work with TypedTable series
-# function day_animate2(spreadseries)
-#     n = size(spreadseries,1)
-#     # daymat = Matrix(spreadseries)
-
-#     xd = spreadseries[1:5,:]
-
-#     topy = max(maximum(spreadseries[!,:spreaders]),maximum(spreadseries[!,:contacts]),
-#                 maximum(spreadseries[!,:touched]),maximum(spreadseries[!,:infected]) )
-
-#     @df xd plot(:day, [:spreaders :contacts :touched :infected], color=^([:red :blue :green :orange]),
-#                 labels=^(["Spreaders" "Contacts" "Touched" "Infected"]),dpi=200, lw=2,ylim=(0,topy))
-
-#     for i = 5:2:n
-#         xd = spreadseries[i-2:i,:]
-
-#         @df xd plot!(:day, [:spreaders :contacts :touched :infected], color=^([:red :blue :green :orange]),
-#                  labels=false, dpi=200, lw=2, ylim=(0,3e4))
-#         gui()
-
-#         if i < round(Int, n/4)
-#             sleep(0.3)
-#         elseif i < round(Int,n/2)
-#             sleep(0.1)
-#         else
-#             sleep(.001)
-#         end
-#         # print("\nPress enter to continue, q enter to quit.> ");
-#         # ans = chomp(readline()) 
-#         # if ans == "q"
-#         #     break
-#         # end    
-#     end
-# end
-
-function catplot()
-    # groupedbar(datpct', bar_position=:stack,label=labels)
-    # plot!(xticks=(1:3,["one", "two", "three"]))
-    #= julia> datpct'
-                3×5 LinearAlgebra.Adjoint{Float64,Array{Float64,2}}:
-                 0.32036   0.30348    0.141939  0.155273  0.0789479
-                 0.199046  0.413894   0.201274  0.054734  0.131053
-                 0.252381  0.0677606  0.26775   0.161113  0.250996
-    =#
-end
-
-# Plots.AnimatedGif("/var/folders/mf/73qj_8c91dzg4sw459_7mchm0000gn/T/jl_Js4px6.gif")

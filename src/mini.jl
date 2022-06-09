@@ -2,6 +2,7 @@ using TypedTables
 using PrettyPrint
 using DataStructures
 using Random
+using StructArrays
 
 
 #########################################
@@ -44,7 +45,7 @@ Returns a TypedTable which is a tuple of arrays:
 - each column is a trait of people
 - rows are days of the simulatoin
 """
-function pop_data(pop; age_dist=age_dist)
+function pop_data1(pop; age_dist=age_dist)
 
         parts = apportion(pop, age_dist)
 
@@ -71,6 +72,33 @@ function pop_data(pop; age_dist=age_dist)
     return dat       
 end
 
+
+function pop_data2(pop; age_dist=age_dist)
+
+    parts = apportion(pop, age_dist)
+
+    # must use comprehension to initialize vector of vector NOT fill--fill creates identical vectors
+    dat = StructArray(
+        status = fill(unexposed, pop),                                          # enum status
+        agegrp = reduce(vcat,[fill(age, parts[Int(age)]) for age in agegrps]),  # enum agegrp
+        cond = fill(uninfected, pop),                                           # enum condition
+        duration = zeros(Int, pop),                                             # Int
+        variant = [Symbol[] for _ in 1:pop],                                     # Vector{Symbol}
+        sickday = [[0] for _ in 1:pop],                                         # Vector{Int}
+        recovday = [[0] for _ in 1:pop],                                        # Vector{Int}
+        deadday = zeros(Int, pop),                                              # Int
+        ring = zeros(Int, pop),                                                 # Int (not used as yet)
+        sdcomply = fill(:none, pop),                                            # Symbol
+        vaxstatus = fill(:none, pop),          # :none, :first, :multiple, :full, :booster  maybe others later...
+        vaxrcvd = [[:none] for _ in 1:pop],    # Vector{Symbol} of vaccine symbols  :Pfizer, :Moderna, :JnJ
+        vaxday = [[0] for _ in 1:pop],                                          # Vector{Int}
+        tested = falses(pop),                                                   # Bool
+        testday = zeros(Int, pop),                                              # Vector{Int}
+        quar = falses(pop),                                                     # Bool
+        quarday = zeros(Int, pop))                                              # Int
+
+return dat       
+end
 
 function apportion(x::Int, splits::Array)
     @assert isapprox(sum(splits), 1.0)

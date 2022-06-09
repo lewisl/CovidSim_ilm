@@ -62,13 +62,13 @@ vaxrcvd, vaxday, deadday.
                     end
 
         # effect on severity and transitioning based on being vaccinated
-        vaxeff = @inbounds if p_vaxstatus != :none
+        vaxeff = @inbounds if p_vaxstatus === :none
+                        1.0
+                    else
                         p_vaxrcvd = c_vaxrcvd[p][end]
                         p_vaxday = c_vaxday[p][end]
                         p_variant = c_variant[p][end]
                         tr_vaxeffect(infectset, vaxset, p_vaxstatus, p_variant, p_vaxrcvd, p_vaxday)
-                    else
-                        1.0
                     end
         
         vaxfn!(transvec, recoveff, vaxeff) #vaxfn! will be function noop or function vaxtransitioneffect

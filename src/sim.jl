@@ -26,7 +26,7 @@ function buildsim(ndays, locales;
         )
 
         #=
-        model = (ndays=ndays, day1=day1, locales=locales, dat=datadict, series=series, geo=geodata, 
+        model = (ndays=ndays, day1=day1, locales=locales, dat=dat, series=series, geo=geodata, 
                 transitionset=transitionset, vaxset=vaxset, vaxschedset=vaxschedset, infectset=infectset, 
                 social=socialparams, trvec=trvec)  
         =#    
@@ -51,9 +51,9 @@ function runsim(model;
         locales = model.locales
         transitionset = model.transitionset  # transition arrays
         trvec = model.trvec # preallocated small vector
-        popdat = deepcopy(model.dat["popdat"])   # Copy the population data so model can be reused!!!
-        agegrp_idx = model.dat["agegrp_idx"]   # first key is locale
-        series = deepcopy(model.series)  # contains series.mapper and series.data, which is a dict of locales, each local includes .cum and .new
+        popdat = deepcopy(model.dat.popdat)   # Copy the population data so model can be reused!!!
+        agegrp_idx = model.dat.agegrp_idx   # first key is locale
+        series = deepcopy(model.series)  # dict of locales => namedtuple(.cum, .new), TypedTable of history columns
         geodf = model.geo
         infectset = model.infectset
         socialparams = model.social
@@ -121,8 +121,8 @@ function runsim(model;
             silent || println("simulation day: ", thisday)
 
             for case in runcases  # cases that run at the beginning of the day
-                case(locdat, socialparams, infectset, sdcases, age_idx_loc; day=thisday, startofday=true, locale=loc)  # TODO extend ages to be any filter for 
-            end                                                 # who participates in a given case
+                case(locdat, socialparams, infectset, sdcases, age_idx_loc; day=thisday, startofday=true, locale=loc) 
+            end    ## TODO extend ages to be any filter for who participates in a given case
 
             # filter for key people
             idxtime += @elapsed infect_idx = findall(locdat.status .== infectious) # all the sick and maybe infectious
@@ -137,25 +137,26 @@ function runsim(model;
             @inbounds for p in infect_idx    
 
                 sprtime += @elapsed begin
-                # is this person ACTIVELY infectious
-                spr_duration = c_duration[p]
-                spr_variant = c_variant[p][end]
-                # duration determines if the spreader is really able to spread the virus
-                sendrisk = infectset[spr_variant].sendrisk[spr_duration]
-                
-                if sendrisk > 0.0     
-                    spread!(p, thisday, sdcases,  socialparams, infectset, vaxset, density_factor, dovax, poprange, 
-                                c_cond,
-                                c_status,
-                                c_agegrp,
-                                c_duration,
-                                c_sdcomply,
-                                c_sickday,
-                                c_variant,
-                                c_vaxstatus,
-                                c_recovday,
-                                c_vaxrcvd,
-                                c_vaxday,)        
+                    # is this person ACTIVELY infectious
+                    spr_duration = c_duration[p]
+                    spr_variant = c_variant[p][end]
+                    # duration determines if the spreader is really able to spread the virus
+                    sendrisk = infectset[spr_variant].sendrisk[spr_duration]
+                    
+                    if sendrisk > 0.0     
+                        spread!(p, thisday, sdcases,  socialparams, infectset, 
+                                vaxset, density_factor, dovax, poprange, 
+                                    c_cond,
+                                    c_status,
+                                    c_agegrp,
+                                    c_duration,
+                                    c_sdcomply,
+                                    c_sickday,
+                                    c_variant,
+                                    c_vaxstatus,
+                                    c_recovday,
+                                    c_vaxrcvd,
+                                    c_vaxday)        
                     end
                 end  # sprtime
 
@@ -177,12 +178,13 @@ function runsim(model;
             end # people loop         
             
             for case in runcases  # cases that run at the end of the day
-                case(locdat, socialparams, infectset, sdcases, age_idx_loc; day=thisday, startofday=false, locale=loc)  # TODO extend ages to be any filter for 
-            end                                                 # who participates in a given case
+                case(locdat, socialparams, infectset, sdcases, age_idx_loc; day=thisday, startofday=false, locale=loc) 
+            end   # TODO extend ages to be any filter for who participates in a given case
 
             # r0 displayed every 10 days
             if showr0 && (mod(day_ctr[:day],10) == 0)   # do we ever want to do this by locale -- maybe
-                current_r0 = r0_sim(locdat, age_dist=age_dist, dectree=dectree, socialparams=socialparams, infectparams=infectparams, sdcases=sdcases)
+                current_r0 = r0_sim(locdat, age_dist=age_dist, dectree=dectree, socialparams=socialparams, 
+                        infectparams=infectparams, sdcases=sdcases)
                 println("day $(day_ctr[:day]), locale $loc: rt = $current_r0")
             end
 
@@ -339,15 +341,6 @@ function cleanup_stash(stash)
     for k in keys(stash)
         delete!(stash, k)
     end
-end
-
-
-function empty_all_caches!()
-    # empty tracking queues
-    !isempty(spreadq) && (deleteat!(spreadq, 1:length(spreadq)))   
-    !isempty(transq) && (deleteat!(transq, 1:length(transq)))   
-    !isempty(tntq) && (deleteat!(tntq, 1:length(tntq)))   
-    !isempty(r0q) && (deleteat!(r0q, 1:length(r0q)))  
 end
 
 

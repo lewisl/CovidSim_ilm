@@ -26,7 +26,7 @@ Ex:
 """
 function mapit(x, keyarr, valuearr)
     @assert length(keyarr) == length(valuearr) "Length of sourcearr not equal length of targetarr"
-    for i in 1:length(keyarr)
+    for i in eachindex(keyarr)
         if x == keyarr[i]
             return valuearr[i]
         end
