@@ -6,11 +6,11 @@
 function setup(ndays, locales;  # must provide following inputs
     day1,
     dovax=false,
-    dovariant=false,
     paramdir,
     geofilename, 
     socialfilename,
     vaccinefilename,
+    scheddir,
     variantfilename)
 
     # geodata
@@ -31,8 +31,8 @@ function setup(ndays, locales;  # must provide following inputs
 
     # vaccines  TODO this is not the right approach: test if we have vax inputs instead
     if dovax
-        vaxset = build_vaxset(vaccinefilename, paramdir=paramdir)
-        vaxschedset = build_vaxschedset()
+        vaxset = build_vaxset(vaccinefilename, paramdir)
+        vaxschedset = build_vaxschedset(scheddir, paramdir)
     else
         vaxset = Dict()  # nothing
         vaxschedset = Dict()  # nothing

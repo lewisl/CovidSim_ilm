@@ -11,6 +11,7 @@ function buildsim(ndays, locales;
     geofilename = "../data/geo2data.csv", 
     socialfilename = "socialparams.yml",
     vaccinefilename = "vaccines.yml",
+    scheddir="vaccine_schedule",
     variantfilename = "variants.yml")
 
     locales = locales isa Int ? [locales] : locales
@@ -22,6 +23,7 @@ function buildsim(ndays, locales;
         geofilename=geofilename, 
         socialfilename=socialfilename,
         vaccinefilename=vaccinefilename,
+        scheddir=scheddir,
         variantfilename=variantfilename,
         )
 
@@ -42,8 +44,6 @@ function runsim(model;
             dovax=false,
             vaxscheds=:none
             )
-
-    empty_all_caches!() # from previous runs
 
     # split up  members of model and initialize
         ndays = model.ndays

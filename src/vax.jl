@@ -105,7 +105,7 @@ end
 ###########################################################
 
 
-function build_vaxset(vaccinefilename; paramdir="../sample_parameters")
+function build_vaxset(vaccinefilename, paramdir)
 
     vaccines = YAML.load_file(joinpath(paramdir, vaccinefilename); dicttype=Dict{Symbol,Any})
 
@@ -130,7 +130,7 @@ function build_vaxset(vaccinefilename; paramdir="../sample_parameters")
 end
 
 
-function build_vaxschedset(; paramdir="../sample_parameters", scheddir="vaccine_schedule")
+function build_vaxschedset(scheddir, paramdir)
     fnames = readdir(joinpath(paramdir, scheddir), join=true)
     fnames = filter(isfile, fnames)
     fnames = filter(fn -> (splitext(fn)[2] == ".yml"), fnames)

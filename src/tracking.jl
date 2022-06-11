@@ -2,7 +2,7 @@
 # tracking.jl
 #########################################################################################
 
-plotly()
+plotly()  # Plots backend for plotting
 
 # for Johns Hopkins US actual data
 struct Col_ref

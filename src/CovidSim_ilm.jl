@@ -18,7 +18,6 @@
         #=
         this changes spread logic a lot
         =#
-    # do we need spreadq and other quick outcome tracking?  (it was already removed...)
     
 
 
@@ -188,6 +187,7 @@ include("spread.jl")
 include("vax.jl")
 include("sim.jl")
 include("johns_hopkins_data.jl")
+include("serialize.jl")
 
 # functions for simulation
 export    

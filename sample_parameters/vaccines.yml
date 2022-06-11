@@ -1,4 +1,4 @@
----
+
 Pfizer:  # will convert to symbol at load time
   halflife:         360
   reqdshots:          2

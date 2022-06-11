@@ -187,7 +187,6 @@ Example:
 ```
     runsim(popdat, series = runsim(model;
                                 dovax=false,
-                                dovariant = false,
                                 runcases=[c1]
                                 );
 ```julia
