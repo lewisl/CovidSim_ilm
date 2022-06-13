@@ -46,6 +46,48 @@ function setup(ndays, locales;  # must provide following inputs
 end
 
 
+function setup(yaml_model)
+    ym = yaml_model
+
+    day1 = Dates.Date(ym["day1"])
+    dovax = ym["dovax"]
+    ndays = ym["ndays"]
+    locales = ym["locales"]
+
+    #geodata
+        geodata = buildgeodata(CSV.read(IOBuffer(ym["geofile"]), Table))
+
+    # simulation data matrix
+        dat = build_data(locales, geodata, ndays)
+
+    # history series
+        series = build_series_table(ym["locales"], agegrp, ym["ndays"], day1)   
+        
+    # social parameters
+        socialparams = build_socialparams(YAML.load(ym["socialfile"], dicttype=OrderedDict{Symbol, Any}))
+
+    # variants, spread parameters, transition arrays
+        infectset, transitionset, trvec = build_infect_params(YAML.load(ym["variantfile"], dicttype=Dict{Symbol, Any}))
+
+
+    # vaccines  TODO this is not the right approach: test if we have vax inputs instead
+    if dovax
+        vaxset = build_vaxset(YAML.load(ym["vaccinefile"], dicttype=Dict{Symbol,Any}))
+        vaxscheds = YAML.load(ym["vaxscheds"])  # a Dict{Any, Any}
+        vaxschedset = build_vaxschedset(vaxscheds)
+    else
+        vaxset = Dict()  # nothing
+        vaxschedset = Dict()  # nothing
+    end
+
+    model = (ndays=ndays, day1=day1, locales=locales, dat=dat, series=series, geo=geodata, 
+            transitionset=transitionset, vaxset=vaxset, vaxschedset=vaxschedset, infectset=infectset, 
+            social=socialparams, trvec=trvec)  
+
+    return model
+end
+
+
 """
 Convert a vector of dates from a csv file in format "mm/dd/yyyy"
 to a vector of Julia numeric Date values in format yyyy-mm-dd
@@ -127,15 +169,24 @@ function build_series_table(locales, agegrp, n_days, day1)
 end
 
 
-function buildgeodata(filename)
+function buildgeodata(filename::String)
     tmp = Table(CSV.File(filename))
     
-    Table(tmp, 
-        density_factor = shifter(tmp.density,0.9,1.25), 
-        anchor         = quickdate(tmp.anchor),
-        limit          = quickdate(tmp.limit)
+    buildgeodata(tmp)
+
+end
+
+function buildgeodata(geotable::T) where T <: Table
+
+    Table(geotable, 
+        density_factor = shifter(geotable.density,0.9,1.25), 
+        anchor         = quickdate(geotable.anchor),
+        limit          = quickdate(geotable.limit)
         )
 end
+
+
+
 
 """
     function build_infect_params(variantfilename, paramdir)
@@ -145,7 +196,14 @@ from infection for each variant. Build paramaters for transitioning infected peo
 different conditions of the virus and to recover or die at the end.
 """
 function build_infect_params(variantfilename, paramdir)
+
     infectdict = YAML.load_file(joinpath(paramdir, variantfilename), dicttype=Dict{Symbol, Any})
+
+    build_infect_params(infectdict)
+end
+
+
+function build_infect_params(infectdict) 
 
     infectset = build_spread_params(infectdict)
     (transitionset, trvec) = build_transition_params(infectdict)
@@ -233,6 +291,16 @@ function build_socialparams(socialfilename, paramdir)
 
     social_inputs = YAML.load_file(joinpath(paramdir, socialfilename), dicttype=OrderedDict{Symbol, Any})
 
+    build_socialparams(social_inputs)
+
+end
+
+
+
+function build_socialparams(social_inputs::T) where T <: AbstractDict
+
+    # social_inputs = YAML.load_file(joinpath(paramdir, socialfilename), dicttype=OrderedDict{Symbol, Any})
+
     # check for all required params
         required_params = [:contactfactors, :touchfactors, :gammashape]
         has_all = true
@@ -243,7 +311,7 @@ function build_socialparams(socialfilename, paramdir)
                 has_all = false
             end
         end
-        @assert has_all "required keys: $lacking not in $(infectfilename)"
+        @assert has_all "required keys: $lacking missing"
 
         # build arrays for contactfactors and touchfactors
             # keys are agegrps

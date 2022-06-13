@@ -2,6 +2,10 @@
 #  Output simulation data in various kinds of text files
 #####################################################################
 
+
+"""
+Utility function used by series_to_csv, popdat_to_csv, and modeldef_to_csv
+"""
 function setpathstr(;pathstr="", idstr="", overwrite=false, usetimestamp=true, basedir=:current)
     datestr = usetimestamp ? string(round(Dates.now(), Dates.Minute(1))) : ""
     datestr = replace(datestr, ":" => "-") # no colons in filenames!
@@ -23,6 +27,8 @@ function setpathstr(;pathstr="", idstr="", overwrite=false, usetimestamp=true, b
 
     return writepathstr, datestr
 end
+
+
 
 """
 **function series\\_to\\_csv(series; pathstr="", idstr="", locale=0, overwrite=false, usetimestamp=true, basedir=:current)**
@@ -112,9 +118,9 @@ function popdat_to_csv(dat; pathstr="", idstr="", overwrite=false, usetimestamp=
 end
 
 
-function model_to_csv(ndays::Int, locales::Vector{Int};  
-    day1 = Date("2020-01-01", "yyyy-mm-dd"),
-    dovax=false,
+function modeldef_to_yaml(ndays::Int, locales::Vector{Int};  
+    day1,
+    dovax,
     paramdir = "../sample_parameters",
     geofilename = "../data/geo2data.csv", 
     socialfilename = "socialparams.yml",
@@ -181,5 +187,27 @@ function model_to_csv(ndays::Int, locales::Vector{Int};
     write(filepathstr, io)
 
     close(io)
+
+end
+
+
+function yaml_to_model(fname::String; basedir=:home, pathstr="")
+
+    basedirstr =    if basedir === :current
+                        pwd()
+                    elseif basedir === :home
+                        homedir()
+                    elseif basedir === :none
+                        ""
+                    else
+                        throw(DomainError(basedir, "Argument must be :current, :home, or :none"))
+                    end
+
+
+    readpathstr = joinpath(basedirstr, pathstr, fname)
+
+    !isfile(readpathstr) && (throw(ErrorException("FATAL: File $writepathstr does not exist")))
+
+    yaml_model = YAML.load_file(readpathstr)
 
 end

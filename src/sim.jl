@@ -37,6 +37,11 @@ function buildsim(ndays, locales;
 end
 
 
+function buildsim(yaml_model)
+    model = setup(yaml_model)
+end
+
+
 function runsim(model; 
             runcases=[], 
             showr0 = false, 

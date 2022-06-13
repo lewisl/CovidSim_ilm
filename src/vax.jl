@@ -106,8 +106,12 @@ end
 
 
 function build_vaxset(vaccinefilename, paramdir)
-
     vaccines = YAML.load_file(joinpath(paramdir, vaccinefilename); dicttype=Dict{Symbol,Any})
+    build_vaxset(vaccines)
+end
+
+
+function build_vaxset(vaccines)
 
     vaxset = Dict{Symbol, Vaccineparams}()
     for vax in keys(vaccines)
@@ -147,9 +151,20 @@ function build_vaxschedset(scheddir, paramdir)
     end
 
     return vaxschedset
-
 end
 
+
+function build_vaxschedset(vaxscheds)  # input is a Dict{Any, Any}
+    
+    vaxschedset = Dict{Symbol, Vaxsched}()
+
+    for sched in keys(vaxscheds)
+        vaxscheddict = YAML.load(vaxscheds[sched], dicttype=Dict{Symbol, Any})
+        vaxschedset[Symbol(sched)] = Vaxsched(vaxscheddict)
+    end
+
+    return vaxschedset
+end
 
 """
     makevaxfn(dayrange, pattern)
