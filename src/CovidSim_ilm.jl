@@ -1,5 +1,6 @@
 # TODO
     # implement vxsched filterfunc using new seeding approach
+    # rewrite R0 sim assuming individual spreading and transition
     # more info
         # get fatality rate by age and co-morbidity CDC, Italian NIH
         # by agegroup, hospitalization %, ICU admission %, fatality %
@@ -7,7 +8,6 @@
     # rewrite test and trace to fit new population matrix
     # rewrite quarantine to fit new population matrix--think through social distancing
     # fix all the travel functions to latest APIs
-    # put in an inflection measure
     # should quarantine be special or is it extreme social distancing--with no contacts?
         #= 
         tricky because we only using contacts for outgoing contacts by spreaders.
@@ -130,7 +130,6 @@ const transition_cases = [recovered, nil, mild, sick, severe, dead]
 const allconds = vcat(infectious_cases, statuses) # note excludes uninfected::condition=0
 const agegrps = instances(agegrp) # tuple of enums
 const n_agegrps = length(instances(agegrp))
-const vaxlist = Symbol[]  # filled by vax.jl
 const variantlist = Symbol[]  # filled by setup.jl
 
 # trait columns used in history series
@@ -256,9 +255,8 @@ export
     newplot,
     dayplot,
     dayanimate2,
-    make_series,
-    virus_outcome
-
+    make_series
+    
 # queues and caches (variables) for tracking
 export     
     seriesgroups,       

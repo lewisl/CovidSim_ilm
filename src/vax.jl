@@ -6,14 +6,16 @@
 # data structures for vaccination
 ###################################################
 
+const vaxlist = Symbol[]  # filled as vaxset is built
+
 @Base.kwdef struct Vaccineparams  # mutable  ??
     reqdshots::Int
     delay2ndshot::Union{Int, Nothing}   # days until 2nd shot (probability less important)
     halflife::Int  # days to 50% decline in effect
-    infectreduce::Dict{Symbol, Dict{Symbol, Float64}}
+    effectiveness::Dict{Symbol, Dict{Symbol, Float64}}
     full_effect_days::Int
     day1_effect::Float64
-    infectfactor::Float64
+    infectfactor::Dict{Symbol, Float64}
 end
 
         """
@@ -24,10 +26,10 @@ end
                 reqdshots                = vd[:reqdshots],
                 delay2ndshot             = vd[:delay2ndshot],
                 halflife                 = vd[:halflife],
-                infectreduce             = vd[:infectreduce], 
+                effectiveness            = vd[:effectiveness], 
                 full_effect_days         = vd[:full_effect_days],
                 day1_effect              = vd[:day1_effect],
-                infectfactor             = vd[:infectfactor]
+                infectfactor             = Dict(k => convert(Float64, v) for (k,v) in vd[:infectfactor])
                 )
         )
 
@@ -191,7 +193,7 @@ end
 """
 Give people shots!
 """
-@inline function vaccinate!(locdat, vaxschedset, contactable_idx, vaxset, vaxscheds)
+@inline function vaccinate!(locdat, vaxschedset, contactable_idx, vaxset, vaxscheds::Vector{Symbol})
         
     today = day_ctr[:day]
 
@@ -240,25 +242,17 @@ Give people shots!
     end  
 end
 
-# front-end methods (interfaces) for vaccinate!
-@inline function vaccinate!(locdat, vaxschedset, contactable_idx, vaxset, vaxscheds::String)
-    if vaxscheds == "all"
-        vaxscheds = keys(vaxschedset)
-        vaccinate!(locdat, vaxschedset, contactable_idx, vaxset, vaxscheds)
-    elseif vaxscheds == "none"
-        # don't do anything
-    else
-        vaccinate!(locdat, vaxschedset, contactable_idx, vaxset, [Symbol(vaxscheds)])
-    end
-end
 
+"""
+Front-end method for vaccinate!Allows vaxscheds argument to be :all, :none or a single symbol for a specific vaxsched.
+"""
 @inline function vaccinate!(locdat, vaxschedset, contactable_idx, vaxset, vaxscheds::Symbol)
     if vaxscheds === :all
         vaxscheds = keys(vaxschedset)
         vaccinate!(locdat, vaxschedset, contactable_idx, vaxset, vaxscheds)
     elseif vaxscheds === :none
         # don't do anything
-    else
+    else  # a single symbol turned into an array
         vaccinate!(locdat, vaxschedset, contactable_idx, vaxset, [vaxscheds])
     end
 end
@@ -269,7 +263,7 @@ end
                   vaxprops, vaxesincluded, reqdshots, pct2ndshot, mix, delay2ndshot,  # vaccine characteristics
                   contactable_idx, doses_today, today)                               # people and simulation today
 
-    for p in shuffle(contactable_idx)  # loop across people who are not dead. Mix up the agegrps
+    for p in shuffle(contactable_idx) # shuffle()  # loop across people who are not dead. Mix up the agegrps
 
         # break out if all the people in this schedule today have been fully vaccinated
         sum(values(doses_today)) < 1 && break  

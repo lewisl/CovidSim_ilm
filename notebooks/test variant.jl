@@ -8,9 +8,9 @@
 #       format_version: '1.3'
 #       jupytext_version: 1.13.8
 #   kernelspec:
-#     display_name: Julia 4 threads 1.7.2
+#     display_name: Julia 1.7.3
 #     language: julia
-#     name: julia-4-threads-1.7
+#     name: julia-1.7
 # ---
 
 # %%
@@ -30,12 +30,11 @@ using LinearAlgebra
 using Dates
 using Plots
 using TableView
-using LanguageServer
 
 # %%
 cd(joinpath(homedir(),"Dropbox/Covid Modeling/Covid-ILM/src"))
 
-# %% [markdown] jp-MarkdownHeadingCollapsed=true tags=[] jp-MarkdownHeadingCollapsed=true tags=[] jp-MarkdownHeadingCollapsed=true tags=[] jp-MarkdownHeadingCollapsed=true jp-MarkdownHeadingCollapsed=true tags=[] jp-MarkdownHeadingCollapsed=true jp-MarkdownHeadingCollapsed=true tags=[] jp-MarkdownHeadingCollapsed=true jp-MarkdownHeadingCollapsed=true tags=[] jp-MarkdownHeadingCollapsed=true jp-MarkdownHeadingCollapsed=true tags=[] jp-MarkdownHeadingCollapsed=true jp-MarkdownHeadingCollapsed=true tags=[] jp-MarkdownHeadingCollapsed=true jp-MarkdownHeadingCollapsed=true tags=[]
+# %% [markdown] jp-MarkdownHeadingCollapsed=true tags=[] jp-MarkdownHeadingCollapsed=true tags=[] jp-MarkdownHeadingCollapsed=true tags=[] jp-MarkdownHeadingCollapsed=true jp-MarkdownHeadingCollapsed=true tags=[] jp-MarkdownHeadingCollapsed=true jp-MarkdownHeadingCollapsed=true tags=[] jp-MarkdownHeadingCollapsed=true jp-MarkdownHeadingCollapsed=true tags=[] jp-MarkdownHeadingCollapsed=true jp-MarkdownHeadingCollapsed=true tags=[] jp-MarkdownHeadingCollapsed=true jp-MarkdownHeadingCollapsed=true tags=[] jp-MarkdownHeadingCollapsed=true jp-MarkdownHeadingCollapsed=true tags=[] jp-MarkdownHeadingCollapsed=true
 # # Test setup and population matrix
 
 # %% tags=[]
@@ -101,6 +100,15 @@ cumcoll = getproperty(lochist.cum, Symbol(symb_status, "_", symb_age))
 thisday = 100
 cumcell = getproperty(lochist.cum, Symbol(symb_status, "_", symb_age))[thisday]
 
+# %% [markdown]
+# ### Geo Data
+
+# %%
+model180.geo
+
+# %%
+typeof(model180.geo) <: Table
+
 # %% [markdown] tags=[]
 # ### Social Parameters
 
@@ -121,9 +129,6 @@ touchfactors = model180.social.touchfactors
 
 # %% [markdown]
 # ## Infectset
-
-# %%
-model180.infectset
 
 # %% [markdown]
 # ### Parameters for infection based on variant
@@ -262,10 +267,6 @@ seed40_59_omicron_ba2 = makesickseedfunc(; cond=nil, variant=:omicron_ba2, durat
 # ### Run the simulation model
 
 # %%
-GC.enable(true)
-GC.gc()
-
-# %%
 popdat, series = runsim(model;
             dovax=true, vaxscheds=:loc38015,
             runcases=[seed20_39_day1, seed40_59_day1, seed20_39_delta, seed40_59_delta, seed20_39_omicron, seed40_59_omicron,
@@ -273,9 +274,6 @@ popdat, series = runsim(model;
             );
 locdat = popdat[locale];
 
-
-# %%
-GC.gc()
 
 # %% tags=[]
 TableView.showtable(locdat[95000:95200])
@@ -286,23 +284,11 @@ TableView.showtable(series[locale].cum)
 # %%
 stat1 = cs.stat1(series, locale)
 
-# %%
-empty!(Out)
-
-# %%
-Base.summarysize(popdat)
-
-# %%
-(Sys.total_memory() / 2^20) 
-
-# %%
-(Sys.free_memory() / 2^20)
-
 # %% [markdown] tags=[]
 # ### Plot results
 
 # %%
-cumplot(series, locale)
+cumplot(series, locale, [:unexposed, :infectious, :recovered, :dead, :totvaccinated])
 
 # %% [markdown]
 # Note that the orange line labeled Infectious, which shows the current number of infected people, is *not* what you see in newspaper accounts. In this plot Infectious shows the net infected people: There were some sick people as of the day before. Some more people got sick today. Some people got better: they're not infectious any more--they recovered and are on the blue line. Sadly, some people died--they're not infectious either--they're dead and are on the green line. So net infected is yesterday + new today - recovered today - died today. Newspaper tracking shows the new infections of each day--who got sick today? Tomorrow, if no one new got sick the line would be at zero--even though the people who got sick yesterday aren't better yet. So, the newspaper line goes up and down faster. Yet another approach is to show the cumulative number of infected people: This keeps going up until no one new gets infected--then the line is high but levels off. 
@@ -388,9 +374,6 @@ popdat, series = runsim(model;
             runcases=[seed20_39_day1, seed40_59_day1, seed20_39_delta, seed40_59_delta, seed20_39_omicron, seed40_59_omicron,
                       seed20_39_omicron_ba2, seed40_59_omicron_ba2, sd1, sd1_end]);
 locdat = popdat[locale];
-
-# %% tags=[] jupyter={"outputs_hidden": true}
-virus_outcome(series, locale, base=:pop)
 
 # %%
 cumplot(series, locale)

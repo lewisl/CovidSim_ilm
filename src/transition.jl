@@ -31,8 +31,10 @@ vaxrcvd, vaxday, deadday.
             c_deadday
             )
 
+    today = day_ctr[:day]
+
     if dovax
-        vaxfn! = vaxfn! == noop ? vaxtransitioneffect! : vaxfn!  # last branch new vaxfn! was passed in
+        vaxfn! = vaxfn! == noop ? redistprob! : vaxfn!  # last branch new vaxfn! was passed in
     end
 
     # extract traits for this person p where p is the row index in locdat
@@ -56,7 +58,7 @@ vaxrcvd, vaxday, deadday.
 
         # effect on severity and transitioning based on recovery from a previous infection
         recoveff =  @inbounds if p_status == recovered
-                        tr_recoveffect(p_recovday, p_variant, infectset)
+                        recoveffect(today, p_recovday, p_variant, infectset)
                     else
                         1.0
                     end
@@ -68,10 +70,12 @@ vaxrcvd, vaxday, deadday.
                         p_vaxrcvd = c_vaxrcvd[p][end]
                         p_vaxday = c_vaxday[p][end]
                         p_variant = c_variant[p][end]
-                        tr_vaxeffect(infectset, vaxset, p_vaxstatus, p_variant, p_vaxrcvd, p_vaxday)
+                        vaxeffect(today, infectset, vaxset, p_vaxstatus, p_variant, p_vaxrcvd, p_vaxday, mode=:transition)
                     end
+
+        risk = riskfactor(recoveff, vaxeff)
         
-        vaxfn!(transvec, recoveff, vaxeff) #vaxfn! will be function noop or function vaxtransitioneffect
+        vaxfn!(transvec, risk, p_duration) 
 
         dotransition!(p, transvec, # perform transition logic and update population table->must pass columns, not scalars  
                         c_duration,
@@ -88,18 +92,35 @@ vaxrcvd, vaxday, deadday.
 end
 
 
-# this function set to the variable vaxfn!
-@inline function vaxtransitioneffect!(transvec, recoveff, vaxeff, varianteff=1.0)
-    @inbounds begin
-    combinedfactor = varianteff * min(recoveff, vaxeff)
+function riskfactor(recoveff, vaxeff)
+    combinedfactor = min(recoveff, vaxeff)
     riskfactor = squashfunc(combinedfactor)  
+end
 
-    for c in (sick, severe, dead)
-        transvec[maptransition(c)] *= riskfactor
-    end
 
-    correction = 1.0 / sum(transvec)  # normalize to sum to 1.0
-    transvec[:] .*= correction
+# this function set to the variable vaxfn!
+@inline function redistprob!(transvec, riskfactor, duration)
+    @inbounds begin
+
+        excessprob = 0.0
+        for fromprob in (sick, severe, dead)
+            idx = maptransition(fromprob)
+            excess1 = transvec[idx] * (1.0 - riskfactor)
+            transvec[idx] = transvec[idx] - excess1
+            excessprob += excess1
+        end
+
+        if duration == durationlim   # clear anyone left to recovered or dead
+            idx = maptransition(recovered)
+            transvec[idx] = transvec[idx] + excessprob
+        else
+            excessprob = excessprob / 3.0
+            for toprob in (recovered, nil, mild)
+                idx = maptransition(toprob)
+                transvec[idx] = transvec[idx] + excessprob
+            end
+        end
+
     end
 end
 
@@ -144,72 +165,6 @@ function dotransition!(p, transvec,
             end
         end    
     # end
-end
-
-
-"""
-    vaximmunity(infectset, vaxset, vaxstatus, spr_variant, vaxrcvd, vaxday)
-
-Immunity from vaccination for a single person.
-"""
-@inline function tr_vaxeffect(infectset, vaxset, vaxstatus, spr_variant, vaxrcvd, vaxday)
-
-    today = day_ctr[:day]
-    oneshotfactor = 0.85   # TODO yet another parameter to put somewhere...!
-
-    # person's vaccine conditions
-    days_after_vax = today - vaxday
-    @assert today >= days_after_vax "today's date must be >= to day of most recent shot"
-
-    # vaccine characteristics
-    halflife = vaxset[vaxrcvd].halflife
-    full_effect_days = vaxset[vaxrcvd].full_effect_days
-    infectfactor = vaxset[vaxrcvd].infectfactor
-    tr_vaxeffect = vaxset[vaxrcvd].infectreduce[vaxstatus][spr_variant]
-
-    # rise and decay of vaccine effectiveness
-    rise_lower=0.5    # TODO need to make these inputs somewhere
-    decay_lower=0.10   # lindecay argument
-    csig = 10.0       # sigdecay argument
-    rise = riseup(today - days_after_vax, full_effect_days, rise_lower, 1.0)
-    days_after_full_effect = today - (days_after_vax + full_effect_days)     #clamp(today - (lastshotday + full_effect_days), 0, Int)
-    # decay = lindecay(days_after_full_effect, halflife, decay_lower)
-    decay = sigdecay(days_after_full_effect, halflife, csig=csig)
-    vaxmod = rise * decay
-
-    factor = 1.0 - (vaxmod * tr_vaxeffect * infectfactor) 
-
-    return factor
-end
-
-
-"""
-    tr_recoveffect(recovday, targ_variant, spr_variant, infectset)
-
-Immunity from recovery for a single person.
-"""
-@inline function tr_recoveffect(recovday, targ_variant, infectset)
-
-        today = day_ctr[:day]
-        days_post_recov = today - recovday 
-
-        if days_post_recov > 0   # TODO should be an assert: does this run day of or day after recovery?
-            # get the max immunity
-            immstrength = infectset[targ_variant].recovery_immunity[targ_variant]
-
-            # get the declined value
-            decay_lower=0.1   # lindecay argument
-            csig = 10.0       # sigdecay argument
-            immhalflife = infectset[targ_variant].immunehalflife
-            # immdecline = lindecay(days_post_recov, immhalflife, decay_lower)
-            immdecline = sigdecay(days_post_recov, immhalflife, csig=csig)
-
-            factor = 1.0 - (immdecline * immstrength)
-        else
-            factor = 1.0
-        end
-
-    return factor
 end
 
 

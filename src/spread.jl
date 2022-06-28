@@ -190,26 +190,21 @@ end
 
 
 """
-    riseup(days_since_shot, delay_days, lower, upper)
-    riseup14(t)     
-
-Vaccine infectreduce ramps up after receiving a shot.
-This returns a value between 0.0 and 1.0 which 
-must be multiplied times the vaccine specific infectreduce 
-because this function only represents the time-based change.
-
-The second method is curried to only require days_since_shot as
-input. The other arguments to this method are: 14, 0.0, 1.0
+    effect_rise(days_since; mineff=0.65, delay_days=14)
+  
+Immunity effectiveness from vaccination or recovery ramps up.
+Returns a value between mineff and 1.0. Linear increase.
 """
-@inline @fastmath function riseup(days_since_shot, delay_days, lower, upper)
-    clamp(days_since_shot * (1.0 / delay_days), lower, upper)
+@inline @fastmath function effect_rise(days_since; mineff=0.65, delay_days=14)
+    if days_since >= delay_days
+        1.0
+    else
+        mineff + (days_since/delay_days * (1.0 - mineff))
+    end
 end
 
-riseup14(t) = riseup(t, 14, 0.0, 1.0)  # curried to only input the day as time t
 
-
-
-# gradual decay of vaccine infectreduce based on assumed half-life
+# gradual decay of vaccine effectiveness based on assumed half-life
 
 @inline @fastmath function lindecay(t, h, lower)
     y = 0.5 ./ -h * t  + 1.0
@@ -218,7 +213,7 @@ end
 
 expdecay(t,h) = exp(-(log(2)/h) * t)  
 
-sigdecay(t, h; csig=5.0) = 1.0 / (1.0 + exp.((t - h)/(t / csig + (h / csig))))    
+sigdecay(t, h; csig=5.0, decay_lower=0.1) = max(1.0 / (1.0 + exp.((t - h)/(t / csig + (h / csig)))), decay_lower)    
 
 tbrk(h, lower) = 2.0 * h - (2.0 * h * lower)
 
@@ -249,19 +244,6 @@ function lindecayarr(t::AbstractVector{T} where T, hl, lower1, lower2)
 end
 
 
-@inline @fastmath function vaxmodifier(full_effect_days, today, lastshotday, halflife; rise_lower=0.5, decay_lower=0.05)
-    # combines the effect of the rise to full infectreduce post shot with
-        # the decay in infectreduce over time: based on current date
-    @assert today >= lastshotday "today's date must be >= to day of most recent shot"
-
-    rise = riseup(today - lastshotday, full_effect_days, rise_lower, 1.0)
-
-    days_after_full_effect = today - (lastshotday + full_effect_days)     #clamp(today - (lastshotday + full_effect_days), 0, Int)
-    decay = lindecay(days_after_full_effect, halflife, decay_lower)
-    return rise * decay
-end
-
-
 function sigmoidshift(x; risk_discount=0.2)
     sigmoid(
             shifter(
@@ -275,67 +257,84 @@ end
     clamp(x, 0.0, 1.0)
 end
 
+
+
+function vax_recov1(vaxfactor, recovfactor)
+    x = vaxfactor * recovfactor
+    x * exp(0.2 - x)
+end
+
+function vax_recov2(vaxfactor, recovfactor)
+    min(vaxfactor, recovfactor)  # each factor is 1 - immunity_effect: small is good because risk = infectrisk * combined factor
+end
+
+
+# choice of simple factor adjustments
+vax_recov_combo = vax_recov2
+
 squashfunc = simpleclamp
 
 
 """
-    spr_vaxeffect(infectset, vaxset, vaxstatus, spr_variant, vaxrcvd, vaxday)
+    spr_vaxeffect(today, infectset, vaxset, vaxstatus, spr_variant, vaxrcvd, vaxday; csig=6.0, decay_lower=0.15)
 
 Immunity from vaccination for a single person.
 """
-@inline @fastmath function spr_vaxeffect(infectset, vaxset, vaxstatus, spr_variant, vaxrcvd, vaxday)
-
-    today = day_ctr[:day]
-    oneshotfactor = 0.85   # TODO yet another parameter to put somewhere...!
-
-    # person's vaccine conditions
-    days_after_vax = today - vaxday
-    @assert today >= days_after_vax "today's date must be >= to day of most recent shot"
+@inline @fastmath function vaxeffect(today, infectset, vaxset, vaxstatus, spr_variant, vaxrcvd, vaxday; mode=:spread, csig=6.0, decay_lower=0.15)
 
     # vaccine characteristics
-    halflife = vaxset[vaxrcvd].halflife
-    full_effect_days = vaxset[vaxrcvd].full_effect_days
-    infectfactor = vaxset[vaxrcvd].infectfactor
-    vaxeffect = @inbounds vaxset[vaxrcvd].infectreduce[vaxstatus][spr_variant]
+    @inbounds begin
+    vs               = vaxset[vaxrcvd]
+    halflife         = vs.halflife
+    vaxeffect        = vs.effectiveness[vaxstatus][spr_variant]
+    mineff           = vs.day1_effect
+    full_effect_days = vs.full_effect_days
 
-    # rise and decay of vaccine effectiveness
-    rise_lower=0.5    # TODO need to make these inputs somewhere
-    decay_lower=0.1   # lindecay argument
-    csig = 10.0       # sigdecay argument
-    rise = riseup(today - days_after_vax, full_effect_days, rise_lower, 1.0)
-    days_after_full_effect = today - (days_after_vax + full_effect_days)     #clamp(today - (lastshotday + full_effect_days), 0, Int)
-    decay =  sigdecay(days_after_full_effect, halflife, csig=csig)     #   lindecay(days_after_full_effect, halflife, decay_lower)
-    vaxmod = rise * decay
+        if mode == :spread
+            infectfactor     = vaxset[vaxrcvd].infectfactor[spr_variant]
+        elseif mode == :transition
+            infectfactor     = 1.0
+        else
+            throw(DomainError(mode, "Argument must be :spread or :transition"))
+        end
+    end
 
-    factor = 1.0 - (vaxmod * vaxeffect * infectfactor) 
+    # person's vaccine conditions
+    days_after_vax = max(today - vaxday, 0)
+    days_after_full_effect = max(days_after_vax - full_effect_days, 0)     #clamp(today - (lastshotday + full_effect_days), 0, Int)
+
+    rise = effect_rise(days_after_vax; mineff=mineff, delay_days=full_effect_days)
+    decay =  sigdecay(days_after_full_effect, halflife, csig=csig, decay_lower=decay_lower)     #   lindecay(days_after_full_effect, halflife, decay_lower)
+    time_mod = rise * decay
+
+    factor = max(1.0 - (time_mod * vaxeffect * infectfactor), 0.0)
 
     return factor
 end
 
 
 """
-    spr_recoveffect(recovday, targ_variant, spr_variant, infectset)
+    recoveffect(recovday, targ_variant, spr_variant, infectset)
 
 Immunity from recovery for a single person.
 """
-@inline function spr_recoveffect(recovday, targ_variant, spr_variant, infectset)
+@inline function recoveffect(today, recovday, targ_variant, spr_variant, infectset; csig=6.0, decay_lower=0.15)
 
-        today = day_ctr[:day]
         days_post_recov = today - recovday 
 
-        @inbounds if days_post_recov > 0   # TODO should be an assert: does this run day of or day after recovery?
+        @inbounds if days_post_recov >= 0   # TODO should be an assert: does this run day of or day after recovery?
             # get the max immunity
             immstrength = infectset[targ_variant].recovery_immunity[spr_variant]
 
             # get the declined value
             immhalflife = infectset[targ_variant].immunehalflife
 
-            decay_lower=0.1   # lindecay argument
-            csig = 10.0       # sigdecay argument
             # immdecline = lindecay(days_post_recov, immhalflife, decay_lower)
-            immdecline = sigdecay(days_post_recov, immhalflife, csig=csig)
+            decay = sigdecay(days_post_recov, immhalflife, csig=csig, decay_lower=decay_lower)
+            rise = effect_rise(days_post_recov)
+            time_mod = rise * decay
 
-            factor = 1.0 - (immdecline * immstrength)
+            factor = 1.0 - (time_mod * immstrength)
         else
             factor = 1.0
         end
@@ -353,8 +352,8 @@ end
     # target person characteristics
     recvrisk = @inbounds infectset[spr_variant].recvrisk[Int(targ_agegrp)]
 
-    combinedfactor = recvrisk * sendrisk * min(recovfactor, vaxfactor)
-    riskfactor = squashfunc(combinedfactor)  
+    combinedfactor = recvrisk * sendrisk * vax_recov_combo(vaxfactor, recovfactor)
+    risk = squashfunc(combinedfactor)  
 end
 
 
@@ -366,8 +365,6 @@ altrisk(risk) = sigmoid(spreadin(risk))
 
 
 """
-    spread!(locdat, infect_idx, contactable_idx, sdcases, socialparams, infectparams, density_factor)
-
 Infectious people spread the virus to susceptible people for a single locale. Changes attribute
 columns in the population table. Runs social distancing cases.
 """
@@ -385,6 +382,8 @@ columns in the population table. Runs social distancing cases.
         c_vaxrcvd,
         c_vaxday
      )
+
+     today = day_ctr[:day]
 
     # retrieve params
     contactfactors = socialparams.contactfactors
@@ -419,7 +418,7 @@ columns in the population table. Runs social distancing cases.
                 spr_variant = c_variant[spr][end]
                 recovfactor = if target_status == recovered
                                     targ_variant = c_variant[target][end]
-                                    spr_recoveffect(recovday, targ_variant, spr_variant, infectset)
+                                    recoveffect(today, recovday, targ_variant, spr_variant, infectset)
                                 else 
                                     1.0
                                 end
@@ -430,7 +429,7 @@ columns in the population table. Runs social distancing cases.
                             else
                                 vaxrcvd = c_vaxrcvd[target][end]
                                 vaxday = c_vaxday[target][end]
-                                spr_vaxeffect(infectset, vaxset, vaxstatus, spr_variant, vaxrcvd, vaxday)
+                                vaxeffect(today, infectset, vaxset, vaxstatus, spr_variant, vaxrcvd, vaxday; mode=:spread)
                             end
 
                 spr_duration = c_duration[spr]
@@ -572,7 +571,6 @@ function r0_sim(locdat; age_dist=age_dist, dectree=dectree, socialparams=socialp
     for i = 1:durationlim      
         infect_idx = findall((r0pop.status .== infectious) .& (r0pop.duration .> 0))
         contactable_idx = findall(r0pop.status .!= dead)
-        # spread!(locdat, infect_idx, contactable_idx, sdcases, socialparams, infectparams, density_factor)                                    
         r0_infected += spread!(r0pop, infect_idx, contactable_idx, sdcases, socialparams, infectparams, density_factor)  
 
         transition!(r0pop, infect_idx, dectree) 

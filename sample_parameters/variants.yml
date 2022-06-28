@@ -315,7 +315,7 @@ delta:
       omicron_ba2: 0.7
 
     # half-life of recovery_immunity after recovering
-    immunehalflife: 240
+    immunehalflife: 360
 
   # transition section: how does this variant affect sickness conditions
   transition:

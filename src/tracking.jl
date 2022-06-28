@@ -15,12 +15,16 @@ end
 #################################################################################
 #  Simulation Stats -- very preliminary
 #################################################################################
+
+gt(dict, key) = get(dict, key, 0)
+
+
 """
     function stat1(series, locale)
 
 Returns a table of status outcomes for the simulation by age group.
 """
-function stat1(series, locale)
+function stat_cond(series, locale)
     cumhist = series[locale].cum
     newhist = series[locale].new
 
@@ -63,12 +67,8 @@ function stat1(series, locale)
     end
 
     push!(stat1, (item = :ever_infected,
-        total = newrow[1],
-        age0_19 = newrow[2],
-        age20_39 = newrow[3],
-        age40_59 = newrow[4],
-        age60_79 = newrow[5],
-        age80_up = newrow[6])
+            total = newrow[1], age0_19 = newrow[2], age20_39 = newrow[3], 
+            age40_59 = newrow[4], age60_79 = newrow[5], age80_up = newrow[6])
         )
 
     # inter-row calculation recovered = infected - died
@@ -81,62 +81,98 @@ function stat1(series, locale)
     end
 
     push!(stat1, (item=:recovered,
-                  total    = newrow[1],
-                  age0_19  = newrow[2],
-                  age20_39 = newrow[3],
-                  age40_59 = newrow[4],
-                  age60_79 = newrow[5],
-                  age80_up = newrow[6])
+                    total    = newrow[1], age0_19  = newrow[2], age20_39 = newrow[3],
+                    age40_59 = newrow[4], age60_79 = newrow[5], age80_up = newrow[6])
                   )
 
-    return stat1
+
+    @show sum(stat1.total)
+
+    # add pct of population columns
+    statpct = Table(item = stat1.item, total = stat1.total, total_pct = stat1.total ./ stat1.total[1],   # 
+            age0_19 = stat1.age0_19, age0_19_pct = stat1.age0_19 ./ stat1.age0_19[1], 
+            age20_39=stat1.age20_39, age20_39_pct = stat1.age20_39 ./ stat1.age20_39[1],
+            age40_59 = stat1.age40_59, age40_59_pct = stat1.age40_59 ./ stat1.age40_59[1], 
+            age60_79=stat1.age60_79, age60_79_pct = stat1.age60_79 ./ stat1.age60_79[1], 
+            age80_up=stat1.age80_up, age80_up_pct = stat1.age80_up ./ stat1.age80_up[1])
+
+    return statpct
 
 end
 
 
-# outcomes per agegrp  THIS IS REALLY JUST THE PCT CALCULATION:  PUT IT IN STAT1
-function virus_outcome(series, locale; agegrp=totalcol, base=:infected)  # denom in (:infected, :pop, :none)
+function stat_vax(popdat, locale)
+    td = @Select(vaxrcvd, agegrp, status)(popdat[locale]) # view with 2 columns on popdat
+    vaxes = td.vaxrcvd
 
-    n = size(series[locale].cum, 1)
-    outcomes = Dict{Symbol, Float64}()  # TODO should we have integer outcomes for totals when base=:none?
-    # agegrp = Int(agegrp)
-    if agegrp == totalcol
-        agegrp = :total
-    end
+    stat_vax = Table(item=Symbol[], total=Int[], age0_19=Int[], age20_39=Int[], age40_59=Int[], age60_79=Int[], age80_up=Int[])
+    calc_cols = [:total, :age0_19, :age20_39, :age40_59, :age60_79, :age80_up]
     
-    # each denominator for data summary
-    # total_pop = series[locale].cum[1, map2series[:unexposed][agegrp]] + series[locale].cum[1, map2series[:infectious][agegrp]]
-    total_pop = getproperty(series[locale].cum, Symbol(unexposed, "_", agegrp))[1] + getproperty(series[locale].cum, Symbol(infectious, "_", agegrp))[1]
-    # total_infected = series[locale].cum[end, map2series[:totinfected][agegrp]]
-    total_infected = getproperty(series[locale].cum, Symbol(:totinfected, "_", agegrp))[end]
-
-    denom = if base == :pop 
-                total_pop 
-            elseif base == :infected
-                total_infected
-            else  # :none or wrong entry
-                1
-            end
-
-    for cond in statuses
-        stsym = Symbol(cond)
-        outcomes[stsym] = getproperty(series[locale].cum, Symbol(stsym, "_", agegrp))[n] / denom
+    col_age0_19  = countmap(last.(vaxes[(td.agegrp .== age0_19) .& (td.status .!= dead)]))
+    col_age20_39 = countmap(last.(vaxes[(td.agegrp .== age20_39) .& (td.status .!= dead)]))
+    col_age40_59 = countmap(last.(vaxes[(td.agegrp .== age40_59) .& (td.status .!= dead)]))
+    col_age60_79 = countmap(last.(vaxes[(td.agegrp .== age40_59) .& (td.status .!= dead)]))
+    col_age80_up = countmap(last.(vaxes[(td.agegrp .== age80_up) .& (td.status .!= dead)]))
+    col_total    = countmap(last.(vaxes))
+    
+    for k in (:none, :Moderna, :Pfizer, :JnJ)
+        push!(stat_vax, 
+              (item=k, total=gt(col_total,k), age0_19=gt(col_age0_19,k), age20_39=gt(col_age20_39,k), age40_59=gt(col_age40_59,k),
+               age60_79=gt(col_age60_79,k), age80_up=gt(col_age80_up,k))
+               )
     end
 
-    return outcomes
+    stat_pct = @Select(item, total, total_pct = $total ./ sum($total),
+                age0_19,  age0_19_pct  = $age0_19  ./ sum($age0_19),
+                age20_39, age20_39_pct = $age20_39 ./ sum($age20_39),
+                age40_59, age40_59_pct = $age40_59 ./ sum($age40_59),
+                age60_79, age60_79_pct = $age60_79 ./ sum($age60_79),
+                age80_up, age80_up_pct = $age80_up ./ sum($age80_up))(stat_vax)
+
+    return stat_pct
+
 end
 
 
-function onecond(series, locale, cond; case=:new, agegrp=totalcol, filt=:pos)
-    map2series = series[locale].cols
+function stat_repeat(popdat, locale)
+    thisdat = @Select(variant, agegrp)(popdat[locale]) # view with 2 columns on popdat
+    variants = thisdat.variant
 
-    datacol = getproperty(series[locale], case)[:,map2series[Symbol(cond)][Int(agegrp)]]
-    if filt == :pos
-        datacol[datacol .> 0]
-    else
-        datacol
+    stat_count = Table(item=Symbol[], total=Int[], age0_19=Int[], age20_39=Int[], age40_59=Int[], age60_79=Int[], age80_up=Int[])
+
+    col_total    = sort(countmap(length.(variants)))
+    col_age0_19  = sort(countmap(length.(variants[thisdat.agegrp .== age0_19])))
+    col_age20_39 = sort(countmap(length.(variants[thisdat.agegrp .== age20_39])))
+    col_age40_59 = sort(countmap(length.(variants[thisdat.agegrp .== age40_59])))
+    col_age60_79 = sort(countmap(length.(variants[thisdat.agegrp .== age40_59])))
+    col_age80_up = sort(countmap(length.(variants[thisdat.agegrp .== age80_up])))
+
+    for k in 0:10
+        push!(stat_count, 
+              (item=Symbol("Times_",k), total=gt(col_total,k), age0_19=gt(col_age0_19,k), age20_39=gt(col_age20_39,k), age40_59=gt(col_age40_59,k),
+               age60_79=gt(col_age60_79,k), age80_up=gt(col_age80_up,k))
+               )
     end
+
+    stat_pct = @Select(item, total, total_pct = $total ./ sum($total),
+                        age0_19,  age0_19_pct  = $age0_19  ./ sum($age0_19),
+                        age20_39, age20_39_pct = $age20_39 ./ sum($age20_39),
+                        age40_59, age40_59_pct = $age40_59 ./ sum($age40_59),
+                        age60_79, age60_79_pct = $age60_79 ./ sum($age60_79),
+                        age80_up, age80_up_pct = $age80_up ./ sum($age80_up))(stat_count)
+
+    return stat_pct
 end
+
+function stat_breakout(popdat, locale)
+
+    @Select(vaxday, sickday, agegrp)(locdat[((locdat.status .== infectious) .| (locdat.status .== recovered)) .& 
+    (locdat.vaxstatus .!= :none) .& (last.(locdat.sickday) .> first.(locdat.vaxday))])
+
+end
+
+
+
 
 ###########################################################################################
 #  Plotting
