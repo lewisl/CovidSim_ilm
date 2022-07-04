@@ -17,7 +17,7 @@ The population data is a table containing a row for each person with columns for
 | **deadday** | Integer | day of death |
 | **ring** | Symbol | currently not used, but to encode groups of people more likely to interact with each other than people in another ring |
 | **sdcomply** | Symbol | social distancing case applicable to a person |
-| **vaxstatus** | Symbol | one of :none, :first, :multiple, :full, :booster |
+| **vaxstatus** | Symbol | one of :none, :first, :full, :booster |
 | **vaxrcvd** | Vector{Symbol} | vector of vaccines received. Currently one of :JnJ, :Moderna, :Pfizer |
 | **vaxday** | Vector{Int} | vector of days a vaccine shot was received |
 | **tested** | Bool[2] | true or false if a person has been tested in "test and trace" |

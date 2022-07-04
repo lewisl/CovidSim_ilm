@@ -164,6 +164,7 @@ function stat_repeat(popdat, locale)
     return stat_pct
 end
 
+
 function stat_breakout(popdat, locale)
 
     @Select(vaxday, sickday, agegrp)(locdat[((locdat.status .== infectious) .| (locdat.status .== recovered)) .& 
@@ -171,6 +172,94 @@ function stat_breakout(popdat, locale)
 
 end
 
+
+function vax_summary(model, locale)
+    cumhist = model.series[locale].cum
+    newhist = model.series[locale].new
+    locdat = model.dat[locale]
+    day1 = model.day1
+    n = length(newhist)
+
+    calday = range(day1, step=Day(1), length=n)
+    # by agegrp, total
+    cols = [Symbol(col,"_", age) for col in seriesgroups for age in vcat(collect(string.(instances(agegrp))),"total")]
+    colvals = [zeros(Int,n_days) for _ in 1:length(cols)]
+
+    # construct the data series: rows are vax sequence
+    daily_vaxes = Table(zeros(Int, n, numcols))
+    maxtimes = maximum(length.(locdat.sickday)) - 1  # maximum no. of times anyone has gotten infected
+    for i in 2:maxtimes+1
+        for age in agegrps  # accumulate all days on which anyone got sick the 1st, 2nd, 3rd... time
+            daygotsick = countmap(get.(locdat.sickday[locdat.agegrp .== age],i,0))
+            for (k,v) in daygotsick
+                if k == 0
+                    continue  # ignore people who never got infected
+                end
+                daily_cases_series[k, Int(age)] += v
+            end
+        end
+    end
+
+end
+
+
+
+function detailed_vax_series(model, locale)
+    cumhist = model.series[locale].cum
+    newhist = model.series[locale].new
+    locdat = model.dat[locale]
+    day1 = model.day1
+    n = length(newhist)
+
+    calday = range(day1, step=Day(1), length=n)
+    # by agegrp, by vax sequence
+    cols = [Symbol(col,"_", age) for col in seriesgroups for age in vcat(collect(string.(instances(agegrp))),"total")]
+    colvals = [zeros(Int,n_days) for _ in 1:length(cols)]
+
+    # construct the data series
+    daily_vaxes = Table(zeros(Int, n, numcols))
+    maxtimes = maximum(length.(locdat.sickday)) - 1  # maximum no. of times anyone has gotten infected
+    for i in 2:maxtimes+1
+        for age in agegrps  # accumulate all days on which anyone got sick the 1st, 2nd, 3rd... time
+            daygotsick = countmap(get.(locdat.sickday[locdat.agegrp .== age],i,0))
+            for (k,v) in daygotsick
+                if k == 0
+                    continue  # ignore people who never got infected
+                end
+                daily_cases_series[k, Int(age)] += v
+            end
+        end
+    end
+end
+
+function daily_cases_series!(model, locale)
+    cumhist = model.series[locale].cum
+    newhist = model.series[locale].new
+    locdat = model.dat[locale]
+    day1 = model.day1
+    n = length(newhist)
+
+    calday = range(day1, step=Day(1), length=n)
+    cols = [Symbol(col,"_", age) for col in seriesgroups for age in vcat(collect(string.(instances(agegrp))),"total")]
+    colvals = [zeros(Int,n_days) for _ in 1:length(cols)]
+
+    # construct the data series
+    daily_cases = Table(zeros(Int, n, numcols))
+    maxtimes = maximum(length.(locdat.sickday)) - 1  # maximum no. of times anyone has gotten infected
+    for i in 2:maxtimes+1
+        for age in agegrps  # accumulate all days on which anyone got sick the 1st, 2nd, 3rd... time
+            daygotsick = countmap(get.(locdat.sickday[locdat.agegrp .== age],i,0))
+            for (k,v) in daygotsick
+                if k == 0
+                    continue  # ignore people who never got infected
+                end
+                daily_cases_series[k, Int(age)] += v
+            end
+        end
+    end
+
+    daily_cases_series[:, numcols] = sum(daily_cases_series, dims=2)  # sum the columns across each row
+end
 
 
 
@@ -213,7 +302,7 @@ function cumplot(series, locale, plotcols=[:unexposed, :infectious, :recovered, 
  
 
     # the plot
-    plot(   caldays, cumseries[days,1:end], 
+    plot(   caldays, cumseries[days, :], 
             size = (700,500),
             label = labels, 
             lw=2.3,
@@ -261,11 +350,11 @@ function newplot(series, locale, plotcols=[:infectious]; days="all", geo=[], thm
 
 
     # the plot
-    bar(        caldays, newseries[days, 1:end], 
+    plot(       caldays, newseries[days, :], 
                 size = (700,500),
                 label = labels, 
-                lw=0.2,
-                bar_width=1,
+                lw=1.5,
+                # bar_width=1,
                 title = "Daily Change for $people people over $n days",
                 xlabel = "Simulation Days",
                 xticks = caldays[10]:Day(180):caldays[length(caldays)-10],
@@ -277,3 +366,95 @@ function newplot(series, locale, plotcols=[:infectious]; days="all", geo=[], thm
              )
 end
 
+
+function selpos!(tab::Table)
+    for c in columns(tab)
+        for i in eachindex(c)
+            c[i] = c[i] > 0.0 ? c[i] : 0.0
+        end
+    end
+end
+
+
+function daily_cases_plot(series, popdat, locale, plotcols=[:total]; days="all", geo=[], thm=:ggplot2)
+    cumhist = series[locale].cum
+    newhist = series[locale].new
+    locdat = popdat[locale]
+
+    theme(thm, foreground_color_border=:black, 
+        tickfontsize=9, gridlinewidth=1)    
+    co_pal = length(plotcols) == 2 ? [theme_palette(thm)[2], theme_palette(thm)[4]] : theme_palette(thm)
+
+
+    n = length(newhist)
+    days = days == "all" ? (1:n) : days
+    numcols = length(agegrps) + 1
+    numseries = length(plotcols)
+    caldays = newhist.calday[days]
+
+    # construct the data series
+    maxtimes = maximum(length.(locdat.sickday)) - 1  # maximum no. of times anyone has gotten infected
+    daily_cases_series = zeros(Int, n, numcols)
+    for i in 2:maxtimes+1
+        for age in agegrps  # accumulate all days on which anyone got sick the 1st, 2nd, 3rd... time
+            daygotsick = countmap(get.(locdat.sickday[locdat.agegrp .== age],i,0))
+            for (k,v) in daygotsick
+                if k == 0
+                    continue  # ignore people who never got infected
+                end
+                daily_cases_series[k, Int(age)] += v
+            end
+        end
+    end
+
+    daily_cases_series[:, numcols] = sum(daily_cases_series, dims=2)  # sum the columns across each row
+
+    # prepare plot series
+    series_selector = Int[]
+    labels = String[]
+    for col in plotcols
+        if col in agegrps
+            push!(series_selector, Int(col))
+            push!(labels, titlecase(string(col)))
+        elseif col === :total
+            push!(series_selector, numcols)
+            push!(labels, "Total")
+        else
+            throw(DomainError(col, "plotcols argument must be array of agegrp enums and/or :total"))
+        end
+    end
+
+    # annotations and labels
+    labels = reshape([labels...], 1, length(labels))
+    people = if !isempty(geo)
+                    geo.pop[geo.fips .== locale]
+                else # this will off by a tiny bit because of rounding
+                    getproperty(cumhist, :unexposed_total)[1] + getproperty(cumhist, :infectious_total)[1]
+                end   
+    died =  getproperty(cumhist, :dead_total)[end]   #      series.data[locale].cum[end, map2series.dead[totalcol]]
+    unexp = getproperty(cumhist, :unexposed_total)[end]
+    infected = people - unexp    #series.data[locale].cum[end, map2series.unexposed[totalcol]]
+    recovered = infected - died  # series.data[locale].cum[end, map2series.recovered[totalcol]]
+
+
+    # the plot
+    plot(   caldays, daily_cases_series[days, series_selector], 
+            label=labels,
+            size = (700,500),
+            lw = 1.5,
+            title = "Daily Cases",
+            xlabel = "Simulation Days",
+            xticks = caldays[10]:Day(180):caldays[length(caldays)-10],
+            # yaxis = ("People"),
+            ylabel = "People",
+            color_palette = co_pal,
+            reuse =false,
+            # background_color_legend=nothing,
+            # foreground_color_legend=nothing
+         )
+
+    annotate!(caldays[1] + Day(6), 0.51 * ylims()[2],              # half_yscale,
+         text("Died: $died\nInfected: $infected\nRecovered: $recovered\nUnexposed: $unexp", 
+             11, :left))
+           
+end

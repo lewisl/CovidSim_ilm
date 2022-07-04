@@ -272,6 +272,7 @@ end
 # choice of simple factor adjustments
 vax_recov_combo = vax_recov2
 
+# the squashfunc must keep the product of ALL combinations of sendrisk and recvrisk between 0.0 and 1.0 inclusive
 squashfunc = simpleclamp
 
 
@@ -353,7 +354,7 @@ end
     recvrisk = @inbounds infectset[spr_variant].recvrisk[Int(targ_agegrp)]
 
     combinedfactor = recvrisk * sendrisk * vax_recov_combo(vaxfactor, recovfactor)
-    risk = squashfunc(combinedfactor)  
+    risk = squashfunc(combinedfactor)                 # this is required because combinedfactor could exceed 1.0
 end
 
 

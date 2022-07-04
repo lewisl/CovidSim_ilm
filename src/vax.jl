@@ -67,12 +67,12 @@ end
     vaxesincluded::Dict{Symbol, Vaxinclude}
     dayrange::UnitRange{Int64}
     targetpct::Float64
-    filterfunc::Function  # discretionary criteria for who is included in the vaccine schedule
+    filterfunc::Vector  # discretionary criteria for who is included in the vaccine schedule
     shotmode::Symbol   # one of :first, :second, :all, :booster.  best to use :all. others force only single shot
     pattern::Vector{Float64} # = [0.0, .02, .05, .10, .15, .19, .21, .16, .08, .03, .01]   
         # pattern defines 11 point on a piecewise linear "curve" of the pace of vaccination as the
         # percentage of a given population that receives vaccination-> must sum to 1.0
-    pctfunc::Function
+    spreadfunc::Function
 end
 
         # external method to accept inputs from a dict
@@ -80,6 +80,7 @@ end
             dayrange = vs[:dayrange][1]:vs[:dayrange][2]
             targetpct = vs[:targetpct]
             pattern = vs[:pattern]
+            filterfunc = symbol2agegrp.(vs[:filterfunc])
             shotmode = Symbol(vs[:shotmode])
 
             vaxesincluded = Dict(k => Vaxinclude(v) for (k,v) in vs[:vaxesincluded])
@@ -92,10 +93,10 @@ end
                 vaxesincluded = vaxesincluded,
                 dayrange =  dayrange,
                 targetpct = targetpct,
-                filterfunc = basevaxfilterfunc,   # excluded to enable later definition
+                filterfunc = filterfunc,   # excluded to enable later definition
                 shotmode = shotmode,
                 pattern = pattern,
-                pctfunc = makevaxpctperdayfn(dayrange, targetpct, pattern; shotmode=shotmode) # returns a function that takes a day as input
+                spreadfunc = genvaxspreadfunc(dayrange, targetpct, pattern; shotmode=shotmode) 
                 )   
 
             return vx
@@ -169,19 +170,18 @@ function build_vaxschedset(vaxscheds)  # input is a Dict{Any, Any}
 end
 
 """
-    makevaxfn(dayrange, pattern)
-
-    returns: function pctperday(day)
+    genvaxspreadfunc(dayrange, targetpct, pattern; shotmode=:all)
 
 Create a function that implements the vaccination schedule for a given vaccine type.
 This function, when called with a simulation day, returns the percentage of the
 target population to receive the vaccine on that day.
 """
-function makevaxpctperdayfn(dayrange, targetpct, pattern; shotmode=:all)
+function genvaxspreadfunc(dayrange, targetpct, pattern; shotmode=:all)
     schedlength = length(dayrange)
     distribscale = pattern .* ((length(pattern)-1)/schedlength)
     interp = LinearInterpolation(0:length(distribscale)-1, distribscale)
     startday = dayrange.start; endday1 = dayrange.stop
+
     function vaxpctperday(day)
         p = (day - startday + 1) * round((length(interp)-1) / schedlength, digits=4)
         p = p < length(pattern) - 1 ? p : length(pattern) - 1 
@@ -193,7 +193,7 @@ end
 """
 Give people shots!
 """
-@inline function vaccinate!(locdat, vaxschedset, contactable_idx, vaxset, vaxscheds::Vector{Symbol})
+@inline function vaccinate!(locdat, vaxschedset, vaxset, vaxscheds::Vector{Symbol})
         
     today = day_ctr[:day]
 
@@ -201,11 +201,12 @@ Give people shots!
         vxsched = vaxschedset[schedname]   # vaxshedset is Dict{Symbol, Vaxsched} where Symbol is Symbol(schedname)
 
         # setup this schedule
-        vaxprops = vxsched.vaxesincluded  # this is an alias to a mutable object
+        vaxprops = vxsched.vaxesincluded  # a dict of vaccine symbol to the struct Vaxinclude
+                 # that contains mix, doses, starting_doses, pct2ndshot, alternate, booster
         vaxesincluded = collect(keys(vaxprops))
 
         dayrange = vxsched.dayrange
-        delay2ndshot = Dict(v=>vaxset[v].delay2ndshot for v in vaxesincluded)
+        delay2ndshot = Dict(v=>vaxset[v].delay2ndshot for v in vaxesincluded) # per vax in the schedule
         maxdelay = mapreduce(v->vaxset[v].delay2ndshot, max, vaxesincluded)
         stop =  dayrange.stop + maxdelay
 
@@ -214,46 +215,52 @@ Give people shots!
             continue
         end
 
-        # schedule or vaccine parameters
-        filterfunc = vxsched.filterfunc  # NOT USING YET
-        shotmode = vxsched.shotmode # values in :first, :second, :all, :booster   TODO we are not using this yet
-        pctfunc = vxsched.pctfunc
+        # schedule parameters
+        filterfunc    = vxsched.filterfunc  # contains allowed agegrps
+        shotmode      = vxsched.shotmode      # values in :first, :second, :all, :booster   TODO we are not using this yet
+        spreadfunc    = vxsched.spreadfunc
+        pct2ndshot    = Dict(k => v.pct2ndshot for (k,v) in vaxprops)   # per vax
+        mix           = [v.mix for v in values(vaxprops)]
+
+        # vax parameters
         reqdshots = Dict(v => vaxset[v].reqdshots for v in vaxesincluded)
-        pct2ndshot = Dict(k => v.pct2ndshot for (k,v) in vaxprops)
-        mix = [v.mix for v in values(vaxprops)]
-
+        
         # people columns
-        vaxstatuscol = locdat.vaxstatus
-        vaxdaycol = locdat.vaxday
-        vaxrcvdcol = locdat.vaxrcvd
-        agegrpcol = locdat.agegrp
+        vaxstatuscol    = locdat.vaxstatus
+        vaxdaycol       = locdat.vaxday
+        vaxrcvdcol      = locdat.vaxrcvd
+        agegrpcol       = locdat.agegrp
 
-        # how people get shots (up to fully vaccinated) today?
-        # available_doses = mapreduce(vi->(vaxprops[vi].starting_doses / reqdshots[vi]), +, keys(vaxprops))
-        available_doses = Dict(vi=>(vaxprops[vi].doses / reqdshots[vi]) for vi in keys(vaxprops))
+        
+        starting_doses = Dict(vi => vaxprops[vi].starting_doses for vi in vaxesincluded)  
 
-        # doses_today = floor(Int, pctfunc(today) * available_people_doses)   # pct times accessible population
-        doses_today = Dict(vi => floor(Int, pctfunc(today) * avdoses) for (vi, avdoses) in available_doses)
+        doses_today = Dict(vi => floor(Int, spreadfunc(today) * starting_doses[vi]) for vi in vaxesincluded)   # pct times accessible population
+
+        vaxable_idx = findall((locdat.status .== unexposed) 
+                                .| ((locdat.status .== recovered) .& (last.(locdat.recovday) .< today - 14))
+                                .& (in.(locdat.agegrp, [filterfunc]))   # horrible syntax! (for included age groups)
+                                ) 
         
         doshots!(vaxrcvdcol, vaxdaycol, vaxstatuscol,  
                   vaxprops, vaxesincluded, reqdshots, pct2ndshot, mix, delay2ndshot,    
-                  contactable_idx, doses_today, today)
+                  vaxable_idx, doses_today, agegrpcol, filterfunc, today)
 
-    end  
+    end  # for schedname
 end
 
 
 """
 Front-end method for vaccinate!Allows vaxscheds argument to be :all, :none or a single symbol for a specific vaxsched.
 """
-@inline function vaccinate!(locdat, vaxschedset, contactable_idx, vaxset, vaxscheds::Symbol)
+@inline function vaccinate!(locdat, vaxschedset, vaxset, vaxscheds::Symbol)
     if vaxscheds === :all
-        vaxscheds = keys(vaxschedset)
-        vaccinate!(locdat, vaxschedset, contactable_idx, vaxset, vaxscheds)
+        vaxscheds = collect(keys(vaxschedset))
+        vaccinate!(locdat, vaxschedset, vaxset, vaxscheds)
+
     elseif vaxscheds === :none
         # don't do anything
     else  # a single symbol turned into an array
-        vaccinate!(locdat, vaxschedset, contactable_idx, vaxset, [vaxscheds])
+        vaccinate!(locdat, vaxschedset, vaxset, [vaxscheds])  
     end
 end
 
@@ -261,17 +268,18 @@ end
 
 @inline function doshots!(vaxrcvdcol, vaxdaycol, vaxstatuscol,         # arrays to update
                   vaxprops, vaxesincluded, reqdshots, pct2ndshot, mix, delay2ndshot,  # vaccine characteristics
-                  contactable_idx, doses_today, today)                               # people and simulation today
+                  vaxable_idx, doses_today, agegrpcol, filterfunc, today)                               # people and simulation today
 
-    for p in shuffle(contactable_idx) # shuffle()  # loop across people who are not dead. Mix up the agegrps
+    # break out if all the people in this schedule today have been fully vaccinated
+    # lreturn  nothing      # sum(values(doses_today)) < 1 && break  
 
-        # break out if all the people in this schedule today have been fully vaccinated
-        sum(values(doses_today)) < 1 && break  
+    for p in shuffle(vaxable_idx)
 
         # break out if no more doses left of any vaccine 
-        mapreduce(vi->vi.doses, +, values(vaxprops)) <= 0 && break  # sum doses of all included vaccines w/ no allocations
-        
-        if vaxstatuscol[p] === :none  # maybe give the first shot
+        avail_doses = mapreduce(vi->doses_today[vi], +, keys(vaxprops))
+        avail_doses <= 0 && break  
+    
+        if vaxstatuscol[p] == :none  # maybe give the first shot
 
             # which vaccine to give?
             vxnum = categorical_sim(mix)  # our first choice, if available
@@ -290,44 +298,44 @@ end
             end
 
             if vaxchoice != :none   # we found doses to give
-                vaxprops[vaxchoice].doses -= 1
+                vaxprops[vaxchoice].doses -= 1   # reduce the supply
+                doses_today[vaxchoice] -= 1      # reduce today's allotment
 
                 # update person's traits
                 vaxrcvdcol[p] = [vaxchoice]
-                vaxdaycol[p] = [today]    
+                vaxdaycol[p] = [today]       # because this is first shot
                 if reqdshots[vaxchoice] > 1
                     vaxstatuscol[p] = :first
                 else
                     vaxstatuscol[p] = :full
-                    doses_today[vaxchoice] -= 1
                 end
             end
+                            # TODO separate logic branch for boosters using NEW booster pct input
+        elseif (vaxstatuscol[p] === :first) | (vaxstatuscol[p] === :booster) | (vaxstatuscol[p] === :full)
+            vaxchoice = last(vaxrcvdcol[p]) # assume we try not to mix vaccines for multiple shots
 
-        elseif (vaxstatuscol[p] === :first) | (vaxstatuscol[p] === :multiple)
-            vaxchoice = last(vaxrcvdcol[p]) # assume we don't mix vaccines for multiple shots
-
-            if vaxprops[vaxchoice].doses > 0
+            if vaxprops[vaxchoice].doses > 0  # we have this vaccine in our remaining daily allotment
                 # is it time for the next shot?
                 prev_date = last(vaxdaycol[p])
                 if (today - prev_date) >= delay2ndshot[vaxchoice]
-                    # will this person get the 2nd shot?
+                    # will this person get another shot?  (based on pct2ndshot parameter input)
                     dotwo = Bool(binomial_one_sample(1, pct2ndshot[vaxchoice]))
                     if dotwo
-                        vaxprops[vaxchoice].doses -= 1
+                        vaxprops[vaxchoice].doses -= 1    # reduce the supply
+                        doses_today[vaxchoice] -= 1       # reduce today's allotment
 
                         # update person's traits
                         push!(vaxrcvdcol[p], vaxchoice)
                         push!(vaxdaycol[p], today)
                         if length(vaxrcvdcol[p])  == reqdshots[vaxchoice]
                             vaxstatuscol[p] = :full
-                            doses_today[vaxchoice] -= 1
                         elseif length(vaxrcvdcol[p])  >= reqdshots[vaxchoice]
-                            vaxstatuscol[p] = :booster     # TODO do we really need to handle multiple, but not :booster?
+                            vaxstatuscol[p] = :booster     # assume everything over full is a booster...
                         end
-                    end
-                end
-            end
-        end  # if vaxstatuscol
+                    end  # if dotwo
+                end  # time for next shot
+            end  # doses > 0
+        end  # if vaxstatuscol -> time for another shot after the 1st shot
 
     end  # for p
 end

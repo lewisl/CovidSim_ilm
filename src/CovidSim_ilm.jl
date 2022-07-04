@@ -1,5 +1,6 @@
 # TODO
-    # implement vxsched filterfunc using new seeding approach
+    # redo vxsched filterfunc 
+    # per agegrp plots
     # rewrite R0 sim assuming individual spreading and transition
     # more info
         # get fatality rate by age and co-morbidity CDC, Italian NIH

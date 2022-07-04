@@ -1,0 +1,28 @@
+# for 2 oldest age groups
+
+vaxesincluded:
+  Pfizer:
+    mix:            0.5    # 0.55
+    starting_doses: 40000    # 70000
+    pct2ndshot:     0.9
+    alternate:      [Moderna, JnJ]  # one of none, any, other shot
+    booster:        false
+  Moderna:
+    mix:            0.45     # 0.30
+    starting_doses: 36000      # 60000
+    pct2ndshot:     0.9
+    alternate:      [Pfizer, JnJ]
+    booster:        false
+  JnJ:
+    mix:            0.05     # 0.15
+    starting_doses: 4000      # 20000 for all
+    pct2ndshot:     0.0
+    alternate:      [Pfizer, Moderna]
+    booster:        false
+
+dayrange:       [350, 700]
+targetpct:      0.95   # 0.65
+filterfunc:     [age80_up, age60_79]
+shotmode:       all              # values in :first, :second, :all, :booster
+pattern:        [0.0, .02, .05, .10, .15, .19, .21, .16, .08, .03, .01, 0.0]
+spreadfunc:

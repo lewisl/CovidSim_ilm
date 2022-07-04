@@ -18,7 +18,7 @@ recovday
 deadday  
 cluster 
 sdcomply   
-vaxstatus      # :none, :first, :multiple, :full, :booster
+vaxstatus      # :none, :first, :full, :booster
 vaxrcvd        # :pfizer, :moderna, :jnj
 vaxday         # array of int days 
 test 

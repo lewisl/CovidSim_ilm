@@ -122,11 +122,11 @@ function runsim(model;
         # day loop
         for i = 1:ndays  
             inc!(day_ctr, :day)  # increment the simulation day counter
-            thisday = day_ctr[:day]
-            silent || println("simulation day: ", thisday)
+            today = day_ctr[:day]
+            silent || println("simulation day: ", today)
 
             for case in runcases  # cases that run at the beginning of the day
-                case(locdat, socialparams, infectset, sdcases, age_idx_loc; day=thisday, startofday=true, locale=loc) 
+                case(locdat, socialparams, infectset, sdcases, age_idx_loc; day=today, startofday=true, locale=loc) 
             end    ## TODO extend ages to be any filter for who participates in a given case
 
             # filter for key people
@@ -134,8 +134,7 @@ function runsim(model;
             
             # if dovax vaccinate (e.g., give shots)
             dovax && begin
-                        idxtime += @elapsed contactable_idx = findall(locdat.status .!= dead)
-                        vaxtime += @elapsed vaccinate!(locdat, vaxschedset, contactable_idx, vaxset, vaxscheds)
+                        vaxtime += @elapsed vaccinate!(locdat, vaxschedset, vaxset, vaxscheds)
                      end
 
             # person loop
@@ -149,7 +148,7 @@ function runsim(model;
                     sendrisk = infectset[spr_variant].sendrisk[spr_duration]
                     
                     if sendrisk > 0.0     
-                        spread!(p, thisday, sdcases,  socialparams, infectset, 
+                        spread!(p, today, sdcases,  socialparams, infectset, 
                                 vaxset, density_factor, dovax, poprange, 
                                     c_cond,
                                     c_status,
@@ -183,7 +182,7 @@ function runsim(model;
             end # people loop         
             
             for case in runcases  # cases that run at the end of the day
-                case(locdat, socialparams, infectset, sdcases, age_idx_loc; day=thisday, startofday=false, locale=loc) 
+                case(locdat, socialparams, infectset, sdcases, age_idx_loc; day=today, startofday=false, locale=loc) 
             end   # TODO extend ages to be any filter for who participates in a given case
 
             # r0 displayed every 10 days
@@ -193,7 +192,7 @@ function runsim(model;
                 println("day $(day_ctr[:day]), locale $loc: rt = $current_r0")
             end
 
-            histtime += @elapsed do_history!(locdat, newhist, cumhist, age_idx_loc, thisday)
+            histtime += @elapsed do_history!(locdat, newhist, cumhist, age_idx_loc, today)
 
         end # day loop
 
@@ -219,7 +218,7 @@ end
 #  Update daily history series
 ################################################################################
 
-@inline function do_history!(locdat, newhist, cumhist, age_idx_loc, thisday)  
+@inline function do_history!(locdat, newhist, cumhist, age_idx_loc, today)  
 
     # create a 'view' to get rid of unused columns for performance
         # only using status, cond, vaxrcvd, variant
@@ -234,14 +233,14 @@ end
         # get the source data: status
         status_today = zeros(Int, 4)
         countvec!(status_today, dat_age.status, mapstatus)    # values are Enum status
-        update_series!(cumhist, newhist, statuses, status_today, age, thisday, intmapper=mapstatus)
+        update_series!(cumhist, newhist, statuses, status_today, age, today, intmapper=mapstatus)
 
         # get the source data: conditions in (nil, mild, sick, severe)
         filt_infectious = findall(dat_age.status .== infectious)
         if length(filt_infectious) > 0
             sick_today = zeros(Int, 4)
             countvec!(sick_today, dat_age.cond[filt_infectious], mapcondition)  #         values are enum condition
-            update_series!(cumhist, newhist, infectious_cases, sick_today, age, thisday, intmapper=mapcondition)
+            update_series!(cumhist, newhist, infectious_cases, sick_today, age, today, intmapper=mapcondition)
         end   
 
         # get the source data: vaccination
@@ -249,30 +248,30 @@ end
         if length(filt_vaccinated) > 0
             vax_today = zeros(Int, 3)
             countvec!(vax_today, last.(dat_age.vaxrcvd[filt_vaccinated]), vaxdict)  # values are symbol
-            update_series!(cumhist, newhist, vaxlist, vax_today, age, thisday, mapdict=vaxdict)
+            update_series!(cumhist, newhist, vaxlist, vax_today, age, today, mapdict=vaxdict)
         end
 
         # get the source data: variants: use filt_infectious from above...
         if length(filt_infectious) > 0
             variant_today = zeros(Int, 5)
             countvec!(variant_today, last.(dat_age.variant[filt_infectious]), variantdict)    #  values are symbol
-            update_series!(cumhist, newhist, variantlist, variant_today, age, thisday, mapdict=variantdict)
+            update_series!(cumhist, newhist, variantlist, variant_today, age, today, mapdict=variantdict)
         end
         
     end # for age in agegrps
 
     # :unexposed special case:  no new people on day 1
-    if thisday == 1  
+    if today == 1  
         for colname in seriesbyage[:unexposed]
-            getproperty(newhist, colname)[thisday] = 0
+            getproperty(newhist, colname)[today] = 0
         end
-        getproperty(newhist, :unexposed_total)[thisday] = 0
+        getproperty(newhist, :unexposed_total)[today] = 0
     end
 
 end 
 
 
-@inline function update_series!(cumhist, newhist, categories, countsvec, age, thisday; intmapper=mapviadict, mapdict=Dict())
+@inline function update_series!(cumhist, newhist, categories, countsvec, age, today; intmapper=mapviadict, mapdict=Dict())
 
     @inbounds for item in categories
         seriescol = Symbol(item, "_", age)
@@ -280,13 +279,13 @@ end
         if itemcount == 0
             continue
         end
-        if thisday == 1
-            getproperty(cumhist, seriescol)[thisday] = itemcount
-            getproperty(newhist, seriescol)[thisday] = itemcount
+        if today == 1
+            getproperty(cumhist, seriescol)[today] = itemcount
+            getproperty(newhist, seriescol)[today] = itemcount
         else
-            getproperty(cumhist, seriescol)[thisday] = itemcount
-            getproperty(newhist, seriescol)[thisday] = (itemcount -  
-                    getproperty(cumhist, seriescol)[thisday-1])
+            getproperty(cumhist, seriescol)[today] = itemcount
+            getproperty(newhist, seriescol)[today] = (itemcount -  
+                    getproperty(cumhist, seriescol)[today-1])
         end
     end
 end

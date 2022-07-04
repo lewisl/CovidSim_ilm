@@ -1,75 +1,82 @@
 
 vaccine_template = """
-Pfizer:                   # vaccine name: will convert to symbol at load time
+# Include a complete vaccine section for each vaccine
+Pfizer:                    # vaccine name will convert to symbol at load time
   halflife:         360
   reqdshots:          2
-  delay2ndshot:      21   # days until 2nd shot permitted
-  full_effect_days:  14   # days until a shot reaches its full immunity effect
-  day1_effect:      0.5   # immunity strength of first shot alone
-  # reduction of effectiveness for risk of recipient becoming infected
-  infectfactor:     0.75
+  delay2ndshot:      21
+  full_effect_days:  14
+  day1_effect:      0.65
 
-  # effectiveness in reducing infection or illness risk
-  # shots: first, second, booster
+
+  # reduce vaccine immunity effectiveness for infection risk
+  #     compared to effectiveness for reducing severity
+  # for variant being received by vaccinated person
+  # multiply times effectiveness
+  infectfactor:    
+    base:     0.9
+    alpha:    0.9
+    delta:    0.85
+    omicron_ba1:  0.75
+    omicron_ba2: 0.75
+
+  # effectiveness in reducing severity of illness 
+  # shots: first, full, booster
   # we need data for each known variant
   # variants are the attacker variant
   effectiveness:
     first:
       base:     0.90
       alpha:    0.90
-      delta:    0.84
-      omicron_ba1:  0.55
-      omicron_ba2:  0.55
+      delta:    0.70
+      omicron_ba1:  0.65
+      omicron_ba2:  0.65
     full:
       base:     0.94
       alpha:    0.94
-      delta:    0.88
-      omicron_ba1:  0.75
-      omicron_ba2: 0.75
+      delta:    0.80
+      omicron_ba1:  0.85
+      omicron_ba2: 0.85
     booster:
       base:     0.94
       alpha:    0.94
-      delta:    0.88
-      omicron_ba1:  0.75
-      omicron_ba2: 0.75
+      delta:    0.80
+      omicron_ba1:  0.85
+      omicron_ba2: 0.85
 
-Moderna:  # will convert to symbol at load time
-  halflife:         360
-  reqdshots:          2
-  delay2ndshot:      21
-  full_effect_days:  14
-  day1_effect:      0.5
-  # reduction of effectiveness for recipient becoming infected
-  infectfactor:     0.8
 
-  # effectiveness in reducing infection risk is shown here
-  # shots: first, second, booster
-  # we need data for each known variant
-  effectiveness:
-    first:
-      base:     0.92
-      alpha:    0.92
-      delta:    0.85
-      omicron_ba1:  0.55
-      omicron_ba2: 0.55
-    full:
-      base:     0.95
-      alpha:    0.95
-      delta:    0.88
-      omicron_ba1:  0.75
-      omicron_ba2: 0.75
-    booster:
-      base:     0.95
-      alpha:    0.95
-      delta:    0.88
-      omicron_ba1:  0.75
-      omicron_ba2: 0.75
 """
 
 variant_template = """
 """
 
 vaxsched_template = """
+vaxesincluded:
+  Pfizer:
+    mix:            0.45    # 0.55
+    starting_doses: 70000    # 70000
+    pct2ndshot:     0.9
+    alternate:      [Moderna, JnJ]  # one of none, any, other shot
+    booster:        false
+  Moderna:
+    mix:            0.45     # 0.30
+    starting_doses: 60000      # 60000
+    pct2ndshot:     0.9
+    alternate:      [Pfizer, JnJ]
+    booster:        false
+  JnJ:
+    mix:            0.1     # 0.15
+    starting_doses: 20000      # 20000
+    pct2ndshot:     0.0
+    alternate:      [Pfizer, Moderna]
+    booster:        false
+
+dayrange:       [350, 700]
+targetpct:      0.85    # 0.65
+filterfunc:
+shotmode:       all              # values in :first, :second, :all, :booster
+pattern:        [0.0, .02, .05, .10, .15, .19, .21, .16, .08, .03, .01, 0.0]
+spreadfunc:
 """
 
 social_params_template = """

@@ -7,7 +7,8 @@ Pfizer:  # will convert to symbol at load time
   day1_effect:      0.65
 
 
-  # reduction of effectiveness for infection risk
+  # reduce vaccine immunity effectiveness for infection risk
+  #     compared to effectiveness for reducing severity
   # for variant being received by vaccinated person
   # multiply times effectiveness
   infectfactor:    
@@ -17,7 +18,7 @@ Pfizer:  # will convert to symbol at load time
     omicron_ba1:  0.75
     omicron_ba2: 0.75
 
-  # effectiveness in reducing illness risk
+  # effectiveness in reducing severity of illness 
   # shots: first, full, booster
   # we need data for each known variant
   # variants are the attacker variant

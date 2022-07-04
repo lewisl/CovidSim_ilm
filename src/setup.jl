@@ -45,7 +45,11 @@ function setup(ndays, locales;  # must provide following inputs
     return model
 end
 
+"""
+    setup(yaml_model)
 
+Create a complete simulation model from a previously saved YAML model definition that has been loaded with function yaml_to_model. The output model is a named tuple of all required model parameters. This output is identical to that created from input parameter files to the function buildsim.
+"""
 function setup(yaml_model)
     ym = yaml_model
 
@@ -145,7 +149,7 @@ function pop_data(pop; age_dist=age_dist)
             deadday = zeros(Int, pop),                                              # Int
             ring = zeros(Int, pop),                                                 # Int (not used as yet)
             sdcomply = fill(:none, pop),                                            # Symbol
-            vaxstatus = fill(:none, pop),          # :none, :first, :multiple, :full, :booster  maybe others later...
+            vaxstatus = fill(:none, pop),          # :none, :first, :full, :booster  maybe others later...
             vaxrcvd = [[:none] for _ in 1:pop],    # Vector{Symbol} of vaccine symbols  :Pfizer, :Moderna, :JnJ
             vaxday = [[0] for _ in 1:pop],                                          # Vector{Int}
             tested = falses(pop),                                                   # Bool
@@ -227,7 +231,6 @@ function build_spread_params(infectdict::Dict)
 
     for variant in loadvariants
         newdict = merge(infectdict[variant][:spread], infectdict[variant][:immunity])
-        # newdict = Dict(Symbol(k) => v for (k,v) in newdict)
         infectset[Symbol(variant)] = Infectparams(newdict)
     end
 
@@ -237,9 +240,13 @@ function build_spread_params(infectdict::Dict)
         if variant === :base
             continue
         end
-        if isempty(infectset[variant].recvrisk)
+        if isempty(infectset[variant].recvrisk) & isempty(infectset[variant].sendrisk)  # use :base for both recvrisk and sendrisk
             append!(infectset[variant].recvrisk, infectset[:base].recvrisk .* infectset[variant].basemultiplier)
             append!(infectset[variant].sendrisk, infectset[:base].sendrisk)
+        elseif isempty(infectset[variant].recvrisk)         # use :base for recvrisk
+            append!(infectset[variant].recvrisk, infectset[:base].recvrisk .* infectset[variant].basemultiplier)
+        else isempty(infectset[variant].sendrisk)           # use :base for sendrisk
+            append!(infectset[variant].sendrisk, infectset[:base].sendrisk .* infectset[variant].basemultiplier)
         end
     end
 

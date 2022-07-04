@@ -103,10 +103,10 @@ end
     @inbounds begin
 
         excessprob = 0.0
-        for fromprob in (sick, severe, dead)
-            idx = maptransition(fromprob)
+        for toprob in (sick, severe, dead)  
+            idx = maptransition(toprob)
             excess1 = transvec[idx] * (1.0 - riskfactor)
-            transvec[idx] = transvec[idx] - excess1
+            transvec[idx] = transvec[idx] - excess1  # reduce likelihood of serious outcomes
             excessprob += excess1
         end
 
@@ -117,12 +117,13 @@ end
             excessprob = excessprob / 3.0
             for toprob in (recovered, nil, mild)
                 idx = maptransition(toprob)
-                transvec[idx] = transvec[idx] + excessprob
+                transvec[idx] = transvec[idx] + excessprob  # redistribute likelihood to less serious outcomes
             end
         end
 
     end
 end
+
 
 """
     dotransition!(locdat, p, p_cond, trvec::Union{Vector{Float64}, Nothing})

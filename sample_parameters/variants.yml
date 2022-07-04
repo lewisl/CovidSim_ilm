@@ -4,13 +4,13 @@
 # base variant must have spread arrays for sendrisk and recvrisk
 # base variant must have full transition tree
 # other variants may modify base using input factors!
-# variant name
-base:
+
+base:                              # variant name
   
   # spread section: affect rates of infection in spreading
   spread:
         
-    # sendrisk must be as long as the number of durations--we like 25
+    # sendrisk must be as long as the number of durations--currently 25
     #             1    2      3    4      5     6     7     8    9     10
     #             11   12    13    14    15    16    17     18   19    20  
     #             21   22    23    24    25  
@@ -18,12 +18,12 @@ base:
                 0.50, 0.20, 0.10, 0.10, 0.10, 0.05, 0.05, 0.00, 0.00, 0.0,
                 0.00, 0.00, 0.00, 0.00, 0.00]
 
-    # recvrisk must have 5 entries between 0.0 and 1.0 1 for each agegrp
+    # recvrisk must have 5 entries between 0.0 and 1.0: 1 for each agegrp
     recvrisk:   [0.1, 0.39, 0.44, 0.54, 0.56]
 
     # muliplier for infectiousness over base:
     # use for variants with empty sendrisk & recvrisk
-    basemultiplier: 1.0  # apply to only one of recvrisk or sendrisk
+    basemultiplier: 1.0  # applied to only one of recvrisk or sendrisk
 
   # immunity section: affect immunity after recovery from infection
   # this depends on the "attacking" variant
@@ -287,7 +287,7 @@ alpha:
 
 # variant name (new section)
 delta:
-  # spread section
+  # spread section -- make sendrisk and/or recvrisk empty array [] to modify base
   spread:
     # sendrisk must be as long as the number of durations--we like 25--or empty to use multiplier
     #             1      2     3    4      5     6     7     8    9     10
@@ -346,7 +346,7 @@ omicron_ba1:
        # or if not base variant, can be empty
     recvrisk: [0.1, 0.39, 0.44, 0.54, 0.56]
 
-      # muliplier for infectiousness compared to base
+      # muliplier for infectiousness compared to base; ignored if both sendrisk and rcvrisk are NOT empty
     basemultiplier: 1.2
 
   immunity:
@@ -376,7 +376,7 @@ omicron_ba1:
 omicron_ba2:
   # spread section
   spread:
-    # sendrisk must be as long as the number of durations--we like 25
+    # sendrisk must be as long as the number of durations--currently 25
     #             1      2     3    4      5     6     7     8    9     10
     sendrisk:  [0.00, 0.545, 1.175, 1.325, 1.475, 1.475, 1.325, 1.25, 1.075, 0.9,  
                 0.75, 0.5, 0.10, 0.05, 0.0, 0.00, 0.00, 0.00, 0.00, 0.0,
