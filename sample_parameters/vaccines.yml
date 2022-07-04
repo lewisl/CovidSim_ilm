@@ -3,6 +3,7 @@ Pfizer:  # will convert to symbol at load time
   halflife:         360
   reqdshots:          2
   delay2ndshot:      21
+  delaybooster:     160
   full_effect_days:  14
   day1_effect:      0.65
 
@@ -46,6 +47,7 @@ Moderna:  # will convert to symbol at load time
   halflife:         360
   reqdshots:          2
   delay2ndshot:      21
+  delaybooster:     160
   full_effect_days:  14
   day1_effect:      0.65
 
@@ -85,7 +87,8 @@ Moderna:  # will convert to symbol at load time
 JnJ:  # will convert to symbol at load time
   halflife:         360
   reqdshots:          1
-  delay2ndshot:       0    
+  delay2ndshot:       0  
+  delaybooster:     160  
   full_effect_days:  14
   day1_effect:      0.65
 

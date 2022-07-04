@@ -11,6 +11,7 @@ const vaxlist = Symbol[]  # filled as vaxset is built
 @Base.kwdef struct Vaccineparams  # mutable  ??
     reqdshots::Int
     delay2ndshot::Union{Int, Nothing}   # days until 2nd shot (probability less important)
+    delaybooster::Union{Int, Nothing}
     halflife::Int  # days to 50% decline in effect
     effectiveness::Dict{Symbol, Dict{Symbol, Float64}}
     full_effect_days::Int
@@ -25,6 +26,7 @@ end
             Vaccineparams(
                 reqdshots                = vd[:reqdshots],
                 delay2ndshot             = vd[:delay2ndshot],
+                delaybooster             = vd[:delaybooster],
                 halflife                 = vd[:halflife],
                 effectiveness            = vd[:effectiveness], 
                 full_effect_days         = vd[:full_effect_days],
@@ -45,8 +47,8 @@ this struct for each vaccine type included in a vaccination schedule.
     starting_doses::Int
     doses::Int=0   # set equal to starting doses when initializing beginning of simulation run
     pct2ndshot::Float64
+    pctboost::Float64
     alternate::Array{String}
-    booster::Bool
 end
 
         """
@@ -56,10 +58,10 @@ end
             mix             = vi[:mix]
             starting_doses  = vi[:starting_doses]
             pct2ndshot      = vi[:pct2ndshot]
+            pctboost        = vi[:pctboost]
             alternate       = vi[:alternate]
-            booster         = vi[:booster]
 
-            Vaxinclude(mix=mix, starting_doses=starting_doses, pct2ndshot=pct2ndshot, alternate=alternate, booster=booster)
+            Vaxinclude(mix=mix, starting_doses=starting_doses, pct2ndshot=pct2ndshot, pctboost=pctboost, alternate=alternate)
         end
 
 
@@ -202,11 +204,12 @@ Give people shots!
 
         # setup this schedule
         vaxprops = vxsched.vaxesincluded  # a dict of vaccine symbol to the struct Vaxinclude
-                 # that contains mix, doses, starting_doses, pct2ndshot, alternate, booster
+                 # that contains mix, doses, starting_doses, pct2ndshot, pctboost, alternate, booster
         vaxesincluded = collect(keys(vaxprops))
 
         dayrange = vxsched.dayrange
         delay2ndshot = Dict(v=>vaxset[v].delay2ndshot for v in vaxesincluded) # per vax in the schedule
+        delaybooster = Dict(v=>vaxset[v].delaybooster for v in vaxesincluded)
         maxdelay = mapreduce(v->vaxset[v].delay2ndshot, max, vaxesincluded)
         stop =  dayrange.stop + maxdelay
 
@@ -220,6 +223,7 @@ Give people shots!
         shotmode      = vxsched.shotmode      # values in :first, :second, :all, :booster   TODO we are not using this yet
         spreadfunc    = vxsched.spreadfunc
         pct2ndshot    = Dict(k => v.pct2ndshot for (k,v) in vaxprops)   # per vax
+        pctboost      = Dict(k => v.pctboost for (k,v) in vaxprops)   # per vax
         mix           = [v.mix for v in values(vaxprops)]
 
         # vax parameters
@@ -242,7 +246,7 @@ Give people shots!
                                 ) 
         
         doshots!(vaxrcvdcol, vaxdaycol, vaxstatuscol,  
-                  vaxprops, vaxesincluded, reqdshots, pct2ndshot, mix, delay2ndshot,    
+                  vaxprops, vaxesincluded, reqdshots, pct2ndshot, pctboost, mix, delay2ndshot, delaybooster,   
                   vaxable_idx, doses_today, agegrpcol, filterfunc, today)
 
     end  # for schedname
@@ -267,19 +271,16 @@ end
 
 
 @inline function doshots!(vaxrcvdcol, vaxdaycol, vaxstatuscol,         # arrays to update
-                  vaxprops, vaxesincluded, reqdshots, pct2ndshot, mix, delay2ndshot,  # vaccine characteristics
+                  vaxprops, vaxesincluded, reqdshots, pct2ndshot, pctboost, mix, delay2ndshot, delaybooster,  # vaccine characteristics
                   vaxable_idx, doses_today, agegrpcol, filterfunc, today)                               # people and simulation today
 
-    # break out if all the people in this schedule today have been fully vaccinated
-    # lreturn  nothing      # sum(values(doses_today)) < 1 && break  
-
-    for p in shuffle(vaxable_idx)
+    for p in shuffle!(vaxable_idx)
 
         # break out if no more doses left of any vaccine 
         avail_doses = mapreduce(vi->doses_today[vi], +, keys(vaxprops))
         avail_doses <= 0 && break  
     
-        if vaxstatuscol[p] == :none  # maybe give the first shot
+        if vaxstatuscol[p] === :none  # maybe give the first shot
 
             # which vaccine to give?
             vxnum = categorical_sim(mix)  # our first choice, if available
@@ -310,8 +311,8 @@ end
                     vaxstatuscol[p] = :full
                 end
             end
-                            # TODO separate logic branch for boosters using NEW booster pct input
-        elseif (vaxstatuscol[p] === :first) | (vaxstatuscol[p] === :booster) | (vaxstatuscol[p] === :full)
+                            # TODO add separate parameter for delaybooster
+        elseif (vaxstatuscol[p] === :first) 
             vaxchoice = last(vaxrcvdcol[p]) # assume we try not to mix vaccines for multiple shots
 
             if vaxprops[vaxchoice].doses > 0  # we have this vaccine in our remaining daily allotment
@@ -327,14 +328,32 @@ end
                         # update person's traits
                         push!(vaxrcvdcol[p], vaxchoice)
                         push!(vaxdaycol[p], today)
-                        if length(vaxrcvdcol[p])  == reqdshots[vaxchoice]
-                            vaxstatuscol[p] = :full
-                        elseif length(vaxrcvdcol[p])  >= reqdshots[vaxchoice]
-                            vaxstatuscol[p] = :booster     # assume everything over full is a booster...
-                        end
+                        vaxstatuscol[p] = :full
                     end  # if dotwo
                 end  # time for next shot
             end  # doses > 0
+
+        elseif (vaxstatuscol[p] === :booster) | (vaxstatuscol[p] === :full)
+            vaxchoice = last(vaxrcvdcol[p]) # assume we try not to mix vaccines for multiple shots
+
+            if vaxprops[vaxchoice].doses > 0  # we have this vaccine in our remaining daily allotment
+                # is it time for the next shot?
+                prev_date = last(vaxdaycol[p])
+                if (today - prev_date) >= delaybooster[vaxchoice]
+                    # will this person get another shot?  (based on pct2ndshot parameter input)
+                    domore = Bool(binomial_one_sample(1, pctboost[vaxchoice]))
+                    if domore
+                        vaxprops[vaxchoice].doses -= 1    # reduce the supply
+                        doses_today[vaxchoice] -= 1       # reduce today's allotment
+
+                        # update person's traits
+                        push!(vaxrcvdcol[p], vaxchoice)
+                        push!(vaxdaycol[p], today)
+                        vaxstatuscol[p] = :booster     # assume everything over full is a booster...
+                    end  # if domore
+                end  # time for next shot
+            end  # doses > 0
+
         end  # if vaxstatuscol -> time for another shot after the 1st shot
 
     end  # for p

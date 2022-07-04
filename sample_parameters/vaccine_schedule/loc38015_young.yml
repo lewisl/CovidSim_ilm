@@ -5,20 +5,20 @@ vaxesincluded:
     mix:            0.43    # 0.55
     starting_doses: 30000    # 70000 for all
     pct2ndshot:     0.9
+    pctboost:       0.3
     alternate:      [Moderna, JnJ]  # one of none, any, other shot
-    booster:        false
   Moderna:
     mix:            0.34     # 0.30
     starting_doses: 24000      # 60000 for all
     pct2ndshot:     0.9
+    pctboost:       0.3
     alternate:      [Pfizer, JnJ]
-    booster:        false
   JnJ:
     mix:            0.23     # 0.15
     starting_doses: 16000      # 20000 for all
     pct2ndshot:     0.0
+    pctboost:       0.2
     alternate:      [Pfizer, Moderna]
-    booster:        false
 
 dayrange:       [350, 700]
 targetpct:      0.65    # 0.65
