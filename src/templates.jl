@@ -5,6 +5,7 @@ Pfizer:                    # vaccine name will convert to symbol at load time
   halflife:         360
   reqdshots:          2
   delay2ndshot:      21
+  delaybooster:     160
   full_effect_days:  14
   day1_effect:      0.65
 
@@ -56,24 +57,26 @@ vaxesincluded:
     mix:            0.45    # 0.55
     starting_doses: 70000    # 70000
     pct2ndshot:     0.9
+    pctbooster:     0.6
     alternate:      [Moderna, JnJ]  # one of none, any, other shot
     booster:        false
   Moderna:
-    mix:            0.45     # 0.30
-    starting_doses: 60000      # 60000
+    mix:            0.45     
+    starting_doses: 60000      
     pct2ndshot:     0.9
+    pctbooster:     0.6
     alternate:      [Pfizer, JnJ]
     booster:        false
   JnJ:
-    mix:            0.1     # 0.15
-    starting_doses: 20000      # 20000
+    mix:            0.1     
+    starting_doses: 20000      
     pct2ndshot:     0.0
     alternate:      [Pfizer, Moderna]
     booster:        false
 
 dayrange:       [350, 700]
-targetpct:      0.85    # 0.65
-filterfunc:
+targetpct:      0.85    
+filtervec:
 shotmode:       all              # values in :first, :second, :all, :booster
 pattern:        [0.0, .02, .05, .10, .15, .19, .21, .16, .08, .03, .01, 0.0]
 spreadfunc:

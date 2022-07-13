@@ -31,10 +31,10 @@ end
 
 
 """
-**function series\\_to\\_csv(series; pathstr="", idstr="", locale=0, overwrite=false, usetimestamp=true, basedir=:current)**
+     **series\\_to\\_csv(series; pathstr="", idstr="", locale=0, overwrite=false, usetimestamp=true, basedir=:current)**
 
 Outputs simulation history series as csv. Each locale results in 
-one csv file for the cum (cumulative) values and 
+two csv files: one for the cum (cumulative) values and 
 another csv file for the new (day-to-day net change) values.
 
 Optional inputs as named parameters:
@@ -80,9 +80,9 @@ end
 
 
 """
-**function popdat\\_to\\_csv(dat; pathstr="", idstr="", locale=0, overwrite=false, usetimestamp=true, basedir=:current)**
+     **popdat\\_to\\_csv(dat; pathstr="", idstr="", locale=0, overwrite=false, usetimestamp=true, basedir=:current)**
 
-Outputs simulation population data as csv. Note that this "popdat" refers to a moment in time during the simulation and includes no history data.
+Outputs simulation population data as csv. Note that this "popdat" refers to a moment in time during the simulation and includes limited history data.
 
 Optional inputs as named parameters:
 - pathstr: directory--relative to the basedir--where the file will be written. It is not necessary to end the path with a '/'.
@@ -194,7 +194,7 @@ end
 """
     yaml_to_model(fname::String; basedir=:home, pathstr="")
 
-Read in a previously saved YAML model definition to a dict that can be input to build a simulation model.
+Deserialize the yaml of a model definition. Read in a previously saved YAML model definition to a dict that can be input to build a simulation model.
 """
 function yaml_to_model(fname::String; basedir=:home, pathstr="")
 

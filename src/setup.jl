@@ -16,31 +16,30 @@ function setup(ndays, locales;  # must provide following inputs
     # geodata
         geodata = buildgeodata(geofilename)
 
-    # simulation data matrix
-        dat = build_data(locales, geodata, ndays)
-
-    # history series
-        series = build_series_table(locales, agegrp, ndays, day1)
-
     # social parameters
         socialparams = build_socialparams(socialfilename, paramdir)
 
     # variants, spread parameters, transition arrays
-        infectset, transitionset, trvec = build_infect_params(variantfilename, paramdir)
-
+        infectset, transitionset, trvec, variantlist = build_infect_params(variantfilename, paramdir)
 
     # vaccines  TODO this is not the right approach: test if we have vax inputs instead
     if dovax
-        vaxset = build_vaxset(vaccinefilename, paramdir)
+        vaxset, vaxlist = build_vaxset(vaccinefilename, paramdir)
         vaxschedset = build_vaxschedset(scheddir, paramdir)
     else
-        vaxset = Dict()  # nothing
+        vaxset, vaxlist = Dict(), []  # nothing
         vaxschedset = Dict()  # nothing
     end
 
+    # simulation data matrix
+    dat = build_data(locales, geodata, ndays)
+
+    # history series
+    series = build_series_table(locales, agegrp, ndays, day1, vaxlist, variantlist)
+
     model = (ndays=ndays, day1=day1, locales=locales, dat=dat, series=series, geo=geodata, 
             transitionset=transitionset, vaxset=vaxset, vaxschedset=vaxschedset, infectset=infectset, 
-            social=socialparams, trvec=trvec)  
+            social=socialparams, trvec=trvec, variantlist=variantlist, vaxlist = vaxlist)  
 
     return model
 end
@@ -48,7 +47,7 @@ end
 """
     setup(yaml_model)
 
-Create a complete simulation model from a previously saved YAML model definition that has been loaded with function yaml_to_model. The output model is a named tuple of all required model parameters. This output is identical to that created from input parameter files to the function buildsim.
+Create a complete simulation model from a previously saved YAML model definition. The YAML file must first be loaded with function yaml_to_model. The output model is identical to that created from input parameter files to the function buildsim. This output is a named tuple of all required model parameters. 
 """
 function setup(yaml_model)
     ym = yaml_model
@@ -71,7 +70,7 @@ function setup(yaml_model)
         socialparams = build_socialparams(YAML.load(ym["socialfile"], dicttype=OrderedDict{Symbol, Any}))
 
     # variants, spread parameters, transition arrays
-        infectset, transitionset, trvec = build_infect_params(YAML.load(ym["variantfile"], dicttype=Dict{Symbol, Any}))
+        infectset, transitionset, trvec, variantlist = build_infect_params(YAML.load(ym["variantfile"], dicttype=Dict{Symbol, Any}))
 
 
     # vaccines  TODO this is not the right approach: test if we have vax inputs instead
@@ -161,7 +160,7 @@ function pop_data(pop; age_dist=age_dist)
 end
 
 
-function build_series_table(locales, agegrp, n_days, day1)
+function build_series_table(locales, agegrp, n_days, day1, vaxlist, variantlist)
     calday = range(day1, step=Day(1), length=n_days)
     cols = [Symbol(col,"_", age) for col in seriesgroups for age in vcat(collect(string.(instances(agegrp))),"total")]
     colvals = [zeros(Int,n_days) for _ in 1:length(cols)]
@@ -209,10 +208,10 @@ end
 
 function build_infect_params(infectdict) 
 
-    infectset = build_spread_params(infectdict)
+    (infectset, variantlist) = build_spread_params(infectdict)
     (transitionset, trvec) = build_transition_params(infectdict)
 
-    return infectset, transitionset, trvec
+    return infectset, transitionset, trvec, variantlist
 end
 
 
@@ -224,19 +223,19 @@ from infection for each variant.
 """
 function build_spread_params(infectdict::Dict)
     infectset = LittleDict{Symbol, Infectparams}()
-    loadvariants = collect(keys(infectdict))
-    if isempty(variantlist)
-        append!(variantlist, loadvariants) 
-    end
+    variantlist = collect(keys(infectdict))
+    # if isempty(variantlist)
+    #     append!(variantlist, loadvariants) 
+    # end
 
-    for variant in loadvariants
+    for variant in variantlist
         newdict = merge(infectdict[variant][:spread], infectdict[variant][:immunity])
         infectset[Symbol(variant)] = Infectparams(newdict)
     end
 
 
     # set recvrisk and sendrisk
-    for variant in loadvariants
+    for variant in variantlist
         if variant === :base
             continue
         end
@@ -250,7 +249,7 @@ function build_spread_params(infectdict::Dict)
         end
     end
 
-    return infectset
+    return infectset, variantlist
 end
 
 
@@ -263,10 +262,10 @@ all variants.
 Returns (transitionset, trvec)
 """
 function build_transition_params(infectdict)
-    loadvariants = keys(infectdict) # array of strings to array of symbols
+    variantlist = collect(keys(infectdict)) # array of strings to array of symbols
     transitionset = Dict{Symbol, Transitionparams}()
 
-    @assert :base in loadvariants "Variants parameter file must contain a variant called :base--not there!"
+    @assert :base in variantlist "Variants parameter file must contain a variant called :base--not there!"
 
     # build the transitionset for :base-->needed to build for other variants
     variant = :base
@@ -276,7 +275,7 @@ function build_transition_params(infectdict)
                                             factors=Transitionfactors(infectdict[variant][:transition][:factors])
                                             )
 
-    for variant in loadvariants
+    for variant in variantlist
         variant === :base && continue
         transitionset[Symbol(variant)] = Transitionparams(
                 tree=(  !isnothing(infectdict[variant][:transition][:tree])   ?   

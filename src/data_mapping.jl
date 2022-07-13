@@ -140,12 +140,12 @@ function maptransition(x::Integer) # from integer to elements of transition vect
 end
 
 const vaxdict = Dict(:Pfizer=>1, :Moderna=>2, :JnJ=>3)
-const variantdict = Dict(:base => 1, :alpha=>2, :delta=>3, :omicron_ba1=>4, :omicron_ba2=>5)
+const variantdict = Dict(:base => 1, :alpha=>2, :delta=>3, :omicron_ba1=>4, :omicron_ba2=>5, :omicron_ba4_5=>6)
 
 
 function mapviadict(mapdict, x::Symbol)
     get(mapdict, x) do
-        throw(DomainError(x, "Argument must be one of :Pfizer, :Moderna, :JnJ"))
+        throw(DomainError(x, "Argument must be one of $(keys(mapdict))"))
     end
 end
 

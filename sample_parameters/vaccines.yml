@@ -18,6 +18,7 @@ Pfizer:  # will convert to symbol at load time
     delta:    0.85
     omicron_ba1:  0.75
     omicron_ba2: 0.75
+    omicron_ba4_5: 0.75
 
   # effectiveness in reducing severity of illness 
   # shots: first, full, booster
@@ -30,18 +31,21 @@ Pfizer:  # will convert to symbol at load time
       delta:    0.70
       omicron_ba1:  0.65
       omicron_ba2:  0.65
+      omicron_ba4_5: 0.65
     full:
       base:     0.94
       alpha:    0.94
       delta:    0.80
       omicron_ba1:  0.85
       omicron_ba2: 0.85
+      omicron_ba4_5: 0.85
     booster:
       base:     0.94
       alpha:    0.94
       delta:    0.80
       omicron_ba1:  0.85
       omicron_ba2: 0.85
+      omicron_ba4_5: 0.85
 
 Moderna:  # will convert to symbol at load time
   halflife:         360
@@ -60,6 +64,7 @@ Moderna:  # will convert to symbol at load time
     delta:    0.85
     omicron_ba1:  0.75
     omicron_ba2: 0.75
+    omicron_ba4_5: 0.75
 
   # effectiveness in reducing severity risk is shown here
   # shots: first, second, booster
@@ -71,18 +76,21 @@ Moderna:  # will convert to symbol at load time
       delta:    0.85
       omicron_ba1:  0.60
       omicron_ba2: 0.60
+      omicron_ba4_5: 0.60
     full:
       base:     0.95
       alpha:    0.95
       delta:    0.88
       omicron_ba1:  0.75
       omicron_ba2: 0.75
+      omicron_ba4_5: 0.75
     booster:
       base:     0.95
       alpha:    0.95
       delta:    0.88
       omicron_ba1:  0.80
       omicron_ba2: 0.80
+      omicron_ba4_5: 0.80
 
 JnJ:  # will convert to symbol at load time
   halflife:         360
@@ -102,6 +110,7 @@ JnJ:  # will convert to symbol at load time
     delta:    0.75
     omicron_ba1:  0.65
     omicron_ba2: 0.65
+    omicron_ba4_5: 0.65
 
   # effectiveness in reducing infection or illness risk
   # shots: first, booster
@@ -113,15 +122,18 @@ JnJ:  # will convert to symbol at load time
       delta:    0.65
       omicron_ba1:  0.75
       omicron_ba2:  0.75
+      omicron_ba_4_5: 0.75
     full:
       base:     0.88
       alpha:    0.88
       delta:    0.65
       omicron_ba1:  0.75
       omicron_ba2: 0.75
+      omicron_ba4_5: 0.75
     booster:
       base:     0.88
       alpha:    0.88
       delta:    0.65
       omicron_ba1:  0.75
       omicron_ba2: 0.75
+      omicron_ba4_5: 0.75

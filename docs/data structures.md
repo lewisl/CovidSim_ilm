@@ -108,6 +108,14 @@ Table with 109 columns and 180 rows
 
 ## Input parameters and data
 
+### A Model: Collection of Input parameters
+
+```julia
+model = (ndays=ndays, day1=day1, locales=locales, dat=dat, series=series, geo=geodata, 
+        transitionset=transitionset, vaxset=vaxset, vaxschedset=vaxschedset, infectset=infectset, 
+        social=socialparams, trvec=trvec)  
+```
+
 ### Transition Trees
 
 Accessing a  transition array from a transition tree uses this path in Julia
@@ -124,6 +132,9 @@ transitionset[omicron_ba1].tree.age0_19[14]
                          to a value that is 4 x 6 array
 
 ```
+
+
+
 
 ### Notes
 [1] Infectious status represents currently exposed and not necessarily infectious. Actually being infectious is based on a probability for each day of the duration of a person's illness

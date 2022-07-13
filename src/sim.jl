@@ -30,7 +30,7 @@ function buildsim(ndays, locales;
         #=
         model = (ndays=ndays, day1=day1, locales=locales, dat=dat, series=series, geo=geodata, 
                 transitionset=transitionset, vaxset=vaxset, vaxschedset=vaxschedset, infectset=infectset, 
-                social=socialparams, trvec=trvec)  
+                social=socialparams, trvec=trvec, vaxlist=vaxlist, variantlist=variantlist)  
         =#    
 
     return model
@@ -61,8 +61,10 @@ function runsim(model;
         series = deepcopy(model.series)  # dict of locales => namedtuple(.cum, .new), TypedTable of history columns
         geodf = model.geo
         infectset = model.infectset
+        variantlist = model.variantlist
         socialparams = model.social
         vaxset = model.vaxset
+        vaxlist = model.vaxlist
         vaxschedset = model.vaxschedset
         for sched in values(vaxschedset) 
             for vax in values(sched.vaxesincluded) 
@@ -199,7 +201,7 @@ function runsim(model;
         histtime += @elapsed begin
             update_total_agegrps!(newhist, cumhist) # sum agegrps to total for all series groups (by agegrp)
             update_totinfected_series!(newhist, cumhist) 
-            update_totvaccinated_series!(newhist, cumhist)
+            update_totvaccinated_series!(newhist, cumhist, vaxlist)
         end
 
         silent || println("Simulation completed for $(day_ctr[:day]) days for locale $loc.")
@@ -223,16 +225,19 @@ end
     # create a 'view' to get rid of unused columns for performance
         # only using status, cond, vaxrcvd, variant
         # cuts time by 60%! # this is FAST--reduces time to subset the rows
-    tmpdat = @Select(status, cond, vaxrcvd, variant)(locdat)  
+        # this is almost costless to do each time function is called
+    sourcedat = getproperties(locdat, (:status, :cond, :vaxrcvd, :variant))
 
     @inbounds for age in agegrps
 
         age_idx = age_idx_loc[age]
-        dat_age = tmpdat[age_idx]
+        dat_age = sourcedat[age_idx]   
 
         # get the source data: status
         status_today = zeros(Int, 4)
         countvec!(status_today, dat_age.status, mapstatus)    # values are Enum status
+        # newhist_status  = getproperties(newhist, ())
+        # cumhist_status  = getproperties(cumhist, ())
         update_series!(cumhist, newhist, statuses, status_today, age, today, intmapper=mapstatus)
 
         # get the source data: conditions in (nil, mild, sick, severe)
@@ -240,6 +245,8 @@ end
         if length(filt_infectious) > 0
             sick_today = zeros(Int, 4)
             countvec!(sick_today, dat_age.cond[filt_infectious], mapcondition)  #         values are enum condition
+            # newhist_cond    = getproperties(newhist, ())
+            # cumhist_cond    = getproperties(cumhist, ())
             update_series!(cumhist, newhist, infectious_cases, sick_today, age, today, intmapper=mapcondition)
         end   
 
@@ -248,13 +255,17 @@ end
         if length(filt_vaccinated) > 0
             vax_today = zeros(Int, 3)
             countvec!(vax_today, last.(dat_age.vaxrcvd[filt_vaccinated]), vaxdict)  # values are symbol
+            # newhist_vax     = getproperties(newhist, ())
+            # cumhist_vax     = getproperties(cumhist, ())
             update_series!(cumhist, newhist, vaxlist, vax_today, age, today, mapdict=vaxdict)
         end
 
         # get the source data: variants: use filt_infectious from above...
         if length(filt_infectious) > 0
-            variant_today = zeros(Int, 5)
+            variant_today = zeros(Int, 6)
             countvec!(variant_today, last.(dat_age.variant[filt_infectious]), variantdict)    #  values are symbol
+            # newhist_variant = getproperties(newhist, ())
+            # cumhist_variant = getproperties(cumhist, ())
             update_series!(cumhist, newhist, variantlist, variant_today, age, today, mapdict=variantdict)
         end
         
@@ -314,7 +325,7 @@ end
 end
 
 
-@inline function update_totvaccinated_series!(newhist, cumhist)
+@inline function update_totvaccinated_series!(newhist, cumhist, vaxlist)
 
     for age in vcat(collect(agegrps), "total")  # for each age and "total"
         getproperty(newhist, Symbol(:totvaccinated, "_", age))[:] .= .+(columns(getproperties(newhist, 

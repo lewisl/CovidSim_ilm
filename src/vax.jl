@@ -6,8 +6,6 @@
 # data structures for vaccination
 ###################################################
 
-const vaxlist = Symbol[]  # filled as vaxset is built
-
 @Base.kwdef struct Vaccineparams  # mutable  ??
     reqdshots::Int
     delay2ndshot::Union{Int, Nothing}   # days until 2nd shot (probability less important)
@@ -69,7 +67,7 @@ end
     vaxesincluded::Dict{Symbol, Vaxinclude}
     dayrange::UnitRange{Int64}
     targetpct::Float64
-    filterfunc::Vector  # discretionary criteria for who is included in the vaccine schedule
+    filtervec::Vector  # discretionary criteria for who is included in the vaccine schedule
     shotmode::Symbol   # one of :first, :second, :all, :booster.  best to use :all. others force only single shot
     pattern::Vector{Float64} # = [0.0, .02, .05, .10, .15, .19, .21, .16, .08, .03, .01]   
         # pattern defines 11 point on a piecewise linear "curve" of the pace of vaccination as the
@@ -82,7 +80,7 @@ end
             dayrange = vs[:dayrange][1]:vs[:dayrange][2]
             targetpct = vs[:targetpct]
             pattern = vs[:pattern]
-            filterfunc = symbol2agegrp.(vs[:filterfunc])
+            filtervec = symbol2agegrp.(vs[:filtervec])
             shotmode = Symbol(vs[:shotmode])
 
             vaxesincluded = Dict(k => Vaxinclude(v) for (k,v) in vs[:vaxesincluded])
@@ -95,7 +93,7 @@ end
                 vaxesincluded = vaxesincluded,
                 dayrange =  dayrange,
                 targetpct = targetpct,
-                filterfunc = filterfunc,   # excluded to enable later definition
+                filtervec = filtervec,   # excluded to enable later definition
                 shotmode = shotmode,
                 pattern = pattern,
                 spreadfunc = genvaxspreadfunc(dayrange, targetpct, pattern; shotmode=shotmode) 
@@ -119,23 +117,13 @@ end
 function build_vaxset(vaccines)
 
     vaxset = Dict{Symbol, Vaccineparams}()
-    for vax in keys(vaccines)
+    vaxlist = collect(keys(vaccines))
+
+    for vax in vaxlist
         vaxset[vax] = Vaccineparams(vaccines[vax])  
     end
 
-    # clean vaxlist
-    l = length(vaxlist)
-    if l > 0
-        deleteat!(vaxlist, collect(1:l))
-    end
-
-    if isempty(vaxlist)
-        for k in keys(vaxset)
-            push!(vaxlist, k)   # this is a module global variable. Forgive me for I have sinned--except it makes sense...
-        end
-    end
-
-    return vaxset
+    return vaxset, vaxlist
 end
 
 
@@ -219,7 +207,7 @@ Give people shots!
         end
 
         # schedule parameters
-        filterfunc    = vxsched.filterfunc  # contains allowed agegrps
+        filtervec    = vxsched.filtervec  # contains allowed agegrps
         shotmode      = vxsched.shotmode      # values in :first, :second, :all, :booster   TODO we are not using this yet
         spreadfunc    = vxsched.spreadfunc
         pct2ndshot    = Dict(k => v.pct2ndshot for (k,v) in vaxprops)   # per vax
@@ -242,12 +230,12 @@ Give people shots!
 
         vaxable_idx = findall((locdat.status .== unexposed) 
                                 .| ((locdat.status .== recovered) .& (last.(locdat.recovday) .< today - 14))
-                                .& (in.(locdat.agegrp, [filterfunc]))   # horrible syntax! (for included age groups)
+                                .& (in.(locdat.agegrp, [filtervec]))   # horrible syntax! (for included age groups)
                                 ) 
         
         doshots!(vaxrcvdcol, vaxdaycol, vaxstatuscol,  
                   vaxprops, vaxesincluded, reqdshots, pct2ndshot, pctboost, mix, delay2ndshot, delaybooster,   
-                  vaxable_idx, doses_today, agegrpcol, filterfunc, today)
+                  vaxable_idx, doses_today, agegrpcol, filtervec, today)
 
     end  # for schedname
 end
@@ -272,7 +260,7 @@ end
 
 @inline function doshots!(vaxrcvdcol, vaxdaycol, vaxstatuscol,         # arrays to update
                   vaxprops, vaxesincluded, reqdshots, pct2ndshot, pctboost, mix, delay2ndshot, delaybooster,  # vaccine characteristics
-                  vaxable_idx, doses_today, agegrpcol, filterfunc, today)                               # people and simulation today
+                  vaxable_idx, doses_today, agegrpcol, filtervec, today)                               # people and simulation today
 
     for p in shuffle!(vaxable_idx)
 
@@ -359,7 +347,3 @@ end
     end  # for p
 end
 
-
-function basevaxfilterfunc(p, agegrpcol)
-    (agegrpcol[p] != age0_19)
-end

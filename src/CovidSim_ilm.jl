@@ -1,5 +1,5 @@
 # TODO
-    # redo vxsched filterfunc 
+    # redo vxsched filtervec 
     # per agegrp plots
     # rewrite R0 sim assuming individual spreading and transition
     # more info
@@ -39,7 +39,6 @@ using StatsBase
 using Printf
 using PrettyPrint
 using Plots
-#using PlotlyBase
 using PlotThemes
 using Dates
 using YAML
@@ -131,13 +130,12 @@ const transition_cases = [recovered, nil, mild, sick, severe, dead]
 const allconds = vcat(infectious_cases, statuses) # note excludes uninfected::condition=0
 const agegrps = instances(agegrp) # tuple of enums
 const n_agegrps = length(instances(agegrp))
-const variantlist = Symbol[]  # filled by setup.jl
 
 # trait columns used in history series
 const seriesgroups = [:unexposed, :infectious, :recovered, :dead,         # status
                       :nil, :mild, :sick, :severe, :totinfected,          # infectious cases
                       :Pfizer, :Moderna, :JnJ, :totvaccinated,            # vaccines
-                     :base, :alpha, :delta, :omicron_ba1, :omicron_ba2]   # virus variants
+                      :base, :alpha, :delta, :omicron_ba1, :omicron_ba2, :omicron_ba4_5]   # variants
 
 # all because building these symbols on the fly is painfully slow because of string catenation!
 const seriesbyage =  Dict(:unexposed => (:unexposed_age0_19, :unexposed_age20_39, :unexposed_age40_59, :unexposed_age60_79, :unexposed_age80_up), 
@@ -157,7 +155,9 @@ const seriesbyage =  Dict(:unexposed => (:unexposed_age0_19, :unexposed_age20_39
                           :alpha => (:alpha_age0_19, :alpha_age20_39,:alpha_age40_59, :alpha_age60_79, :alpha_age80_up), 
                           :delta => (:delta_age0_19, :delta_age20_39,:delta_age40_59, :delta_age60_79, :delta_age80_up), 
                           :omicron_ba1 => (:omicron_ba1_age0_19, :omicron_ba1_age20_39,:omicron_ba1_age40_59, :omicron_ba1_age60_79, :omicron_ba1_age80_up), 
-                          :omicron_ba2 => (:omicron_ba2_age0_19, :omicron_ba2_age20_39,:omicron_ba2_age40_59, :omicron_ba2_age60_79, :omicron_ba2_age80_up)
+                          :omicron_ba2 => (:omicron_ba2_age0_19, :omicron_ba2_age20_39, :omicron_ba2_age40_59, :omicron_ba2_age60_79, :omicron_ba2_age80_up),
+                          :omicron_ba4_5 => (:omicron_ba4_5_age0_19, :omicron_ba4_5_age20_39, :omicron_ba4_5_age40_59, :omicron_ba4_5_age60_79, :omicron_ba4_5_age80_up)
+
                         ) 
 
 const serieslevels = Dict(k1 => Dict(k2 => Symbol(k1, "_", k2) 
@@ -220,8 +220,7 @@ export
     Vaxsched,
     Vaxinclude,
     makevaxfn,
-    vaccinate!,
-    vaxlist
+    vaccinate!
 
 # functions for transition
 export
