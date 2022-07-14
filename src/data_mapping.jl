@@ -243,3 +243,20 @@ function symbol2allconds(x::Union{Symbol, String})::Union{condition, status}
     symtoallconds[x]
 end
 
+
+function repeat_join(l1::Vector, l2::Vector)
+    len1 = length(l1)
+    len2 = length(l2)
+    res = Vector{Symbol}(undef, len1*len2)
+    for (i1, it1) in enumerate(l1)
+        for (i2, it2) in enumerate(l2)
+            res[(i1-1)*len2+i2] = Symbol(it1, "_", it2)
+        end
+    end
+    return res
+end
+
+
+function repeat_join(l1::Union{Symbol, String}, l2::Vector)
+    repeat_join([l1], l2)
+end

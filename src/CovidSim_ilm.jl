@@ -129,6 +129,8 @@ const infectious_cases = [nil, mild, sick, severe]
 const transition_cases = [recovered, nil, mild, sick, severe, dead]
 const allconds = vcat(infectious_cases, statuses) # note excludes uninfected::condition=0
 const agegrps = instances(agegrp) # tuple of enums
+const agegrpvec = collect(Symbol.(agegrps))
+const agenames = vcat(agegrpvec, :total)
 const n_agegrps = length(instances(agegrp))
 
 # trait columns used in history series
@@ -160,9 +162,6 @@ const seriesbyage =  Dict(:unexposed => (:unexposed_age0_19, :unexposed_age20_39
 
                         ) 
 
-const serieslevels = Dict(k1 => Dict(k2 => Symbol(k1, "_", k2) 
-                                for k2 in [:total, instances(agegrp)...]) 
-                          for k1 in seriesgroups)
 
 # other columns used only in series 
 const totinfected       = 9

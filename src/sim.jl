@@ -30,7 +30,8 @@ function buildsim(ndays, locales;
         #=
         model = (ndays=ndays, day1=day1, locales=locales, dat=dat, series=series, geo=geodata, 
                 transitionset=transitionset, vaxset=vaxset, vaxschedset=vaxschedset, infectset=infectset, 
-                social=socialparams, trvec=trvec, vaxlist=vaxlist, variantlist=variantlist)  
+                social=socialparams, trvec=trvec, vaxlist=vaxlist, variantlist=variantlist, 
+                seriescolnames=seriescolnames)  
         =#    
 
     return model
@@ -65,6 +66,7 @@ function runsim(model;
         socialparams = model.social
         vaxset = model.vaxset
         vaxlist = model.vaxlist
+        seriescolnames = model.seriescolnames
         vaxschedset = model.vaxschedset
         for sched in values(vaxschedset) 
             for vax in values(sched.vaxesincluded) 
@@ -194,13 +196,13 @@ function runsim(model;
                 println("day $(day_ctr[:day]), locale $loc: rt = $current_r0")
             end
 
-            histtime += @elapsed do_history!(locdat, newhist, cumhist, age_idx_loc, today)
+            histtime += @elapsed do_history!(locdat, newhist, cumhist, age_idx_loc, today, vaxlist, variantlist)
 
         end # day loop
 
         histtime += @elapsed begin
-            update_total_agegrps!(newhist, cumhist) # sum agegrps to total for all series groups (by agegrp)
-            update_totinfected_series!(newhist, cumhist) 
+            update_total_agegrps!(newhist, cumhist, seriescolnames) # sum agegrps to total for all series groups (by agegrp)
+            update_totinfected_series!(newhist, cumhist, seriescolnames) 
             update_totvaccinated_series!(newhist, cumhist, vaxlist)
         end
 
@@ -220,7 +222,7 @@ end
 #  Update daily history series
 ################################################################################
 
-@inline function do_history!(locdat, newhist, cumhist, age_idx_loc, today)  
+@inline function do_history!(locdat, newhist, cumhist, age_idx_loc, today, vaxlist, variantlist)  
 
     # create a 'view' to get rid of unused columns for performance
         # only using status, cond, vaxrcvd, variant
@@ -302,24 +304,36 @@ end
 end
 
 
-@inline function update_total_agegrps!(newhist, cumhist)
-        # runs once per locale
-    for item in seriesgroups
-        getproperty(newhist, Symbol(item, "_", "total"))[:] .= .+(columns(getproperties(newhist, seriesbyage[item]))...)      
-        getproperty(cumhist, Symbol(item, "_", "total"))[:] .= .+(columns(getproperties(cumhist, seriesbyage[item]))...)     
+@inline function update_total_agegrps!(newhist, cumhist, seriescolnames)
+    # runs once per locale
+    for group in keys(seriescolnames)
+        for item in keys(seriescolnames[group])
+            totalcol = seriescolnames[group][item][:total]
+            for age in keys(seriescolnames[group][item])
+                age == :total && continue
+                thiscol = seriescolnames[group][item][age]
+                getproperty(newhist, totalcol)[:] .+= getproperty(newhist, thiscol)
+                getproperty(cumhist, totalcol)[:] .+= getproperty(cumhist, thiscol)   
+            end
+        end
     end
-    
 end
+
+function getcolname(scn, group, item, age)
+    gf = getfield
+    gf(gf(gf(scn, group), item), age)
+end
+gcn = getcolname
 
 
 # a single locale that already has both new and cum series
-@inline function update_totinfected_series!(newhist, cumhist)
-
-    for age in vcat(collect(agegrps), "total")  # for each age and "total"
-        getproperty(newhist, Symbol(:totinfected, "_", age))[:] .= .+(columns(getproperties(newhist, 
-                            Tuple(Symbol(cond, "_", age) for cond in infectious_cases)))...)  # sum all of the infectious_cases columns
-        getproperty(cumhist, Symbol(:totinfected, "_", age))[:] .= .+(columns(getproperties(cumhist, 
-                            Tuple(Symbol(cond, "_", age) for cond in infectious_cases)))...)
+@inline function update_totinfected_series!(newhist, cumhist, scn)
+    for age in agenames  # for each age and "total"
+        totalcol = scn[:condcols][:totinfected][age]
+        getproperty(newhist, totalcol)[:] .= .+(columns(getproperties(newhist, 
+                        Tuple(scn[:condcols][cond][age] for cond in Symbol.(infectious_cases))))...)  # sum all of the infectious_cases columns
+        getproperty(cumhist, totalcol)[:] .= .+(columns(getproperties(cumhist, 
+                        Tuple(scn[:condcols][cond][age] for cond in Symbol.(infectious_cases))))...)
     end
      
 end

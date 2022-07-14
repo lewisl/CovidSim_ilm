@@ -34,12 +34,16 @@ function setup(ndays, locales;  # must provide following inputs
     # simulation data matrix
     dat = build_data(locales, geodata, ndays)
 
-    # history series
-    series = build_series_table(locales, agegrp, ndays, day1, vaxlist, variantlist)
+    # history series columns and history series
+        colgroups = [:statuscols=>statuses, :condcols=>push!(Symbol.(infectious_cases), :totinfected), 
+                    :vaxcols=>push!(Symbol.(vaxlist), :totvaccinated), :variantcols=>variantlist]
+        seriescolnames = make_col_names_dict(colgroups)
+        series = build_series_table(locales, agegrp, ndays, day1, seriescolnames)
 
     model = (ndays=ndays, day1=day1, locales=locales, dat=dat, series=series, geo=geodata, 
             transitionset=transitionset, vaxset=vaxset, vaxschedset=vaxschedset, infectset=infectset, 
-            social=socialparams, trvec=trvec, variantlist=variantlist, vaxlist = vaxlist)  
+            social=socialparams, trvec=trvec, variantlist=variantlist, vaxlist = vaxlist, 
+            seriescolnames=seriescolnames)  
 
     return model
 end
@@ -63,8 +67,6 @@ function setup(yaml_model)
     # simulation data matrix
         dat = build_data(locales, geodata, ndays)
 
-    # history series
-        series = build_series_table(ym["locales"], agegrp, ym["ndays"], day1)   
         
     # social parameters
         socialparams = build_socialparams(YAML.load(ym["socialfile"], dicttype=OrderedDict{Symbol, Any}))
@@ -82,6 +84,9 @@ function setup(yaml_model)
         vaxset = Dict()  # nothing
         vaxschedset = Dict()  # nothing
     end
+
+    # history series
+    series = build_series_table(ym["locales"], agegrp, ym["ndays"], day1) 
 
     model = (ndays=ndays, day1=day1, locales=locales, dat=dat, series=series, geo=geodata, 
             transitionset=transitionset, vaxset=vaxset, vaxschedset=vaxschedset, infectset=infectset, 
@@ -160,15 +165,41 @@ function pop_data(pop; age_dist=age_dist)
 end
 
 
-function build_series_table(locales, agegrp, n_days, day1, vaxlist, variantlist)
+function build_series_table(locales, agegrp, n_days, day1, seriescolnames)
     calday = range(day1, step=Day(1), length=n_days)
-    cols = [Symbol(col,"_", age) for col in seriesgroups for age in vcat(collect(string.(instances(agegrp))),"total")]
+    # cols = [col for group in seriescolnames for item in group for col in item]
+    cols = [col for group in values(seriescolnames) for item in values(group) for col in values(item)]
     colvals = [zeros(Int,n_days) for _ in 1:length(cols)]
     series = Dict(loc => (cum = Table(; calday=calday, zip(cols,[zeros(Int,n_days) for _ in 1:length(cols)])...), 
                           new = Table(; calday=calday, zip(cols,[zeros(Int,n_days) for _ in 1:length(cols)])...))
              for loc in locales)
 
     return series
+end
+
+
+# column names for series table returned as nested namedtuple
+function make_col_names(arr::Vector{Pair{Symbol, Vector}})
+    agenames = collect((Symbol.(agegrps)..., :total))
+    res = []
+    for item in arr
+        pr = item[1]=>gen_col_names(item[2], agenames)
+        push!(res, pr)
+    end
+    return NamedTuple{([pr[1] for pr in res]...,)}([pr[2] for pr in res])
+end
+
+function make_col_names_dict(arr::Vector{Pair{Symbol, Vector}})
+    agenames = collect((Symbol.(agegrps)..., :total))
+    Dict(zip(first.(arr),gen_col_names_dict(items, agenames) for items in last.(arr)))
+end
+
+function gen_col_names_dict(items1, items2)
+    Dict(zip(Symbol.(items1), [Dict(zip(items2, repeat_join([st], items2))) for st in items1]))
+end
+
+function gen_col_names(items1, items2)
+    NamedTuple{(Symbol.(items1)...,)}([NamedTuple{(Symbol.(items2)...,)}(repeat_join([st], items2)) for st in items1])
 end
 
 
