@@ -196,7 +196,7 @@ function runsim(model;
                 println("day $(day_ctr[:day]), locale $loc: rt = $current_r0")
             end
 
-            histtime += @elapsed do_history!(locdat, newhist, cumhist, age_idx_loc, today, vaxlist, variantlist)
+            histtime += @elapsed do_history!(locdat, newhist, cumhist, age_idx_loc, today, vaxlist, variantlist, seriescolnames)
 
         end # day loop
 
@@ -222,7 +222,7 @@ end
 #  Update daily history series
 ################################################################################
 
-@inline function do_history!(locdat, newhist, cumhist, age_idx_loc, today, vaxlist, variantlist)  
+@inline function do_history!(locdat, newhist, cumhist, age_idx_loc, today, vaxlist, variantlist, seriescolnames)  
 
     # create a 'view' to get rid of unused columns for performance
         # only using status, cond, vaxrcvd, variant
@@ -275,10 +275,9 @@ end
 
     # :unexposed special case:  no new people on day 1
     if today == 1  
-        for colname in seriesbyage[:unexposed]
+        for colname in values(seriescolnames[:statuscols][:unexposed])
             getproperty(newhist, colname)[today] = 0
         end
-        getproperty(newhist, :unexposed_total)[today] = 0
     end
 
 end 
@@ -318,12 +317,6 @@ end
         end
     end
 end
-
-function getcolname(scn, group, item, age)
-    gf = getfield
-    gf(gf(gf(scn, group), item), age)
-end
-gcn = getcolname
 
 
 # a single locale that already has both new and cum series

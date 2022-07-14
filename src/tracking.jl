@@ -180,11 +180,6 @@ function vax_summary(model, locale)
     day1 = model.day1
     n = length(newhist)
 
-    calday = range(day1, step=Day(1), length=n)
-    # by agegrp, total
-    cols = [Symbol(col,"_", age) for col in seriesgroups for age in vcat(collect(string.(instances(agegrp))),"total")]
-    colvals = [zeros(Int,n_days) for _ in 1:length(cols)]
-
     # construct the data series: rows are vax sequence
     daily_vaxes = Table(zeros(Int, n, numcols))
     maxtimes = maximum(length.(locdat.sickday)) - 1  # maximum no. of times anyone has gotten infected
@@ -211,11 +206,6 @@ function detailed_vax_series(model, locale)
     day1 = model.day1
     n = length(newhist)
 
-    calday = range(day1, step=Day(1), length=n)
-    # by agegrp, by vax sequence
-    cols = [Symbol(col,"_", age) for col in seriesgroups for age in vcat(collect(string.(instances(agegrp))),"total")]
-    colvals = [zeros(Int,n_days) for _ in 1:length(cols)]
-
     # construct the data series
     daily_vaxes = Table(zeros(Int, n, numcols))
     maxtimes = maximum(length.(locdat.sickday)) - 1  # maximum no. of times anyone has gotten infected
@@ -236,12 +226,9 @@ function daily_cases_series!(model, locale)
     cumhist = model.series[locale].cum
     newhist = model.series[locale].new
     locdat = model.dat[locale]
+    scn = seriescolnames = model.seriescolnames
     day1 = model.day1
     n = length(newhist)
-
-    calday = range(day1, step=Day(1), length=n)
-    cols = [Symbol(col,"_", age) for col in seriesgroups for age in vcat(collect(string.(instances(agegrp))),"total")]
-    colvals = [zeros(Int,n_days) for _ in 1:length(cols)]
 
     # construct the data series
     daily_cases = Table(zeros(Int, n, numcols))

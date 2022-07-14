@@ -178,17 +178,7 @@ function build_series_table(locales, agegrp, n_days, day1, seriescolnames)
 end
 
 
-# column names for series table returned as nested namedtuple
-function make_col_names(arr::Vector{Pair{Symbol, Vector}})
-    agenames = collect((Symbol.(agegrps)..., :total))
-    res = []
-    for item in arr
-        pr = item[1]=>gen_col_names(item[2], agenames)
-        push!(res, pr)
-    end
-    return NamedTuple{([pr[1] for pr in res]...,)}([pr[2] for pr in res])
-end
-
+# column names for series table returned as Dict
 function make_col_names_dict(arr::Vector{Pair{Symbol, Vector}})
     agenames = collect((Symbol.(agegrps)..., :total))
     Dict(zip(first.(arr),gen_col_names_dict(items, agenames) for items in last.(arr)))
@@ -196,10 +186,6 @@ end
 
 function gen_col_names_dict(items1, items2)
     Dict(zip(Symbol.(items1), [Dict(zip(items2, repeat_join([st], items2))) for st in items1]))
-end
-
-function gen_col_names(items1, items2)
-    NamedTuple{(Symbol.(items1)...,)}([NamedTuple{(Symbol.(items2)...,)}(repeat_join([st], items2)) for st in items1])
 end
 
 
