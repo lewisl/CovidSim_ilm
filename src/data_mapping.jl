@@ -121,7 +121,7 @@ function maptransition(x::Union{condition, status}) # from enum to elements of t
 end
 
 
-function maptransition(x::Integer) # from integer to elements of transition vector
+function maptransition(x::Integer) # from integer column to elements of transition vector
     if x == 1 
         recovered
     elseif x == 2

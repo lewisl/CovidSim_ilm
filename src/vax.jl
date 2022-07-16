@@ -187,7 +187,7 @@ Give people shots!
         
     today = day_ctr[:day]
 
-    for schedname in Symbol.(vaxscheds)      
+    @inbounds @fastmath for schedname in Symbol.(vaxscheds)      
         vxsched = vaxschedset[schedname]   # vaxshedset is Dict{Symbol, Vaxsched} where Symbol is Symbol(schedname)
 
         # setup this schedule
@@ -262,7 +262,7 @@ end
                   vaxprops, vaxesincluded, reqdshots, pct2ndshot, pctboost, mix, delay2ndshot, delaybooster,  # vaccine characteristics
                   vaxable_idx, doses_today, agegrpcol, filtervec, today)                               # people and simulation today
 
-    for p in shuffle!(vaxable_idx)
+    @inbounds @fastmath for p in shuffle!(vaxable_idx)
 
         # break out if no more doses left of any vaccine 
         avail_doses = mapreduce(vi->doses_today[vi], +, keys(vaxprops))

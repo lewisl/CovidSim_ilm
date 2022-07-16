@@ -181,7 +181,12 @@ end
 # column names for series table returned as Dict
 function make_col_names_dict(arr::Vector{Pair{Symbol, Vector}})
     agenames = collect((Symbol.(agegrps)..., :total))
-    Dict(zip(first.(arr),gen_col_names_dict(items, agenames) for items in last.(arr)))
+       #       group         item         age    colname
+    ret = Dict{Symbol, Dict{Symbol, Dict{Symbol, Symbol}}}()
+    for group in arr
+        ret[group[1]] = gen_col_names_dict(group[2], agenames)
+    end
+    return ret
 end
 
 function gen_col_names_dict(items1, items2)
@@ -191,13 +196,10 @@ end
 
 function buildgeodata(filename::String)
     tmp = Table(CSV.File(filename))
-    
     buildgeodata(tmp)
-
 end
 
 function buildgeodata(geotable::T) where T <: Table
-
     Table(geotable, 
         density_factor = shifter(geotable.density,0.9,1.25), 
         anchor         = quickdate(geotable.anchor),
@@ -241,9 +243,6 @@ from infection for each variant.
 function build_spread_params(infectdict::Dict)
     infectset = LittleDict{Symbol, Infectparams}()
     variantlist = collect(keys(infectdict))
-    # if isempty(variantlist)
-    #     append!(variantlist, loadvariants) 
-    # end
 
     for variant in variantlist
         newdict = merge(infectdict[variant][:spread], infectdict[variant][:immunity])

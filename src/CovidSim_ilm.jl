@@ -129,7 +129,7 @@ const infectious_cases = [nil, mild, sick, severe]
 const transition_cases = [recovered, nil, mild, sick, severe, dead]
 const allconds = vcat(infectious_cases, statuses) # note excludes uninfected::condition=0
 const agegrps = instances(agegrp) # tuple of enums
-const agegrpvec = collect(Symbol.(agegrps))
+const agegrpvec = collect(Symbol.(agegrps)) # vector of symbols
 const agenames = vcat(agegrpvec, :total)
 const n_agegrps = length(instances(agegrp))
 

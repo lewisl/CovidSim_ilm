@@ -402,7 +402,7 @@ columns in the population table. Runs social distancing cases.
     @inbounds contact_param = c_sdcomply[spr] === :none ? contactfactors : sdcases[c_sdcomply[spr]]
     nc = @inbounds numcontacts(density_factor, gammashape, c_agegrp[spr], c_cond[spr], contact_param)  
 
-    @inbounds for i = 1:nc
+    @inbounds @fastmath for i = 1:nc
         
         target = rand(poprange)
         target_status = c_status[target]
@@ -410,7 +410,7 @@ columns in the population table. Runs social distancing cases.
         if (target_status == unexposed) | (target_status == recovered)  # only conditions that can get infected   
             # choose the touch_param for the social distancing case or the input social parameters
             touch_param = c_sdcomply[target] === :none ? touchfactors : sdcases[c_sdcomply[target]]
-            touched = istouched(c_agegrp[target], unexposed, touch_param)   # is the contact significant?
+            touched = istouched(c_agegrp[target], target_status, touch_param)   # is the contact significant?
 
             # infection outcome
             if touched  # if the contact is consequential
@@ -449,7 +449,7 @@ columns in the population table. Runs social distancing cases.
         end  # if contactstatus
     end # for i = 1:nc
 
-    return  nothing # n_contacts, n_touched, n_newly_infected
+    return nothing # n_contacts, n_touched, n_newly_infected
 end       
 
 

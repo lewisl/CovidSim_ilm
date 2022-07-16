@@ -1,41 +1,23 @@
 ---
-condition:
+condition:       # convert to enum
   - uninfected
   - nil
   - mild
   - sick
   - severe
-status:
+status:          # convert to enum
   - unexposed
   - infectious 
   - recovered 
   - dead
-  - reinfected
-  - breakout
-agegrp:
+  - reinfected  #  ???
+  - breakout    #  ???
+agegrp:          # convert to enum
   - age0_19
   - age20_39
   - age40_59
   - age60_79
   - age80_up
 age_dist: [0.251, 0.271, 0.255, 0.184, 0.039]
-variant:
-  - base
-  - alpha
-  - delta
-  - omicron_ba1
 durations: 
   maxduration: 25
-vaccine:
-  Pfizer:
-    infect_fname:     pfizer_spread.yml
-    transition_fname: pfizer_transition.yml
-    directory_name:   pfizer
-  Moderna:
-    infect_fname:     moderna_spread.yml
-    transition_fname: moderna_transition.yml
-    directory_name:   moderna
-  JnJ:
-    infect_fname:     jnj_spread.yml
-    transition_fname: jnj_transition.yml
-    directory_name:   jnj

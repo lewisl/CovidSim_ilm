@@ -7,7 +7,7 @@
 
     
 """
-    transition!(p, infectset, transitionset, vaxset, dovax, vaxfn!, transvec, <columns of locdat>)
+    transition!(p, infectset, transitionset, vaxset, dovax, riskshift!, transvec, <columns of locdat>)
 
 People who have become infectious transition through cases from
 nil (asymptomatic) to mild to sick to severe, depending on their
@@ -17,7 +17,7 @@ they move to recovered or dead.
 Required columns of locdat are cond, status, agegrp, duration, sdcomply, variant, vaxstatus, recovday
 vaxrcvd, vaxday, deadday.
 """
-@inline function transition!(p, infectset, transitionset, vaxset, dovax, vaxfn!, transvec,
+@inline function transition!(p, infectset, transitionset, vaxset, dovax, riskshift!, transvec,
             c_cond,
             c_status,
             c_agegrp,
@@ -34,7 +34,7 @@ vaxrcvd, vaxday, deadday.
     today = day_ctr[:day]
 
     if dovax
-        vaxfn! = vaxfn! == noop ? redistprob! : vaxfn!  # last branch new vaxfn! was passed in
+        riskshift! = riskshift! == noop ? redistprob! : riskshift!  # last branch new riskshift! was passed in
     end
 
     # extract traits for this person p where p is the row index in locdat
@@ -75,7 +75,7 @@ vaxrcvd, vaxday, deadday.
 
         risk = riskfactor(recoveff, vaxeff)
         
-        vaxfn!(transvec, risk, p_duration) 
+        riskshift!(transvec, risk, p_duration) 
 
         dotransition!(p, transvec, # perform transition logic and update population table->must pass columns, not scalars  
                         c_duration,
@@ -98,7 +98,7 @@ function riskfactor(recoveff, vaxeff)
 end
 
 
-# this function set to the variable vaxfn!
+# this function set to the variable riskshift!
 @inline function redistprob!(transvec, riskfactor, duration)
     @inbounds begin
 

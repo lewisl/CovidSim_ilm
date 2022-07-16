@@ -147,17 +147,16 @@ end
 
 function sanitycheck(dectree::Agetree)
     for age in fieldnames(Agetree)
-        println("for agegroup ", age)
-        for startcond in 1:4
-            seqs = getseqs(getfield(dectree, Symbol(age)))
-            probs, allpr = verifyprobs(seqs)
-            println("    starting condition ", mapcondition(startcond))
-            for p in pairs(probs)
-                println("        ",p)
-            end
-            flag = isapprox(allpr, 1.0) ? "OK " : "BAD"
-            println("    $flag Prob total: ",allpr)
-        end
+        println("\nfor agegroup ", age); flush(stdout)
+        seqs = getseqs(getfield(dectree, Symbol(age)))
+        probs, allpr, restable = verifyprobs(seqs)
+        # for p in pairs(probs)
+        #     println("        ",p); 
+        # end; println(); # flush(stdout); 
+        # flag = isapprox(allpr, 1.0) ? "OK " : "BAD"
+        # print("    $flag "); print("Prob total: ", allpr); println(); flush(stdout)
+        display(restable)
+        println("Recovered + Dead probability =  ", restable.dead[6] + restable.recovered[6])
     end
 end
 
@@ -173,9 +172,11 @@ function getseqs(dt_this_age::Dict; maxsearches = 100)
     todo = [] # array of node sequences 
     done = [] # ditto
 
+    # println(dt_this_age)
+
     # gather the outcomes at the first breakday for the starting conditions
     # no transition has happened yet: these are initial conditions: the first sequence(s) to be extended
-    for fromcond in 4  # everyone starts at nil
+    for fromcond in mapcondition(nil)  # everyone starts at nhil
         for i in 1:size(dt_this_age[k1],2)  # no. of columns
             outcome = maptransition(i)
             prob = dt_this_age[k1][fromcond, i]
@@ -189,21 +190,25 @@ function getseqs(dt_this_age::Dict; maxsearches = 100)
     ctr = 0
     while !isempty(todo)
         if (ctr += 1) > maxsearches
-            @assert false "maxsearches exceeded when buildig sequences through transition tree at $ctr"
+            @assert false "maxsearches exceeded when building sequences through transition tree at $ctr"
         end
         seq = popfirst!(todo)  
         lastnode = seq[end]
         breakday, fromcond, tocond = lastnode
         nxtidx = findfirst(isequal(breakday), breakdays) + 1
         for brk in breakdays[nxtidx:end]
+            # @show(brk); println()
   
-            for i in 1:1:size(dt_this_age[k1],2)  # no. of columns
+            for i in 1:size(dt_this_age[k1],2)  # no. of columns
                 outcome = maptransition(i)
                 prob = dt_this_age[brk][mapcondition(tocond), maptransition(outcome)]
+                # @show(outcome, prob); println();
                 newseq = vcat(seq, (duration=brk, fromcond=tocond, tocond=outcome, prob=prob))
-                if prob != 0.0
+                # @show(newseq); println()
+                if prob > 0.0
                     if (outcome == dead) | (outcome == recovered)  # terminal node reached--no more nodes to add
                         push!(done, newseq)
+                        # verbose == true && begin; println(done); println(); end
                     else  # not at a terminal outcome: still more nodes to add
                         push!(todo, newseq)
                     end
@@ -221,15 +226,23 @@ end
 
 function verifyprobs(seqs)
     ret = Dict(dead=>0.0, recovered=>0.0)
+    restable = Table(duration=[5,9,14,19,25], from=[nil, nil, nil, nil, nil], recovered=[0.0,0.0,0.0,0.0,0.0], dead=[0.0,0.0,0.0,0.0,0.0])
     allpr = 0.0
 
     for seq in seqs
+        # verbose && println(seq)
         pr = mapreduce(x->getindex(x,:prob), *, seq)
             outcome = last(seq).tocond
             ret[outcome] += pr
             allpr += pr
+            lastcond=last(seq).fromcond
+            atduration = last(seq).duration
+            rowidx = findfirst(restable.duration .== atduration)
+            getproperty(restable, Symbol(outcome))[rowidx] += pr
+            getproperty(restable, :from)[rowidx] = lastcond
     end
-    return ret, allpr
+    push!(restable, (duration=100, from=uninfected, recovered=sum(restable.recovered), dead=sum(restable.dead)))
+    return ret, allpr, restable
 end
 
 # A transtion tree is provided for the :base variant and optionally other variants.

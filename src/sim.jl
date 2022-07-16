@@ -200,10 +200,11 @@ function runsim(model;
 
         end # day loop
 
+        # simulation for a locale is over: calculate total columns in the history series
         histtime += @elapsed begin
             update_total_agegrps!(newhist, cumhist, seriescolnames) # sum agegrps to total for all series groups (by agegrp)
             update_totinfected_series!(newhist, cumhist, seriescolnames) 
-            update_totvaccinated_series!(newhist, cumhist, vaxlist)
+            update_totvaccinated_series!(newhist, cumhist, vaxlist, seriescolnames)
         end
 
         silent || println("Simulation completed for $(day_ctr[:day]) days for locale $loc.")
@@ -229,8 +230,9 @@ end
         # cuts time by 60%! # this is FAST--reduces time to subset the rows
         # this is almost costless to do each time function is called
     sourcedat = getproperties(locdat, (:status, :cond, :vaxrcvd, :variant))
+    scn = seriescolnames
 
-    @inbounds for age in agegrps
+    @inbounds @fastmath for age in agegrps
 
         age_idx = age_idx_loc[age]
         dat_age = sourcedat[age_idx]   
@@ -238,18 +240,16 @@ end
         # get the source data: status
         status_today = zeros(Int, 4)
         countvec!(status_today, dat_age.status, mapstatus)    # values are Enum status
-        # newhist_status  = getproperties(newhist, ())
-        # cumhist_status  = getproperties(cumhist, ())
-        update_series!(cumhist, newhist, statuses, status_today, age, today, intmapper=mapstatus)
+        update_series!(cumhist, newhist, scn, statuses, status_today, age, today, 
+                        group=:statuscols, intmapper=mapstatus)
 
         # get the source data: conditions in (nil, mild, sick, severe)
         filt_infectious = findall(dat_age.status .== infectious)
         if length(filt_infectious) > 0
             sick_today = zeros(Int, 4)
             countvec!(sick_today, dat_age.cond[filt_infectious], mapcondition)  #         values are enum condition
-            # newhist_cond    = getproperties(newhist, ())
-            # cumhist_cond    = getproperties(cumhist, ())
-            update_series!(cumhist, newhist, infectious_cases, sick_today, age, today, intmapper=mapcondition)
+            update_series!(cumhist, newhist, scn, infectious_cases, sick_today, age, today, 
+                            group=:condcols, intmapper=mapcondition)
         end   
 
         # get the source data: vaccination
@@ -257,18 +257,16 @@ end
         if length(filt_vaccinated) > 0
             vax_today = zeros(Int, 3)
             countvec!(vax_today, last.(dat_age.vaxrcvd[filt_vaccinated]), vaxdict)  # values are symbol
-            # newhist_vax     = getproperties(newhist, ())
-            # cumhist_vax     = getproperties(cumhist, ())
-            update_series!(cumhist, newhist, vaxlist, vax_today, age, today, mapdict=vaxdict)
+            update_series!(cumhist, newhist, scn, vaxlist, vax_today, age, today, 
+                            group=:vaxcols, mapdict=vaxdict)
         end
 
         # get the source data: variants: use filt_infectious from above...
         if length(filt_infectious) > 0
             variant_today = zeros(Int, 6)
             countvec!(variant_today, last.(dat_age.variant[filt_infectious]), variantdict)    #  values are symbol
-            # newhist_variant = getproperties(newhist, ())
-            # cumhist_variant = getproperties(cumhist, ())
-            update_series!(cumhist, newhist, variantlist, variant_today, age, today, mapdict=variantdict)
+            update_series!(cumhist, newhist, scn, variantlist, variant_today, age, today, 
+                                group=:variantcols, mapdict=variantdict)
         end
         
     end # for age in agegrps
@@ -283,10 +281,10 @@ end
 end 
 
 
-@inline function update_series!(cumhist, newhist, categories, countsvec, age, today; intmapper=mapviadict, mapdict=Dict())
+@inline function update_series!(cumhist, newhist, scn, categories, countsvec, age, today; group, intmapper=mapviadict, mapdict=Dict())
 
-    @inbounds for item in categories
-        seriescol = Symbol(item, "_", age)
+    @inbounds @fastmath for item in categories
+        seriescol = scn[group][Symbol(item)][Symbol(age)]
         itemcount = isempty(mapdict) ? countsvec[intmapper(item)] : countsvec[intmapper(mapdict, item)]
         if itemcount == 0
             continue
@@ -303,44 +301,53 @@ end
 end
 
 
-@inline function update_total_agegrps!(newhist, cumhist, seriescolnames)
+"""
+Sum all the series columns for all ages for all groups and items into a :total column by group and item.
+"""
+@inline function update_total_agegrps!(newhist, cumhist, scn)
     # runs once per locale
-    for group in keys(seriescolnames)
-        for item in keys(seriescolnames[group])
-            totalcol = seriescolnames[group][item][:total]
-            for age in keys(seriescolnames[group][item])
-                age == :total && continue
-                thiscol = seriescolnames[group][item][age]
-                getproperty(newhist, totalcol)[:] .+= getproperty(newhist, thiscol)
-                getproperty(cumhist, totalcol)[:] .+= getproperty(cumhist, thiscol)   
-            end
+    @fastmath @inbounds for group in keys(scn)
+        for item in keys(scn[group])
+            totalcol = scn[group][item][:total]
+            sumcols = Tuple(scn[group][item][age] for age in agegrpvec)
+            getproperty(newhist, totalcol)[:] .= .+(columns(getproperties(newhist, sumcols))...)  # a tuple of column names
+            getproperty(cumhist, totalcol)[:] .= .+(columns(getproperties(cumhist, sumcols))...)
+            # keep this around for comparison: easier to understand, but possibly slower
+            # for age in keys(seriescolnames[group][item])   
+            #     age == :total && continue
+            #     thiscol = seriescolnames[group][item][age]
+            #     getproperty(newhist, totalcol)[:] .+= getproperty(newhist, thiscol)
+            #     getproperty(cumhist, totalcol)[:] .+= getproperty(cumhist, thiscol)   
+            # end
         end
     end
 end
 
 
-# a single locale that already has both new and cum series
+"""
+Sum all the series columns for all ages and total across ages for all infectious_cases into :totinfected series group of columns.
+"""
 @inline function update_totinfected_series!(newhist, cumhist, scn)
-    for age in agenames  # for each age and "total"
+    @fastmath @inbounds for age in agenames  # for each age and "total"
         totalcol = scn[:condcols][:totinfected][age]
-        getproperty(newhist, totalcol)[:] .= .+(columns(getproperties(newhist, 
-                        Tuple(scn[:condcols][cond][age] for cond in Symbol.(infectious_cases))))...)  # sum all of the infectious_cases columns
-        getproperty(cumhist, totalcol)[:] .= .+(columns(getproperties(cumhist, 
-                        Tuple(scn[:condcols][cond][age] for cond in Symbol.(infectious_cases))))...)
-    end
-     
+        sumcols = Tuple(scn[:condcols][cond][age] for cond in Symbol.(infectious_cases)) # tuple of all of condition column names
+        # not the most obvious below, but faster than looping one column at a time!
+        getproperty(newhist, totalcol)[:] .= .+(columns(getproperties(newhist, sumcols))...)  # sum all of the infectious_cases columns
+        getproperty(cumhist, totalcol)[:] .= .+(columns(getproperties(cumhist, sumcols))...)
+    end 
 end
 
+"""
+Sum all the series columns for all ages and total across ages for all vaccines into :totvaccinated series group of columns.
+"""
 
-@inline function update_totvaccinated_series!(newhist, cumhist, vaxlist)
-
-    for age in vcat(collect(agegrps), "total")  # for each age and "total"
-        getproperty(newhist, Symbol(:totvaccinated, "_", age))[:] .= .+(columns(getproperties(newhist, 
-                            Tuple(Symbol(vax, "_", age) for vax in vaxlist)))...)        # sum all of the vax columns
-        getproperty(cumhist, Symbol(:totvaccinated, "_", age))[:] .= .+(columns(getproperties(cumhist, 
-                            Tuple(Symbol(vax, "_", age) for vax in vaxlist)))...)
+@inline function update_totvaccinated_series!(newhist, cumhist, vaxlist, scn)
+    @fastmath @inbounds for age in agenames  # for each age and "total"  # Tuple(scn[:vaxcols][vax][age] for vax in vaxlist)
+        totalcol = scn[:vaxcols][:totvaccinated][age]
+        sumcols = Tuple(scn[:vaxcols][vax][age] for vax in vaxlist) # tuple of all of the vax column names
+        getproperty(newhist, totalcol)[:] .= .+(columns(getproperties(newhist, sumcols))...)        # sum all of the vax columns
+        getproperty(cumhist, totalcol)[:] .= .+(columns(getproperties(cumhist, sumcols))...)
     end
-
 end
 
 
