@@ -1,5 +1,6 @@
 # TODO
     # should sendrisk also depend on condition?
+    # add still_infected to summary of statuses
     # should we use statuses of reinfected, breakout? equiv to infectious; need to be filtered
         # whenever we filter for infectious; could help history series
     # where do we use condition, infectious_cases: mapcondition, contactfactors

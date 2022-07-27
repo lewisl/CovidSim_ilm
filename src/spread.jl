@@ -370,7 +370,7 @@ Infectious people spread the virus to susceptible people for a single locale. Ch
 columns in the population table. Runs social distancing cases.
 """
 @inline function spread!(spr::Int, thisday::Int, sdcases, socialparams,   
-     infectset, vaxset, density_factor, dovax, poprange,    
+     infectset, vaxset, density_factor, poprange,    
         c_cond,
         c_status,
         c_agegrp,
@@ -384,73 +384,104 @@ columns in the population table. Runs social distancing cases.
         c_vaxday
      )
 
-     today = thisday
+    today = thisday
 
     # retrieve params
     contactfactors = socialparams.contactfactors
     touchfactors   = socialparams.touchfactors
     gammashape     = socialparams.gammashape
 
-    # initialize
-    tocond = nil
-    n_newly_infected = 0
-    tovariant = :base
-    targ_agegrp = age0_19
-    target_status = unexposed
+    targets = social_model(spr, poprange, contactfactors, touchfactors, sdcases, density_factor, gammashape,
+                           c_sdcomply, c_agegrp, c_cond, c_status)
+
+    
+    infection_model!(spr, targets, today, infectset, vaxset,  
+                    c_recovday, c_variant, c_vaxstatus, c_vaxrcvd, c_vaxday,   
+                    c_duration, c_agegrp, c_sickday, c_cond, c_status)        
+
+    return nothing 
+end       
+
+"""
+    Who has been touched by a spreader and might later become infected?
+"""
+function social_model(spr, poprange, contactfactors, touchfactors, sdcases, density_factor, gammashape,
+                      c_sdcomply, c_agegrp, c_cond, c_status)
 
     # determine number of outbound contacts 
     @inbounds contact_param = c_sdcomply[spr] === :none ? contactfactors : sdcases[c_sdcomply[spr]]
-    nc = @inbounds numcontacts(density_factor, gammashape, c_agegrp[spr], c_cond[spr], contact_param)  
+    nc = @inbounds @fastmath numcontacts(density_factor, gammashape, c_agegrp[spr], c_cond[spr], contact_param)  
 
-    @inbounds @fastmath for i = 1:nc
-        
-        target = rand(poprange)
-        target_status = c_status[target]
+    if nc > 0
+        targets = Int[]        
+        @inbounds @fastmath for i in 1:nc
 
-        if (target_status == unexposed) | (target_status == recovered)  # only conditions that can get infected   
-            # choose the touch_param for the social distancing case or the input social parameters
-            touch_param = c_sdcomply[target] === :none ? touchfactors : sdcases[c_sdcomply[target]]
-            touched = istouched(c_agegrp[target], target_status, touch_param)   # is the contact significant?
+            target = rand(poprange)
+            
+            target_status = c_status[target]
 
-            # infection outcome
-            if touched  # if the contact is consequential
-                # gather characteristics of target and spreader
-                recovday = c_recovday[target][end]
-                spr_variant = c_variant[spr][end]
-                recovfactor = if target_status == recovered
-                                    targ_variant = c_variant[target][end]
-                                    recoveffect(today, recovday, targ_variant, spr_variant, infectset)
-                                else 
-                                    1.0
-                                end
+            if (target_status == unexposed) | (target_status == recovered)  # only conditions that can get infected   
+                # choose the touch_param for the social distancing case or the input social parameters
+                touch_param = c_sdcomply[target] === :none ? touchfactors : sdcases[c_sdcomply[target]]
+                touched = istouched(c_agegrp[target], target_status, touch_param)   # is the contact significant?
 
-                vaxstatus = c_vaxstatus[target]
-                vaxfactor = if vaxstatus === :none
-                               1.0 
-                            else
-                                vaxrcvd = c_vaxrcvd[target][end]
-                                vaxday = c_vaxday[target][end]
-                                vaxeffect(today, infectset, vaxset, vaxstatus, spr_variant, vaxrcvd, vaxday; mode=:spread)
-                            end
-
-                spr_duration = c_duration[spr]
-                targ_agegrp = c_agegrp[target]
-
-                risk = infectrisk(infectset, spr_variant, spr_duration, targ_agegrp, recovfactor, vaxfactor)
-
-                if isinfected(risk)
-                    push!(c_variant[target], c_variant[spr][end])  # first of possibly several infections...
-                    push!(c_sickday[target], thisday)
-                    c_duration[target] = 1
-                    c_cond[target] = nil
-                    c_status[target] = infectious
+                # infection outcome
+                if touched  # if the contact is consequential
+                    push!(targets, target)
                 end
-            end  # if (touched ...)
-        end  # if contactstatus
-    end # for i = 1:nc
 
-    return nothing # n_contacts, n_touched, n_newly_infected
-end       
+            end
+        end
+        return targets
+    else
+        return Int[]
+    end
+end
+
+
+
+
+
+"""
+    Of the targets who have been touched by a spreader, update trait columns for those who become infected...
+"""
+function infection_model!(spr, targets, today, infectset, vaxset,  
+            c_recovday, c_variant, c_vaxstatus, c_vaxrcvd, c_vaxday,   # trait columns
+            c_duration, c_agegrp, c_sickday, c_cond, c_status)         # trait columns
+
+    for target in targets
+        recovday = c_recovday[target][end]
+        spr_variant = c_variant[spr][end]
+        recovfactor = if c_status[target] == recovered
+                            targ_variant = c_variant[target][end]
+                            recoveffect(today, recovday, targ_variant, spr_variant, infectset)
+                        else 
+                            1.0
+                        end
+
+        vaxstatus = c_vaxstatus[target]
+        vaxfactor = if vaxstatus === :none
+                        1.0 
+                    else
+                        vaxrcvd = c_vaxrcvd[target][end]
+                        vaxday = c_vaxday[target][end]
+                        vaxeffect(today, infectset, vaxset, vaxstatus, spr_variant, vaxrcvd, vaxday; mode=:spread)
+                    end
+
+        spr_duration = c_duration[spr]
+        targ_agegrp = c_agegrp[target]
+
+        risk = infectrisk(infectset, spr_variant, spr_duration, targ_agegrp, recovfactor, vaxfactor)
+
+        if isinfected(risk)
+            push!(c_variant[target], c_variant[spr][end])  # first of possibly several infections...
+            push!(c_sickday[target], today)
+            c_duration[target] = 1
+            c_cond[target] = nil
+            c_status[target] = infectious
+        end
+    end
+end
 
 
 # simple make_sick! for a single person. Assumes that caller doesn't invoke structure of population data

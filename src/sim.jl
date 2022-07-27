@@ -160,7 +160,7 @@ function runsim(model;
                     
                     if sendrisk > 0.0     
                         spread!(p, today, sdcases,  socialparams, infectset, 
-                                vaxset, density_factor, dovax, poprange, 
+                                vaxset, density_factor, poprange, 
                                     c_cond,
                                     c_status,
                                     c_agegrp,
