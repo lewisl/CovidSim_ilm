@@ -1,4 +1,10 @@
 # TODO
+    # should sendrisk also depend on condition?
+    # should we use statuses of reinfected, breakout? equiv to infectious; need to be filtered
+        # whenever we filter for infectious; could help history series
+    # where do we use condition, infectious_cases: mapcondition, contactfactors
+    # could we number enum conds from 0-4?
+    # do a clean report with vaccines, variants,and social distancing
     # redo vxsched filtervec 
     # per agegrp plots
     # rewrite R0 sim assuming individual spreading and transition
@@ -45,8 +51,6 @@ using YAML
 using TypedTables
 using Interpolations
 
-
-# using Debugger
 
 ######################################################################
 # Define module constants and new Base methods
@@ -127,7 +131,6 @@ end
 const statuses = collect(instances(status))
 const infectious_cases = [nil, mild, sick, severe]
 const transition_cases = [recovered, nil, mild, sick, severe, dead]
-const allconds = vcat(infectious_cases, statuses) # note excludes uninfected::condition=0
 const agegrps = instances(agegrp) # tuple of enums
 const agegrpvec = collect(Symbol.(agegrps)) # vector of symbols
 const agenames = vcat(agegrpvec, :total)
@@ -283,7 +286,6 @@ export
     totinfected,
     statuses,
     conditions,
-    allconds,
     infectious_cases,
     transition_cases,
     # enum and enum values for age groups
@@ -299,8 +301,7 @@ export
     totalcol,
     symbol2conditon,
     symbol2status,
-    symbol2agegrp,
-    symbol2allconds
+    symbol2agegrp
 
 # constants for indices to transition arrays
 export

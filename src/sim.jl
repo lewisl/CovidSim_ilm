@@ -138,7 +138,14 @@ function runsim(model;
             
             # if dovax vaccinate (e.g., give shots)
             dovax && begin
-                        vaxtime += @elapsed vaccinate!(locdat, vaxschedset, vaxset, vaxscheds)
+                    vaxtime += @elapsed vaccinate!(vaxschedset, vaxset, vaxscheds,
+                                        c_status,
+                                        c_agegrp,
+                                        c_vaxstatus,
+                                        c_recovday,
+                                        c_vaxrcvd,
+                                        c_vaxday
+                                    )
                      end
 
             # person loop

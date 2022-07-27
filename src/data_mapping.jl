@@ -220,30 +220,6 @@ function symbol2status(x::Union{Symbol, String})::status
 end
 
 
-"""
-    symbol2allconds(x::Union{Symbol String})::Union{condition, status}  
-Lookup a string or symbol that matches an enum value of Enum condition or status.
-Generates an error if the string or symbol does not match.
-
-Examples:
-- symbol2allconds(:nil)  result: nil::condition = 5
-- symbol2allconds("nil") result: nil::condition = 5
-- symbol2allconds(:dead) result: dead::status = 4
-    
-"""
-function symbol2allconds(x::Union{Symbol, String})::Union{condition, status}  
-    x = Symbol(x) 
-    inst_status = instances(status)
-    inst_cond = instances(condition)
-
-    symtostatus = freeze(Dict(zip(Symbol.(inst_status), inst_status)))
-    symtocond = freeze(Dict(zip(Symbol.(inst_cond), inst_cond)))
-    symtoallconds = merge(symtostatus, symtocond)
-
-    symtoallconds[x]
-end
-
-
 function repeat_join(l1::Vector, l2::Vector)
     len1 = length(l1)
     len2 = length(l2)

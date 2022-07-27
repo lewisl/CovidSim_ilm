@@ -183,7 +183,18 @@ end
 """
 Give people shots!
 """
-@inline function vaccinate!(locdat, vaxschedset, vaxset, vaxscheds::Vector{Symbol})
+@inline function vaccinate!(vaxschedset, vaxset, whichvaxscheds,
+                    c_status,
+                    c_agegrp,
+                    c_vaxstatus,
+                    c_recovday,
+                    c_vaxrcvd,
+                    c_vaxday
+                )
+
+    vaxscheds = setvaxscheds(whichvaxscheds, vaxschedset)  # return vector of symbols or nothing
+
+    isnothing(vaxscheds) && return nothing  # exit the function 
         
     today = day_ctr[:day]
 
@@ -217,50 +228,52 @@ Give people shots!
         # vax parameters
         reqdshots = Dict(v => vaxset[v].reqdshots for v in vaxesincluded)
         
-        # people columns
-        vaxstatuscol    = locdat.vaxstatus
-        vaxdaycol       = locdat.vaxday
-        vaxrcvdcol      = locdat.vaxrcvd
-        agegrpcol       = locdat.agegrp
-
-        
         starting_doses = Dict(vi => vaxprops[vi].starting_doses for vi in vaxesincluded)  
 
         doses_today = Dict(vi => floor(Int, spreadfunc(today) * starting_doses[vi]) for vi in vaxesincluded)   # pct times accessible population
 
-        vaxable_idx = findall((locdat.status .== unexposed) 
-                                .| ((locdat.status .== recovered) .& (last.(locdat.recovday) .< today - 14))
-                                .& (in.(locdat.agegrp, [filtervec]))   # horrible syntax! (for included age groups)
+        vaxable_idx = findall((c_status .== unexposed) 
+                                .| ((c_status .== recovered) .& (last.(c_recovday) .< today - 14))
+                                .& (in.(c_agegrp, [filtervec]))   # horrible syntax! (for included age groups)
                                 ) 
+
+                            #=
+
+                            columns reqd: c_vaxday, c_vaxrcvd, c_vaxstatus, c_agegrp, c_status, c_recovday
+
+                            =#
+
         
-        doshots!(vaxrcvdcol, vaxdaycol, vaxstatuscol,  
+        doshots!(c_vaxrcvd, c_vaxday, c_vaxstatus,  
                   vaxprops, vaxesincluded, reqdshots, pct2ndshot, pctboost, mix, delay2ndshot, delaybooster,   
-                  vaxable_idx, doses_today, agegrpcol, filtervec, today)
+                  vaxable_idx, doses_today, c_agegrp, filtervec, today)
 
     end  # for schedname
 end
 
 
 """
-Front-end method for vaccinate!Allows vaxscheds argument to be :all, :none or a single symbol for a specific vaxsched.
+For input of :all, :none or a single symbol return a vector of vaxscheds as symbols.
 """
-@inline function vaccinate!(locdat, vaxschedset, vaxset, vaxscheds::Symbol)
-    if vaxscheds === :all
-        vaxscheds = collect(keys(vaxschedset))
-        vaccinate!(locdat, vaxschedset, vaxset, vaxscheds)
-
+@inline function setvaxscheds(whichvaxsched::Symbol, vaxschedset)
+    if whichvaxsched === :all
+        return collect(keys(vaxschedset))
     elseif vaxscheds === :none
-        # don't do anything
+        return nothing
     else  # a single symbol turned into an array
-        vaccinate!(locdat, vaxschedset, vaxset, [vaxscheds])  
+        return [whichvaxsched]
     end
+end
+
+@inline function setvaxscheds(whichvaxsched::Vector{Symbol}, vaxschedset)
+    return whichvaxsched
 end
 
 
 
-@inline function doshots!(vaxrcvdcol, vaxdaycol, vaxstatuscol,         # arrays to update
+@inline function doshots!(c_vaxrcvd, c_vaxday, c_vaxstatus,         # arrays to update
                   vaxprops, vaxesincluded, reqdshots, pct2ndshot, pctboost, mix, delay2ndshot, delaybooster,  # vaccine characteristics
-                  vaxable_idx, doses_today, agegrpcol, filtervec, today)                               # people and simulation today
+                  vaxable_idx, doses_today, c_agegrp, filtervec, today)                               # people and simulation today
 
     @inbounds @fastmath for p in shuffle!(vaxable_idx)
 
@@ -268,7 +281,7 @@ end
         avail_doses = mapreduce(vi->doses_today[vi], +, keys(vaxprops))
         avail_doses <= 0 && break  
     
-        if vaxstatuscol[p] === :none  # maybe give the first shot
+        if c_vaxstatus[p] === :none  # maybe give the first shot
 
             # which vaccine to give?
             vxnum = categorical_sim(mix)  # our first choice, if available
@@ -291,21 +304,21 @@ end
                 doses_today[vaxchoice] -= 1      # reduce today's allotment
 
                 # update person's traits
-                vaxrcvdcol[p] = [vaxchoice]
-                vaxdaycol[p] = [today]       # because this is first shot
+                c_vaxrcvd[p] = [vaxchoice]
+                c_vaxday[p] = [today]       # because this is first shot
                 if reqdshots[vaxchoice] > 1
-                    vaxstatuscol[p] = :first
+                    c_vaxstatus[p] = :first
                 else
-                    vaxstatuscol[p] = :full
+                    c_vaxstatus[p] = :full
                 end
             end
                             # TODO add separate parameter for delaybooster
-        elseif (vaxstatuscol[p] === :first) 
-            vaxchoice = last(vaxrcvdcol[p]) # assume we try not to mix vaccines for multiple shots
+        elseif (c_vaxstatus[p] === :first) 
+            vaxchoice = last(c_vaxrcvd[p]) # assume we try not to mix vaccines for multiple shots
 
             if vaxprops[vaxchoice].doses > 0  # we have this vaccine in our remaining daily allotment
                 # is it time for the next shot?
-                prev_date = last(vaxdaycol[p])
+                prev_date = last(c_vaxday[p])
                 if (today - prev_date) >= delay2ndshot[vaxchoice]
                     # will this person get another shot?  (based on pct2ndshot parameter input)
                     dotwo = Bool(binomial_one_sample(1, pct2ndshot[vaxchoice]))
@@ -314,19 +327,19 @@ end
                         doses_today[vaxchoice] -= 1       # reduce today's allotment
 
                         # update person's traits
-                        push!(vaxrcvdcol[p], vaxchoice)
-                        push!(vaxdaycol[p], today)
-                        vaxstatuscol[p] = :full
+                        push!(c_vaxrcvd[p], vaxchoice)
+                        push!(c_vaxday[p], today)
+                        c_vaxstatus[p] = :full
                     end  # if dotwo
                 end  # time for next shot
             end  # doses > 0
 
-        elseif (vaxstatuscol[p] === :booster) | (vaxstatuscol[p] === :full)
-            vaxchoice = last(vaxrcvdcol[p]) # assume we try not to mix vaccines for multiple shots
+        elseif (c_vaxstatus[p] === :booster) | (c_vaxstatus[p] === :full)
+            vaxchoice = last(c_vaxrcvd[p]) # assume we try not to mix vaccines for multiple shots
 
             if vaxprops[vaxchoice].doses > 0  # we have this vaccine in our remaining daily allotment
                 # is it time for the next shot?
-                prev_date = last(vaxdaycol[p])
+                prev_date = last(c_vaxday[p])
                 if (today - prev_date) >= delaybooster[vaxchoice]
                     # will this person get another shot?  (based on pct2ndshot parameter input)
                     domore = Bool(binomial_one_sample(1, pctboost[vaxchoice]))
@@ -335,14 +348,14 @@ end
                         doses_today[vaxchoice] -= 1       # reduce today's allotment
 
                         # update person's traits
-                        push!(vaxrcvdcol[p], vaxchoice)
-                        push!(vaxdaycol[p], today)
-                        vaxstatuscol[p] = :booster     # assume everything over full is a booster...
+                        push!(c_vaxrcvd[p], vaxchoice)
+                        push!(c_vaxday[p], today)
+                        c_vaxstatus[p] = :booster     # assume everything over full is a booster...
                     end  # if domore
                 end  # time for next shot
             end  # doses > 0
 
-        end  # if vaxstatuscol -> time for another shot after the 1st shot
+        end  # if c_vaxstatus -> time for another shot after the 1st shot
 
     end  # for p
 end

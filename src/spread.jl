@@ -384,7 +384,7 @@ columns in the population table. Runs social distancing cases.
         c_vaxday
      )
 
-     today = day_ctr[:day]
+     today = thisday
 
     # retrieve params
     contactfactors = socialparams.contactfactors
