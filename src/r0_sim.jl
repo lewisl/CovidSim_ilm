@@ -1,4 +1,4 @@
-function r0_sim(pop=200_000, age_dist=age_dist, dectree, infectparams, density_factor=1.0; scale=5)
+function r0_sim(pop=200_000, age_dist=AGE_DIST, dectree, infectparams, density_factor=1.0; scale=5)
     # create simulation population
     r0pop = pop_data(pop, age_dist)
 
@@ -21,7 +21,7 @@ function r0_sim(pop=200_000, age_dist=age_dist, dectree, infectparams, density_f
     sdcases = []   # TODO this should be an input based on current context of simulation
     r0_infected = 0
 
-    for i = 1:durationlim        
+    for i = 1:DURATIONLIM        
         contactable_idx = findall(locdat.status .!= dead)
         n_newly_infected = spread!(r0pop, gen1_infect_idx, contactable_idx,  sdcases, socialparams, infectparams, density_factor)  
         infect_idx = findall(locdat.status .== infectious)

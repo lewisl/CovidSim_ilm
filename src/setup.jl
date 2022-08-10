@@ -35,10 +35,10 @@ function setup(ndays, locales;  # must provide following inputs
     dat = build_data(locales, geodata, ndays)
 
     # history series columns and history series
-        colgroups = [:statuscols=>statuses, :condcols=>push!(Symbol.(infectious_cases), :totinfected), 
+        colgroups = [:statuscols=>STATUSES, :condcols=>push!(Symbol.(INFECTIOUS_CASES), :totinfected), 
                     :vaxcols=>push!(Symbol.(vaxlist), :totvaccinated), :variantcols=>variantlist]
         seriescolnames = make_col_names_dict(colgroups)
-        series = build_series_table(locales, agegrp, ndays, day1, seriescolnames)
+        series = build_series_table(locales, ndays, day1, seriescolnames)
 
     model = (ndays=ndays, day1=day1, locales=locales, dat=dat, series=series, geo=geodata, 
             transitionset=transitionset, vaxset=vaxset, vaxschedset=vaxschedset, infectset=infectset, 
@@ -86,7 +86,7 @@ function setup(yaml_model)
     end
 
     # history series
-    series = build_series_table(ym["locales"], agegrp, ym["ndays"], day1) 
+    series = build_series_table(ym["locales"], ym["ndays"], day1, seriescolnames) 
 
     model = (ndays=ndays, day1=day1, locales=locales, dat=dat, series=series, geo=geodata, 
             transitionset=transitionset, vaxset=vaxset, vaxschedset=vaxschedset, infectset=infectset, 
@@ -126,8 +126,8 @@ end
     precalculate agegrp indices--these do not change during the simulation
 """
 function precalc_agegrp_filt(dat)  # dat for a single locale
-    agegrp_filt_bit = Dict(age => dat.agegrp .== age for age in agegrps)
-    agegrp_filt_idx = Dict(age => findall(agegrp_filt_bit[age]) for age in agegrps)
+    agegrp_filt_bit = Dict(age => dat.agegrp .== age for age in AGEGRPS)
+    agegrp_filt_idx = Dict(age => findall(agegrp_filt_bit[age]) for age in AGEGRPS)
     return (boolean=agegrp_filt_bit, idx=agegrp_filt_idx)
 end
 
@@ -138,15 +138,15 @@ Returns a TypedTable which is a tuple of arrays:
 - each column is a trait of people
 - rows are days of the simulatoin
 """
-function pop_data(pop; age_dist=age_dist)
+function pop_data(pop; age_dist=AGE_DIST)
     
         parts = apportion(pop, age_dist)
 
         # must use comprehension to initialize vector of vector NOT fill--fill creates identical vectors
         dat = Table(
             status = fill(unexposed, pop),                                          # enum status
-            agegrp = reduce(vcat,[fill(age, parts[Int(age)]) for age in agegrps]),  # enum agegrp
-            cond = fill(uninfected, pop),                                           # enum condition
+            agegrp = reduce(vcat,[fill(age, parts[Int(age)]) for age in AGEGRPS]),  # enum agegrp
+            cond = fill(uninfected, pop),                                           # enum Condition
             duration = zeros(Int, pop),                                             # Int
             variant = [Symbol[] for _ in 1:pop],                                    # Vector{Symbol}
             sickday = [[0] for _ in 1:pop],                                         # Vector{Int}
@@ -166,7 +166,7 @@ function pop_data(pop; age_dist=age_dist)
 end
 
 
-function build_series_table(locales, agegrp, n_days, day1, seriescolnames)
+function build_series_table(locales, n_days, day1, seriescolnames)
     calday = range(day1, step=Day(1), length=n_days)
     # cols = [col for group in seriescolnames for item in group for col in item]
     cols = [col for group in values(seriescolnames) for item in values(group) for col in values(item)]
@@ -181,7 +181,7 @@ end
 
 # column names for series table returned as Dict
 function make_col_names_dict(arr::Vector{Pair{Symbol, Vector}})
-    agenames = collect((Symbol.(agegrps)..., :total))
+    agenames = collect((Symbol.(AGEGRPS)..., :total))
        #       group         item         age    colname
     ret = Dict{Symbol, Dict{Symbol, Dict{Symbol, Symbol}}}()
     for group in arr

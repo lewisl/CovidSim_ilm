@@ -48,7 +48,7 @@ function countvec!(resvec::Vector{Int}, sourcevec, mapdict::Dict,  intmapper=map
 end
 
 
-@inline function mapcondition(x::condition) # from enum to ordinal int
+@inline function mapcondition(x::Condition) # from enum to ordinal int
     if x == uninfected
         0
     else
@@ -75,15 +75,15 @@ end
     end
 end
 
-@inline function mapagegrp(x::agegrp) # from enum to int
+@inline function mapagegrp(x::Agegrp) # from enum to int
     Int(x)
 end
 
-function mapstatus(x::status)
+function mapstatus(x::Status)
     Int(x)
 end
 
-function maptouch(x::Union{condition, status}) # from enum to rows of touch parameters
+function maptouch(x::Union{Condition, Status}) # from enum to rows of touch parameters
     if x == unexposed
         1
     elseif x == recovered
@@ -102,7 +102,7 @@ function maptouch(x::Union{condition, status}) # from enum to rows of touch para
 end
 
 
-function maptransition(x::Union{condition, status}) # from enum to elements of transition vector
+function maptransition(x::Union{Condition, Status}) # from enum to elements of transition vector
     if x == recovered
         1
     elseif x == nil
@@ -158,8 +158,8 @@ end
 #= 
 lookup tables for enum values: 
 - don't need lookup for Int or Symbol: just use Symbol(nil) and Int(nil)-->these are faster than any lookup
-- for symbol use symcond[:nil] => nil::condition = 5
-- for string use symcond[Symbol("nil")] => nil::condition = 5
+- for symbol use symcond[:nil] => nil::Condition = 5
+- for string use symcond[Symbol("nil")] => nil::Condition = 5
 =#
 
 """
@@ -172,9 +172,9 @@ Examples:
 - symbol2agegrp("age0_19") result: agegrp::age0_19 = 1
     
 """
-function symbol2agegrp(x::Union{Symbol, String})::agegrp
+function symbol2agegrp(x::Union{Symbol, String})::Agegrp
     x = Symbol(x)
-    inst_a = instances(agegrp)
+    inst_a = instances(Agegrp)
     symtoage = freeze(Dict(zip(Symbol.(inst_a), inst_a))) # .5x time of regular dict
     @assert in(x, keys(symtoage)) "Error: input symbol $x is not an agegrp value."
 
@@ -183,18 +183,18 @@ end
 
 
 """
-    symbol2condition(x::Union{Symbol String})::condition  
-Lookup a string or symbol that matches an enum value of Enum condition.
+    symbol2condition(x::Union{Symbol String})::Condition  
+Lookup a string or symbol that matches an enum value of Enum Condition.
 Generates an error if the string or symbol does not match.
 
 Examples:
-- symbol2cond(:nil)  result: nil::condition = 5
-- symbol2cond("nil") result: nil::condition = 5
+- symbol2cond(:nil)  result: nil::Condition = 5
+- symbol2cond("nil") result: nil::Condition = 5
     
 """
-function symbol2condition(x::Union{Symbol, String})::condition  
+function symbol2condition(x::Union{Symbol, String})::Condition  
     x = Symbol(x) 
-    inst_cond = instances(condition)
+    inst_cond = instances(Condition)
     symtocond = freeze(Dict(zip(Symbol.(inst_cond), inst_cond)))
 
     symtocond[x]
@@ -202,18 +202,18 @@ end
 
 
 """
-    symbol2status(x::Union{Symbol String})::status  
-Lookup a string or symbol that matches an enum value of Enum status.
+    symbol2status(x::Union{Symbol String})::Status  
+Lookup a string or symbol that matches an enum value of Enum Status.
 Generates an error if the string or symbol does not match.
 
 Examples:
-- symbol2cond(:recovered)  result: recovered::status = 3
-- symbol2cond("recovered") result: recovered::status = 3
+- symbol2cond(:recovered)  result: recovered::Status = 3
+- symbol2cond("recovered") result: recovered::Status = 3
     
 """
-function symbol2status(x::Union{Symbol, String})::status  
+function symbol2status(x::Union{Symbol, String})::Status  
     x = Symbol(x) 
-    inst_status = instances(status)
+    inst_status = instances(Status)
     symtostatus = freeze(Dict(zip(Symbol.(inst_status), inst_status)))
 
     symtostatus[x]

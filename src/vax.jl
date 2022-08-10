@@ -196,7 +196,7 @@ Give people shots!
 
     isnothing(vaxscheds) && return nothing  # exit the function 
         
-    today = day_ctr[:day]
+    today = DAY_CTR[:day]
 
     @inbounds @fastmath for schedname in Symbol.(vaxscheds)      
         vxsched = vaxschedset[schedname]   # vaxshedset is Dict{Symbol, Vaxsched} where Symbol is Symbol(schedname)

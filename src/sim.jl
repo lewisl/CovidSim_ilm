@@ -75,7 +75,7 @@ function runsim(model;
         end
 
     # restart the day counter to zero
-    reset!(day_ctr, :day)  # return and reset key to 0 :day leftover from prior runs
+    reset!(DAY_CTR, :day)  # return and reset key to 0 :day leftover from prior runs
 
     sdcases = Dict{Symbol, Spreadcase}()  # hold definitions of spreadcases
 
@@ -125,8 +125,8 @@ function runsim(model;
 
         # day loop
         for i = 1:ndays  
-            inc!(day_ctr, :day)  # increment the simulation day counter
-            today = day_ctr[:day]
+            inc!(DAY_CTR, :day)  # increment the simulation day counter
+            today = DAY_CTR[:day]
             silent || println("simulation day: ", today)
 
             for case in runcases  # cases that run at the beginning of the day
@@ -197,10 +197,10 @@ function runsim(model;
             end   # TODO extend ages to be any filter for who participates in a given case
 
             # r0 displayed every 10 days
-            if showr0 && (mod(day_ctr[:day],10) == 0)   # do we ever want to do this by locale -- maybe
-                current_r0 = r0_sim(locdat, age_dist=age_dist, dectree=dectree, socialparams=socialparams, 
+            if showr0 && (mod(DAY_CTR[:day],10) == 0)   # do we ever want to do this by locale -- maybe
+                current_r0 = r0_sim(locdat, age_dist=AGE_DIST, dectree=dectree, socialparams=socialparams, 
                         infectparams=infectparams, sdcases=sdcases)
-                println("day $(day_ctr[:day]), locale $loc: rt = $current_r0")
+                println("day $(DAY_CTR[:day]), locale $loc: rt = $current_r0")
             end
 
             histtime += @elapsed do_history!(locdat, newhist, cumhist, age_idx_loc, today, vaxlist, variantlist, seriescolnames)
@@ -214,7 +214,7 @@ function runsim(model;
             update_totvaccinated_series!(newhist, cumhist, vaxlist, seriescolnames)
         end
 
-        silent || println("Simulation completed for $(day_ctr[:day]) days for locale $loc.")
+        silent || println("Simulation completed for $(DAY_CTR[:day]) days for locale $loc.")
 
     end # locale loop
     end # for totalsimtime
@@ -239,7 +239,7 @@ end
     sourcedat = getproperties(locdat, (:status, :cond, :vaxrcvd, :variant))
     scn = seriescolnames
 
-    @inbounds @fastmath for age in agegrps
+    @inbounds @fastmath for age in AGEGRPS
 
         age_idx = age_idx_loc[age]
         dat_age = sourcedat[age_idx]   
@@ -247,15 +247,15 @@ end
         # get the source data: status
         status_today = zeros(Int, 4)
         countvec!(status_today, dat_age.status, mapstatus)    # values are Enum status
-        update_series!(cumhist, newhist, scn, statuses, status_today, age, today, 
+        update_series!(cumhist, newhist, scn, STATUSES, status_today, age, today, 
                         group=:statuscols, intmapper=mapstatus)
 
         # get the source data: conditions in (nil, mild, sick, severe)
         filt_infectious = findall(dat_age.status .== infectious)
         if length(filt_infectious) > 0
             sick_today = zeros(Int, 4)
-            countvec!(sick_today, dat_age.cond[filt_infectious], mapcondition)  #         values are enum condition
-            update_series!(cumhist, newhist, scn, infectious_cases, sick_today, age, today, 
+            countvec!(sick_today, dat_age.cond[filt_infectious], mapcondition)  #         values are enum Condition
+            update_series!(cumhist, newhist, scn, INFECTIOUS_CASES, sick_today, age, today, 
                             group=:condcols, intmapper=mapcondition)
         end   
 
@@ -276,7 +276,7 @@ end
                                 group=:variantcols, mapdict=variantdict)
         end
         
-    end # for age in agegrps
+    end # for age in AGEGRPS
 
     # :unexposed special case:  no new people on day 1
     if today == 1  
@@ -316,7 +316,7 @@ Sum all the series columns for all ages for all groups and items into a :total c
     @fastmath @inbounds for group in keys(scn)
         for item in keys(scn[group])
             totalcol = scn[group][item][:total]
-            sumcols = Tuple(scn[group][item][age] for age in agegrpvec)
+            sumcols = Tuple(scn[group][item][age] for age in AGEGRPVEC)
             getproperty(newhist, totalcol)[:] .= .+(columns(getproperties(newhist, sumcols))...)  # a tuple of column names
             getproperty(cumhist, totalcol)[:] .= .+(columns(getproperties(cumhist, sumcols))...)
             # keep this around for comparison: easier to understand, but possibly slower
@@ -335,9 +335,9 @@ end
 Sum all the series columns for all ages and total across ages for all infectious_cases into :totinfected series group of columns.
 """
 @inline function update_totinfected_series!(newhist, cumhist, scn)
-    @fastmath @inbounds for age in agenames  # for each age and "total"
+    @fastmath @inbounds for age in AGENAMES  # for each age and "total"
         totalcol = scn[:condcols][:totinfected][age]
-        sumcols = Tuple(scn[:condcols][cond][age] for cond in Symbol.(infectious_cases)) # tuple of all of condition column names
+        sumcols = Tuple(scn[:condcols][cond][age] for cond in Symbol.(INFECTIOUS_CASES)) # tuple of all of condition column names
         # not the most obvious below, but faster than looping one column at a time!
         getproperty(newhist, totalcol)[:] .= .+(columns(getproperties(newhist, sumcols))...)  # sum all of the infectious_cases columns
         getproperty(cumhist, totalcol)[:] .= .+(columns(getproperties(cumhist, sumcols))...)
@@ -349,7 +349,7 @@ Sum all the series columns for all ages and total across ages for all vaccines i
 """
 
 @inline function update_totvaccinated_series!(newhist, cumhist, vaxlist, scn)
-    @fastmath @inbounds for age in agenames  # for each age and "total"  # Tuple(scn[:vaxcols][vax][age] for vax in vaxlist)
+    @fastmath @inbounds for age in AGENAMES  # for each age and "total"  # Tuple(scn[:vaxcols][vax][age] for vax in vaxlist)
         totalcol = scn[:vaxcols][:totvaccinated][age]
         sumcols = Tuple(scn[:vaxcols][vax][age] for vax in vaxlist) # tuple of all of the vax column names
         getproperty(newhist, totalcol)[:] .= .+(columns(getproperties(newhist, sumcols))...)        # sum all of the vax columns

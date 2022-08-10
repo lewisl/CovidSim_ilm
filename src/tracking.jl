@@ -184,7 +184,7 @@ function vax_summary(model, locale)
     daily_vaxes = Table(zeros(Int, n, numcols))
     maxtimes = maximum(length.(locdat.sickday)) - 1  # maximum no. of times anyone has gotten infected
     for i in 2:maxtimes+1
-        for age in agegrps  # accumulate all days on which anyone got sick the 1st, 2nd, 3rd... time
+        for age in AGEGRPS  # accumulate all days on which anyone got sick the 1st, 2nd, 3rd... time
             daygotsick = countmap(get.(locdat.sickday[locdat.agegrp .== age],i,0))
             for (k,v) in daygotsick
                 if k == 0
@@ -210,7 +210,7 @@ function detailed_vax_series(model, locale)
     daily_vaxes = Table(zeros(Int, n, numcols))
     maxtimes = maximum(length.(locdat.sickday)) - 1  # maximum no. of times anyone has gotten infected
     for i in 2:maxtimes+1
-        for age in agegrps  # accumulate all days on which anyone got sick the 1st, 2nd, 3rd... time
+        for age in AGEGRPS  # accumulate all days on which anyone got sick the 1st, 2nd, 3rd... time
             daygotsick = countmap(get.(locdat.sickday[locdat.agegrp .== age],i,0))
             for (k,v) in daygotsick
                 if k == 0
@@ -234,7 +234,7 @@ function daily_cases_series!(model, locale)
     daily_cases = Table(zeros(Int, n, numcols))
     maxtimes = maximum(length.(locdat.sickday)) - 1  # maximum no. of times anyone has gotten infected
     for i in 2:maxtimes+1
-        for age in agegrps  # accumulate all days on which anyone got sick the 1st, 2nd, 3rd... time
+        for age in AGEGRPS  # accumulate all days on which anyone got sick the 1st, 2nd, 3rd... time
             daygotsick = countmap(get.(locdat.sickday[locdat.agegrp .== age],i,0))
             for (k,v) in daygotsick
                 if k == 0
@@ -281,10 +281,10 @@ function cumplot(series, locale, plotcols=[:unexposed, :infectious, :recovered, 
                 getproperty(cumhist, :unexposed_total)[1] + getproperty(cumhist, :infectious_total)[1]
              end   
     # cityname = !isempty(geo) ? geo[geo[:,fips] .== locale, city][1] : ""
-    died =  getproperty(cumhist, :dead_total)[end]   #      series.data[locale].cum[end, map2series.dead[totalcol]]
+    died =  getproperty(cumhist, :dead_total)[end]   
     unexp = getproperty(cumhist, :unexposed_total)[end]
-    infected = people - unexp    #series.data[locale].cum[end, map2series.unexposed[totalcol]]
-    recovered = infected - died  # series.data[locale].cum[end, map2series.recovered[totalcol]]
+    infected = people - unexp    
+    recovered = infected - died  
     co_pal = length(plotcols) == 2 ? [theme_palette(thm)[2], theme_palette(thm)[4]] : theme_palette(thm)
  
 
@@ -375,7 +375,7 @@ function daily_cases_plot(series, popdat, locale, plotcols=[:total]; days="all",
 
     n = length(newhist)
     days = days == "all" ? (1:n) : days
-    numcols = length(agegrps) + 1
+    numcols = length(AGEGRPS) + 1
     numseries = length(plotcols)
     caldays = newhist.calday[days]
 
@@ -383,7 +383,7 @@ function daily_cases_plot(series, popdat, locale, plotcols=[:total]; days="all",
     maxtimes = maximum(length.(locdat.sickday)) - 1  # maximum no. of times anyone has gotten infected
     daily_cases_series = zeros(Int, n, numcols)
     for i in 2:maxtimes+1
-        for age in agegrps  # accumulate all days on which anyone got sick the 1st, 2nd, 3rd... time
+        for age in AGEGRPS  # accumulate all days on which anyone got sick the 1st, 2nd, 3rd... time
             daygotsick = countmap(get.(locdat.sickday[locdat.agegrp .== age],i,0))
             for (k,v) in daygotsick
                 if k == 0
@@ -400,7 +400,7 @@ function daily_cases_plot(series, popdat, locale, plotcols=[:total]; days="all",
     series_selector = Int[]
     labels = String[]
     for col in plotcols
-        if col in agegrps
+        if col in AGEGRPS
             push!(series_selector, Int(col))
             push!(labels, titlecase(string(col)))
         elseif col === :total
@@ -418,10 +418,10 @@ function daily_cases_plot(series, popdat, locale, plotcols=[:total]; days="all",
                 else # this will off by a tiny bit because of rounding
                     getproperty(cumhist, :unexposed_total)[1] + getproperty(cumhist, :infectious_total)[1]
                 end   
-    died =  getproperty(cumhist, :dead_total)[end]   #      series.data[locale].cum[end, map2series.dead[totalcol]]
+    died =  getproperty(cumhist, :dead_total)[end]   
     unexp = getproperty(cumhist, :unexposed_total)[end]
-    infected = people - unexp    #series.data[locale].cum[end, map2series.unexposed[totalcol]]
-    recovered = infected - died  # series.data[locale].cum[end, map2series.recovered[totalcol]]
+    infected = people - unexp    
+    recovered = infected - died  
 
 
     # the plot

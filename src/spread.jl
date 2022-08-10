@@ -70,7 +70,7 @@ end
     
     startofday || return
 
-    if startday == day_ctr[:day]
+    if startday == DAY_CTR[:day]
 
         if comply == 0.0  # magic signal: if comply is zero turn off this case for include_ages
             cancel_sd_case!(locdat, sdcases, name, include_ages, age_idx_loc)
@@ -430,7 +430,7 @@ function infection_model!(spr, targets, today, infectset, vaxset,
             c_recovday, c_variant, c_vaxstatus, c_vaxrcvd, c_vaxday,   # trait columns
             c_duration, c_agegrp, c_sickday, c_cond, c_status)         # trait columns
 
-    for target in targets
+    @inbounds for target in targets
         recovday = c_recovday[target][end]
         spr_variant = c_variant[spr][end]
 
@@ -470,7 +470,7 @@ end
 function make_sick!(locdat, target::Int; cond, variant, duration)
     @inbounds locdat.condition[target] = cond
     @inbounds locdat.status[target] = infectious
-    @inbounds push!(c_sickday[target], day_ctr[:day])
+    @inbounds push!(c_sickday[target], DAY_CTR[:day])
     push!(locdat.variant, variant)
     @inbounds locdat.duration[target] = duration
 end

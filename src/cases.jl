@@ -21,7 +21,7 @@ function seed!(cnt, duration, conds, variants, agegrps, locdat)
 
     @assert length(duration) == 1 "input only one duration value"
     # @warn "Seeding is for testing and may result in case counts out of balance"
-    println("*** seed day $(day_ctr[:day]): $(sum(cnt)) $conds")
+    println("*** seed day $(DAY_CTR[:day]): $(sum(cnt)) $conds")
     # @assert (cond in [nil, mild, sick, severe]) "Seed cases must have conditions of nil, mild, sick, or severe" 
     make_sick!(locdat; cnt=cnt, ages=agegrps, tocond=conds, tovariant=variants, toduration=duration)
 
@@ -118,7 +118,7 @@ function settraits!(locdat, s::Seedset)
         end
     end
 
-    println("*** seed day ", day_ctr[:day], " count: ", s.cnt, " filter: ", s.filter, " change: ", s.change )
+    println("*** seed day ", DAY_CTR[:day], " count: ", s.cnt, " filter: ", s.filter, " change: ", s.change )
 
 end
 

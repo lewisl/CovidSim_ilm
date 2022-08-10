@@ -60,7 +60,7 @@ function t_n_t_case(start_date, end_date;
                 q_comply=0.8, c_comply=0.9, breakout_pct=.3, test_delay=3, generations=3, qdays=15,
                 target_test=false, past_contacts=false)
 
-    thisday = day_ctr[:day]
+    thisday = DAY_CTR[:day]
     ret_conds = [unexposed, recovered, nil, mild, sick, severe] 
 
     
@@ -85,9 +85,9 @@ function t_n_t_case(start_date, end_date;
                         end
                     # quarantines ending today
                     elseif q.quar_date + qdays == thisday # end of quarantine is today
-                        cnt = grab(ret_conds, agegrps, durations, q, isodat)
+                        cnt = grab(ret_conds, AGEGRPS, DURATIONS, q, isodat)
                         t_n_t_unquarantine(cnt, q, opendat, isodat, infectparams)
-                        push!(tntq, (day=day_ctr[:day], unquarantine=sum(cnt)))
+                        push!(tntq, (day=DAY_CTR[:day], unquarantine=sum(cnt)))
                         delete!(isodat, q)  # remove dated locale
                         delete!(tnt_stash, q)  # remove dated locale from stash
                     end
@@ -109,7 +109,7 @@ function t_n_t_case(start_date, end_date;
                             end
                             t_n_t_quarantine(put_in, qloc::Quar_Loc, opendat, 
                                              isodat, infectparams)
-                            push!(tntq, (day=day_ctr[:day], quarantine=sum(put_in)))
+                            push!(tntq, (day=DAY_CTR[:day], quarantine=sum(put_in)))
                             delete!(tnt_stash, t) # pop the stash (delete!)
                         end
                     end
@@ -133,7 +133,7 @@ function test_and_trace(start_date, end_date;
     q_comply=0.8, c_comply=0.9, breakout_pct=.3, test_delay=3, generations=3, qdays=15,
     target_test=false, past_contacts=false)
     
-    thisday = day_ctr[:day]
+    thisday = DAY_CTR[:day]
     test_conds = [unexposed, recovered, nil, mild]
 
     if thisday  == 1    # TODO when is the right time?  what is the right cleanup?
@@ -148,9 +148,9 @@ function test_and_trace(start_date, end_date;
         if target_test
             sel_age = get_next!(nxt) # circular cycle through 1:4
             if sel_age == 4; sel_age = 4:5; end  # only sampled age group is non-zero
-            avail_to_test[:,:,sel_age] = grab(test_conds, sel_age, durations, locale, opendat)
+            avail_to_test[:,:,sel_age] = grab(test_conds, sel_age, DURATIONS, locale, opendat)
         else
-            avail_to_test[:] = grab(test_conds, agegrps, durations, locale, opendat)
+            avail_to_test[:] = grab(test_conds, AGEGRPS, DURATIONS, locale, opendat)
         end
 
         if sum(avail_to_test) == 0
@@ -159,21 +159,21 @@ function test_and_trace(start_date, end_date;
         end
 
         n_conds = length(map2access[unexposed]:map2access[mild])
-        to_test = Dict(i=>zeros(Int, durationlim, n_conds, agegrps) for i in 1:generations) # TODO pre-allocate?
-        postests = Dict(i=>zeros(Int, durationlim, n_conds, agegrps) for i in 1:generations)
-        poscontacts = Dict(i=>zeros(Int, durationlim, n_conds, agegrps) for i in 1:generations)
-        postouched = Dict(i=>zeros(Int, durationlim, n_conds, agegrps) for i in 1:generations)
+        to_test = Dict(i=>zeros(Int, DURATIONLIM, n_conds, AGEGRPS) for i in 1:generations) # TODO pre-allocate?
+        postests = Dict(i=>zeros(Int, DURATIONLIM, n_conds, AGEGRPS) for i in 1:generations)
+        poscontacts = Dict(i=>zeros(Int, DURATIONLIM, n_conds, AGEGRPS) for i in 1:generations)
+        postouched = Dict(i=>zeros(Int, DURATIONLIM, n_conds, AGEGRPS) for i in 1:generations)
 
         qloc = (locale=locale, quar_date=thisday)
 
         # initialize new tracking locales and stash
             tstloc = (locale=locale, test_date=thisday)
             if !haskey(testdat, tstloc)  
-                testdat[tstloc] = zeros(Int, durationlim, length(conditions), length(agegrps))
+                testdat[tstloc] = zeros(Int, DURATIONLIM, length(conditions), length(AGEGRPS))
             end
             # holds postest people to be quarantined after delay getting test results
             if !haskey(tnt_stash, tstloc) 
-                tnt_stash[tstloc] = zeros(Int, durationlim, length(test_conds), length(agegrps))
+                tnt_stash[tstloc] = zeros(Int, DURATIONLIM, length(test_conds), length(AGEGRPS))
             end
         
         density_factor = env.geodata[env.geodata[:, fips] .== locale, density_fac][1]
@@ -194,7 +194,7 @@ function test_and_trace(start_date, end_date;
             conducted = sum(all_tests)
             perday_conducted += conducted
             if sum(all_tests) != 0  # track the test cases
-                plus!(all_tests, test_conds, agegrps, durations, tstloc, dat=testdat)  
+                plus!(all_tests, test_conds, AGEGRPS, DURATIONS, tstloc, dat=testdat)  
             end
             
 
@@ -208,7 +208,7 @@ function test_and_trace(start_date, end_date;
 			poscontacts[gen][:] = round.(Int, c_comply .* poscontacts[gen])
 
             # contacts lead to consquential touches that we count
-            target_tf = view(infectparams.touchfactors,map2access[unexposed]:map2access[mild], agegrps)
+            target_tf = view(infectparams.touchfactors,map2access[unexposed]:map2access[mild], AGEGRPS)
             postouched[gen][:] = how_many_touched!(postouched[gen], poscontacts[gen], 
                                         avail_to_test, test_conds, 
                                         target_tf, infectparams=infectparams)
@@ -226,14 +226,14 @@ function test_and_trace(start_date, end_date;
                     breakout!(breakout_pct, put_in, qloc, qdays) 
                 end
                 t_n_t_quarantine(put_in, qloc::Quar_Loc; opendat=opendat, isodat=isodat, infectparams=infectparams)
-                push!(tntq, (day=day_ctr[:day], quarantine=sum(put_in)))
+                push!(tntq, (day=DAY_CTR[:day], quarantine=sum(put_in)))
             end
         end  # for gen 
 
         # statistics
         avail = reduce(+, map(sum,values(to_test)))
         sumtests = reduce(+, map(sum,values(postests)))
-        tc_perday > avail && (@warn "Happy Day $(day_ctr[:day]): more tests available than people to test")
+        tc_perday > avail && (@warn "Happy Day $(DAY_CTR[:day]): more tests available than people to test")
         push!(tntq,(day=thisday, avail=avail, 
                     conducted=perday_conducted, postests=sumtests, 
                     poscontacts=reduce(+, map(sum,values(poscontacts))), 
@@ -252,15 +252,15 @@ function simtests(to_test; tc_perday=1000, sensitivity=.9, specificity=.9, infec
     pos_results = zeros(Int, 25,4,5)
 
     if tc_perday <= 0  # earlier generations of test and trace used up the available tests today
-        return zeros(Int,durationlim, 4, length(agegrps)), [Int(0)]
+        return zeros(Int,DURATIONLIM, 4, length(AGEGRPS)), [Int(0)]
     end
     if sum(to_test) == 0
-        return zeros(Int,durationlim, 4, length(agegrps)), [Int(0)]
+        return zeros(Int,DURATIONLIM, 4, length(AGEGRPS)), [Int(0)]
     end        
 
     # today_tests = rand(Binomial(tc_perday, test_pct), 1)[1]
 
-    # println("today $(day_ctr[:day]) tc_perday $tc_perday  today tests $today_tests")
+    # println("today $(DAY_CTR[:day]) tc_perday $tc_perday  today tests $today_tests")
 
     alloc_pct = reshape(to_test ./ sum(to_test), length(to_test))
     alloc_pct[isnan.(alloc_pct)] .= 0.0  # eliminate NaNs (underflow)
@@ -284,7 +284,7 @@ function simtests(to_test; tc_perday=1000, sensitivity=.9, specificity=.9, infec
 
         pos_results[:] = cat(false_pos,true_pos,dims=2)  # (25,4,5)
 
-        # println(" day $(day_ctr[:day])  ")
+        # println(" day $(DAY_CTR[:day])  ")
         # println(" False Pos  quarantined even though not sick: ", sum(false_pos) ,", ", 
         #         round(sum(false_pos) / sum(dist_tests[:, 1:2, :]), digits=4))
         # println(" True Pos  quarantined because actually sick: ", sum(true_pos) ,", ", 
@@ -309,17 +309,17 @@ end
 
 function t_n_t_quarantine(postests, qloc::Quar_Loc; opendat, isodat, infectparams)
     if !haskey(isodat, qloc)  
-        isodat[qloc] = zeros(Int, durationlim, length(conditions), length(agegrps))
+        isodat[qloc] = zeros(Int, DURATIONLIM, length(conditions), length(AGEGRPS))
     end
 
     test_conds = [unexposed, recovered, nil, mild] 
-    isolate_by!(postests, test_conds, agegrps, durations, qloc, opendat, isodat)
+    isolate_by!(postests, test_conds, AGEGRPS, DURATIONS, qloc, opendat, isodat)
 end
 
 
 function t_n_t_unquarantine(cnt, qloc::Quar_Loc, opendat, isodat, infectparams)
     ret_conds = [unexposed, recovered, nil, mild, sick, severe] 
-    unisolate_by!(cnt, ret_conds, agegrps, durations, qloc, 
+    unisolate_by!(cnt, ret_conds, AGEGRPS, DURATIONS, qloc, 
                   opendat, isodat, mode=:plus) # delete the qloc when unq all
 end
 

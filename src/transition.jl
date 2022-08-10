@@ -31,7 +31,7 @@ vaxrcvd, vaxday, deadday.
             c_deadday
             )
 
-    today = day_ctr[:day]
+    today = DAY_CTR[:day]
 
     if dovax
         riskshift! = riskshift! == noop ? redistprob! : riskshift!  # last branch new riskshift! was passed in
@@ -110,7 +110,7 @@ end
             excessprob += excess1
         end
 
-        if duration == durationlim   # clear anyone left to recovered or dead
+        if duration == DURATIONLIM   # clear anyone left to recovered or dead
             idx = maptransition(recovered)
             transvec[idx] = transvec[idx] + excessprob
         else
@@ -149,13 +149,13 @@ function dotransition!(p, transvec,
 
         if tocond == dead  
             @inbounds begin
-            c_deadday[p] = day_ctr[:day]
+            c_deadday[p] = DAY_CTR[:day]
             c_status[p] = dead  # change the status
             c_cond[p] = uninfected # change the condition
             end
         elseif tocond == recovered
             @inbounds begin
-            push!(c_recovday[p], day_ctr[:day])
+            push!(c_recovday[p], DAY_CTR[:day])
             c_status[p] = recovered
             c_cond[p] = uninfected   # TODO decide if this makes sense--using this to maintain a history of past infection
             end
@@ -183,11 +183,11 @@ function travelout!(fromloc, locales, rules=[])    # TODO THIS WON'T WORK ANY MO
     travdests = collect(locales)
     deleteat!(travdests,findfirst(isequal(fromloc), travdests))
     bins = lim = length(travdests) + 1
-    for agegrp in agegrps
+    for agegrp in AGEGRPS
         for cond in [unexposed, infectious, recovered]
             name = string(cond)
-            for duration in durations
-                numfolks = sum(grab(cond, agegrp, duration, fromloc)) # the from locale, all durations
+            for duration in DURATIONS
+                numfolks = sum(grab(cond, agegrp, duration, fromloc)) # the from locale, all DURATIONS
                 travcnt = floor(Int, gamma_prob(travprobs[agegrp]) * numfolks)  # interpret as fraction of people who will travel
                 x = rand(travdests, travcnt)  # randomize across destinations
                 bydest = bucket(x, vals=1:length(travdests))

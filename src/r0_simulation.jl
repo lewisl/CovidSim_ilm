@@ -15,8 +15,8 @@
 # )
 
 """
-r0_sim(; pop=200_000, age_dist=age_dist, dectree=dectree, socialparams=socialparams, infectparams=infectparams, density_factor=1.0, scale=5)
-r0_sim(locdat; age_dist=age_dist, dectree=dectree, socialparams=socialparams, infectparams=infectparams, sdcases=sdcases, density_factor=1.0, scale=5)
+r0_sim(; pop=200_000, age_dist=AGE_DIST, dectree=dectree, socialparams=socialparams, infectparams=infectparams, density_factor=1.0, scale=5)
+r0_sim(locdat; age_dist=AGE_DIST, dectree=dectree, socialparams=socialparams, infectparams=infectparams, sdcases=sdcases, density_factor=1.0, scale=5)
 
 Simulates r0 or rt. The first method creates a population and tracks how many infections
 are caused by first generation spreaders and NOT spreaders who were infected by the
@@ -26,7 +26,7 @@ The second method simulates r at time t given the characteristics of the simulat
 you are running. This shows how r, reproduction rate, is affected by public health
 measures and the characteristics of the population over time. This simulates r(t).
 """
-function r0_sim(; pop=200_000, age_dist=age_dist, transitionset, infectset, vaxset, socialparams, density_factor=1.0, scale=3)
+function r0_sim(; pop=200_000, age_dist=AGE_DIST, transitionset, infectset, vaxset, socialparams, density_factor=1.0, scale=3)
     if pop < 200_000
         @warn "Population size should be greater than 200,000 for r0_sim. Proceeding with 200,000."
         pop = 200_000
@@ -34,14 +34,14 @@ function r0_sim(; pop=200_000, age_dist=age_dist, transitionset, infectset, vaxs
                 
 
     # create simulation population
-    r0pop = pop_data(pop, age_dist=age_dist )
+    r0pop = pop_data(pop, age_dist=AGE_DIST )
 
     # seed spreaders in each age group proportional to age distribution
     cnt_by_agedist = round.(Int, age_dist ./ minimum(age_dist))
     scale = set_by_level(count(r0pop.status .!= dead))
     cnt_by_agedist .*= scale # update with scale
 
-    for i in agegrps
+    for i in AGEGRPS
         idx = findall(r0pop.agegrp .== i) 
 
         for j = 1:cnt_by_agedist[Int(i)]
@@ -57,7 +57,7 @@ function r0_sim(; pop=200_000, age_dist=age_dist, transitionset, infectset, vaxs
     gen1_infected = length(gen1_infect_idx)
     r0_infected = 0
 
-    for i = 1:durationlim        
+    for i = 1:DURATIONLIM        
         contactable_idx = findall(r0pop.status .!= dead)
 
         # spread with only spreaders from the gen1 infected pool
@@ -92,7 +92,7 @@ end
 #        )
 
 
-function r0_sim(locdat; age_dist=age_dist, transitionset=transitionset, socialparams=socialparams, infectparams=infectparams, sdcases=sdcases, density_factor=1.0, scale=5)
+function r0_sim(locdat; age_dist=AGE_DIST, transitionset=transitionset, socialparams=socialparams, infectparams=infectparams, sdcases=sdcases, density_factor=1.0, scale=5)
     # create simulation population
     r0pop = deepcopy(locdat)
 
@@ -106,7 +106,7 @@ function r0_sim(locdat; age_dist=age_dist, transitionset=transitionset, socialpa
     age_relative .*= scale # update with scale
     cnt_spreaders = sum(age_relative)
 
-    for i in agegrps  # set the spreaders for the r0 simulation
+    for i in AGEGRPS  # set the spreaders for the r0 simulation
     idx = findall((r0pop.agegrp .== i) .& (r0pop.status .== unexposed))
     for j = 1:age_relative[Int(i)]
         spr = idx[j]
@@ -117,7 +117,7 @@ function r0_sim(locdat; age_dist=age_dist, transitionset=transitionset, socialpa
     end     
 
     r0_infected = 0 
-    for i = 1:durationlim      
+    for i = 1:DURATIONLIM      
     infect_idx = findall((r0pop.status .== infectious) .& (r0pop.duration .> 0))
     contactable_idx = findall(r0pop.status .!= dead)
     r0_infected += spread!(r0pop, infect_idx, contactable_idx, sdcases, socialparams, infectparams, density_factor)  

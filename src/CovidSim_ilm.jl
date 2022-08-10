@@ -1,16 +1,13 @@
 # TODO
+    # rewrite R0 sim assuming individual spreading and transition
     # add age_dist as optional parameter in geodata
     # rename transition to be progression
-    # use uppercase for constant names
     # add still_infected to summary of statuses
     # should we use statuses of reinfected, breakout? equiv to infectious; need to be filtered
         # whenever we filter for infectious; could help history series
-    # where do we use condition, infectious_cases: mapcondition, contactfactors
-    # could we number enum conds from 0-4?
     # do a clean report with vaccines, variants,and social distancing
     # redo vxsched filtervec 
     # per agegrp plots
-    # rewrite R0 sim assuming individual spreading and transition
     # more info
         # get fatality rate by age and co-morbidity CDC, Italian NIH
         # by agegroup, hospitalization %, ICU admission %, fatality %
@@ -66,11 +63,11 @@ using Interpolations
 
 
 """
-- use incr!(day_ctr, :day) for day of the simulation:  creates and adds 1
-- use reset!(day_ctr, :day) to remove :day and return its current value, set it to 0
-- use day_ctr[:day] to return current value of day
+- use incr!(DAY_CTR, :day) for day of the simulation:  creates and adds 1
+- use reset!(DAY_CTR, :day) to remove :day and return its current value, set it to 0
+- use DAY_CTR[:day] to return current value of day
 """
-const day_ctr = counter(Symbol) # from package DataStructures
+const DAY_CTR = counter(Symbol) # from package DataStructures
 
 hash(x::Integer) = uint(x)  # speed up dicts that use integers as keys--especially for transition
 
@@ -80,35 +77,16 @@ hash(x::Integer) = uint(x)  # speed up dicts that use integers as keys--especial
 ################################################################
 
 # control constants
-const age_dist = [0.251, 0.271, 0.255, 0.184, 0.039]
-const durationlim = 25
-const durations = 1:durationlim   # rows
-
-# geo data: fips,county,city,state,sizecat,pop,density
-const fips = 1
-const county = 2
-const city = 3
-const state = 4
-const sizecat = 5
-const popsize = 6
-const density = 7
-const anchor = 8
-const restrict = 9
-const density_fac = 10
-
-# population centers sizecats
-const major = 1  # 20
-const large = 2  # 50
-const medium = 3
-const small = 4
-const smaller = 5
-const rural = 6
+const AGE_DIST = [0.251, 0.271, 0.255, 0.184, 0.039]
+const DURATIONLIM = 25
+const DURATIONS = 1:DURATIONLIM   # rows
 
 #######################################################################
-# enum values for condition, status and agegrp to use in population table
+# enum values for Condition, Status and agegrp to use in population table
+#    and related constants
 #######################################################################
 
-@enum condition begin
+@enum Condition begin
     uninfected=0 
     nil=5 
     mild   # 6
@@ -116,14 +94,14 @@ const rural = 6
     severe # 8
 end
 
-@enum status begin
+@enum Status begin
     unexposed=1 
     infectious 
     recovered 
     dead
 end
 
-@enum agegrp begin
+@enum Agegrp begin
     age0_19=1 
     age20_39 
     age40_59 
@@ -132,25 +110,13 @@ end
 end
 
 
-const statuses = collect(instances(status))
-const infectious_cases = [nil, mild, sick, severe]
-const transition_cases = [recovered, nil, mild, sick, severe, dead]
-const agegrps = instances(agegrp) # tuple of enums
-const agegrpvec = collect(Symbol.(agegrps)) # vector of symbols
-const agenames = vcat(agegrpvec, :total)
-const n_agegrps = length(instances(agegrp))
+const STATUSES = collect(instances(Status))
+const INFECTIOUS_CASES = [nil, mild, sick, severe]
+const TRANSITION_CASES = [recovered, nil, mild, sick, severe, dead]
+const AGEGRPS = instances(Agegrp) # tuple of enums
+const AGEGRPVEC = collect(Symbol.(AGEGRPS)) # vector of symbols
+const AGENAMES = vcat(AGEGRPVEC, :total)
 
-
-# other columns used only in series 
-const totinfected       = 9
-const travelers         = 10
-const isolated          = 11
-
-const totalcol = 6
-
-
-# traveling constants
-const travprobs = [1.0, 2.0, 3.0, 3.0, 0.4] # by age group
 
 # order matters for these includes!
 include("data_mapping.jl")
@@ -172,7 +138,7 @@ export
     buildsim,
     runsim,
     setup,              
-    day_ctr,
+    DAY_CTR,
     isolate!,
     unisolate!,
     grab,
@@ -256,67 +222,35 @@ export
 
 # control constants
 export                  
-    age_dist,
-    durations,
-    durationlim
-
-# constants for geo data
-export      
-    fips,
-    state,
-    size_cat,
-    popsize,
-    major,
-    large,
-    medium,
-    small,
-    smaller,
-    rural
+    AGE_DIST,
+    DURATIONS,
+    DURATIONLIM
 
 # constants for indices to population matrix
 export    
-    # enum values for status and condition
-    status,         
+    # enum values for Status and Condition
+    Status,         
     unexposed,
     infectious,
     recovered,
     dead,
     uninfected,
-    condition,
+    Condition,
     nil,
     mild,
     sick,
     severe,
-
-    totinfected,
-    statuses,
-    conditions,
-    infectious_cases,
-    transition_cases,
+    STATUSES,
+    INFECTIOUS_CASES,
+    TRANSITION_CASES,
     # enum and enum values for age groups
-    agegrp,
+    Agegrp,
     age0_19,
     age20_39,
     age40_59, 
     age60_79, 
     age80_up, 
-    agegrps,
-    n_agegrps,
-    recvrisk,
-    totalcol,
-    symbol2conditon,
-    symbol2status,
-    symbol2agegrp
-
-# constants for indices to transition arrays
-export
-    shift,
-    recover,
-    improve,
-    same,
-    worse,
-    worseplus,
-    die
+    AGEGRPS
 
 
 end # module CovidSim

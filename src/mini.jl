@@ -9,11 +9,11 @@ using StructArrays
 #  subset of simulation code to enable testing
 #########################################
 
-const day_ctr = counter(Symbol) # from package DataStructures
+const DAY_CTR = counter(Symbol) # from package DataStructures
 
-const age_dist = [0.251, 0.271, 0.255, 0.184, 0.039]
+const AGE_DIST = [0.251, 0.271, 0.255, 0.184, 0.039]
 
-@enum condition begin
+@enum Condition begin
     uninfected=0 
     nil=5 
     mild   # 6
@@ -21,7 +21,7 @@ const age_dist = [0.251, 0.271, 0.255, 0.184, 0.039]
     severe # 8
 end
 
-@enum status begin
+@enum Status begin
     unexposed=1 
     infectious 
     recovered 
@@ -36,7 +36,7 @@ end
     age80_up
 end
 
-const agegrps = instances(agegrp)
+const AGEGRPS = instances(agegrp)
 
         
 """
@@ -45,15 +45,15 @@ Returns a TypedTable which is a tuple of arrays:
 - each column is a trait of people
 - rows are days of the simulatoin
 """
-function pop_data1(pop; age_dist=age_dist)
+function pop_data1(pop; age_dist=AGE_DIST)
 
         parts = apportion(pop, age_dist)
 
         # must use comprehension to initialize vector of vector NOT fill--fill creates identical vectors
         dat = Table(
             status = fill(unexposed, pop),                                          # enum status
-            agegrp = reduce(vcat,[fill(age, parts[Int(age)]) for age in agegrps]),  # enum agegrp
-            cond = fill(uninfected, pop),                                           # enum condition
+            agegrp = reduce(vcat,[fill(age, parts[Int(age)]) for age in AGEGRPS]),  # enum agegrp
+            cond = fill(uninfected, pop),                                           # enum Condition
             duration = zeros(Int, pop),                                             # Int
             variant = [Symbol[] for _ in 1:pop],                                     # Vector{Symbol}
             sickday = [[0] for _ in 1:pop],                                         # Vector{Int}
@@ -73,15 +73,15 @@ function pop_data1(pop; age_dist=age_dist)
 end
 
 
-function pop_data2(pop; age_dist=age_dist)
+function pop_data2(pop; age_dist=AGE_DIST)
 
     parts = apportion(pop, age_dist)
 
     # must use comprehension to initialize vector of vector NOT fill--fill creates identical vectors
     dat = StructArray(
         status = fill(unexposed, pop),                                          # enum status
-        agegrp = reduce(vcat,[fill(age, parts[Int(age)]) for age in agegrps]),  # enum agegrp
-        cond = fill(uninfected, pop),                                           # enum condition
+        agegrp = reduce(vcat,[fill(age, parts[Int(age)]) for age in AGEGRPS]),  # enum agegrp
+        cond = fill(uninfected, pop),                                           # enum Condition
         duration = zeros(Int, pop),                                             # Int
         variant = [Symbol[] for _ in 1:pop],                                     # Vector{Symbol}
         sickday = [[0] for _ in 1:pop],                                         # Vector{Int}
@@ -220,8 +220,8 @@ end
 
 function dotest(;day = 1, n=100)
 
-    reset!(day_ctr, :day)  # return and reset key to 0 :day leftover from prior runs
-    inc!(day_ctr, :day, day)
+    reset!(DAY_CTR, :day)  # return and reset key to 0 :day leftover from prior runs
+    inc!(DAY_CTR, :day, day)
 
     # create a population table
     pop = Dict(48000=>pop_data(100))  # like sim--dict of locale::Int => Table
@@ -355,7 +355,7 @@ function seed_case_gen(ss::Seedset; forlocale=0, forday, forstartofday) # these 
 end
 
 #=
-case(locdat, socialparams, infectset, sdcases, age_idx_loc; day=day_ctr[:day], startofday=false, locale=loc) 
+case(locdat, socialparams, infectset, sdcases, age_idx_loc; day=DAY_CTR[:day], startofday=false, locale=loc) 
 =#
 
 
