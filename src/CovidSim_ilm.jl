@@ -1,5 +1,7 @@
 # TODO
-    # should sendrisk also depend on condition?
+    # add age_dist as optional parameter in geodata
+    # rename transition to be progression
+    # use uppercase for constant names
     # add still_infected to summary of statuses
     # should we use statuses of reinfected, breakout? equiv to infectious; need to be filtered
         # whenever we filter for infectious; could help history series
@@ -26,6 +28,7 @@
         #=
         this changes spread logic a lot
         =#
+    # should sendrisk also depend on condition?  OPTIONALLY, but not for COVID
     
 
 
@@ -158,6 +161,7 @@ include("cases.jl")
 include("test_and_trace.jl")
 include("transition.jl")
 include("spread.jl")
+include("r0_simulation.jl")
 include("vax.jl")
 include("sim.jl")
 include("johns_hopkins_data.jl")

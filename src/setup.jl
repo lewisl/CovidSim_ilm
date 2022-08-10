@@ -139,6 +139,7 @@ Returns a TypedTable which is a tuple of arrays:
 - rows are days of the simulatoin
 """
 function pop_data(pop; age_dist=age_dist)
+    
         parts = apportion(pop, age_dist)
 
         # must use comprehension to initialize vector of vector NOT fill--fill creates identical vectors

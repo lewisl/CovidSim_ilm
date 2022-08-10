@@ -128,24 +128,24 @@ end
 
 
 """
-    numcontacts(density_factor, gammashape, agegrp, cond, contactfactors)::Int
+    how_many_contacts(density_factor, gammashape, agegrp, cond, contactfactors)::Int
 
 Returns the number of contacts that someone spreading the disease will make on a day. This
 method uses the default contactfactors for the current spreader.
 """
-@inline function numcontacts(density_factor, gammashape, agegrp, cond, contactfactors)::Int 
+@inline function how_many_contacts(density_factor, gammashape, agegrp, cond, contactfactors)::Int 
     @inbounds @fastmath scale = density_factor * contactfactors[mapcondition(cond), mapagegrp(agegrp)]
     @fastmath round(Int,rand(Gamma(gammashape, scale)))
 end
 
 """
-    numcontacts(density_factor, gammashape, agegrp, cond, acase::Spreadcase)::Int
+    how_many_contacts(density_factor, gammashape, agegrp, cond, acase::Spreadcase)::Int
 
 Returns the number of contacts that someone spreading the disease will make on a day. This 
 method uses the spreadcase applicable to the current spreader but with contactfactors set by
 a spreadcase.
 """
-@inline function numcontacts(density_factor, gammashape, agegrp, cond, acase::Spreadcase)::Int
+@inline function how_many_contacts(density_factor, gammashape, agegrp, cond, acase::Spreadcase)::Int
     @inbounds @fastmath scale = density_factor * acase.cfcase[mapcondition(cond), mapagegrp(agegrp)]  
     @fastmath round(Int,rand(Gamma(gammashape, scale)))
 end
@@ -153,7 +153,6 @@ end
 
 """
     function istouched(agegrp, lookup, touchfactors)::Bool
-    function istouched(agegrp, lookup, acase::Spreadcase)::Bool
 
 Returns true if the contact made was significant to the recipient or false if not.
 First method uses the default touchfactors for the current recipient.
@@ -163,10 +162,6 @@ Second method uses the spreadcase for the recipient.
     return @inbounds @fastmath rand(Binomial(1, touchfactors[maptouch(lookup), mapagegrp(agegrp)])) == 1
 end
 
-
-@inline function istouched(agegrp, lookup, acase::Spreadcase)::Bool
-    return @inbounds @fastmath rand(Binomial(1, acase.tfcase[maptouch(lookup), mapagegrp(agegrp)])) == 1
-end
 
 
 """
@@ -402,44 +397,30 @@ columns in the population table. Runs social distancing cases.
     return nothing 
 end       
 
+
 """
     Who has been touched by a spreader and might later become infected?
 """
 function social_model(spr, poprange, contactfactors, touchfactors, sdcases, density_factor, gammashape,
                       c_sdcomply, c_agegrp, c_cond, c_status)
 
-    # determine number of outbound contacts 
     @inbounds contact_param = c_sdcomply[spr] === :none ? contactfactors : sdcases[c_sdcomply[spr]]
-    nc = @inbounds @fastmath numcontacts(density_factor, gammashape, c_agegrp[spr], c_cond[spr], contact_param)  
+    numcontacts = @inbounds @fastmath how_many_contacts(density_factor, gammashape, c_agegrp[spr], c_cond[spr], contact_param)  
 
-    if nc > 0
-        targets = Int[]        
-        @inbounds @fastmath for i in 1:nc
-
-            target = rand(poprange)
-            
-            target_status = c_status[target]
-
-            if (target_status == unexposed) | (target_status == recovered)  # only conditions that can get infected   
-                # choose the touch_param for the social distancing case or the input social parameters
-                touch_param = c_sdcomply[target] === :none ? touchfactors : sdcases[c_sdcomply[target]]
-                touched = istouched(c_agegrp[target], target_status, touch_param)   # is the contact significant?
-
-                # infection outcome
-                if touched  # if the contact is consequential
-                    push!(targets, target)
-                end
-
-            end
-        end
-        return targets
-    else
-        return Int[]
-    end
+    targets =  @fastmath [target for target in [rand(poprange) for i in 1:numcontacts] if (
+                        @inbounds begin 
+                            target_status = c_status[target]
+                            if (target_status == unexposed) | (target_status == recovered)  # only conditions that can get infected   
+                                touch_param = c_sdcomply[target] === :none ? touchfactors : sdcases[c_sdcomply[target].tfcase]
+                                istouched(c_agegrp[target], target_status, touch_param)   # is the contact significant? returns true or false
+                            else
+                                false
+                            end
+                        end
+                        )
+                ]
+    return targets
 end
-
-
-
 
 
 """
@@ -452,6 +433,7 @@ function infection_model!(spr, targets, today, infectset, vaxset,
     for target in targets
         recovday = c_recovday[target][end]
         spr_variant = c_variant[spr][end]
+
         recovfactor = if c_status[target] == recovered
                             targ_variant = c_variant[target][end]
                             recoveffect(today, recovday, targ_variant, spr_variant, infectset)
@@ -474,7 +456,7 @@ function infection_model!(spr, targets, today, infectset, vaxset,
         risk = infectrisk(infectset, spr_variant, spr_duration, targ_agegrp, recovfactor, vaxfactor)
 
         if isinfected(risk)
-            push!(c_variant[target], c_variant[spr][end])  # first of possibly several infections...
+            push!(c_variant[target], spr_variant)  # first of possibly several infections...  c_variant[spr][end]
             push!(c_sickday[target], today)
             c_duration[target] = 1
             c_cond[target] = nil
@@ -488,6 +470,7 @@ end
 function make_sick!(locdat, target::Int; cond, variant, duration)
     @inbounds locdat.condition[target] = cond
     @inbounds locdat.status[target] = infectious
+    @inbounds push!(c_sickday[target], day_ctr[:day])
     push!(locdat.variant, variant)
     @inbounds locdat.duration[target] = duration
 end
@@ -518,156 +501,3 @@ function make_sick!(dat; cnt, ages, tocond, tovariant, toduration=1)
 end
 
 
-"""
-    r0_sim(; pop=200_000, age_dist=age_dist, dectree=dectree, socialparams=socialparams, infectparams=infectparams, density_factor=1.0, scale=5)
-    r0_sim(locdat; age_dist=age_dist, dectree=dectree, socialparams=socialparams, infectparams=infectparams, sdcases=sdcases, density_factor=1.0, scale=5)
-
-Simulates r0 or rt. The first method creates a population and tracks how many infections
-are caused by first generation spreaders and NOT spreaders who were infected by the
-first generation. The simulates r0
-
-The second method simulates r at time t given the characteristics of the simulation
-you are running. This shows how r, reproduction rate, is affected by public health
-measures and the characteristics of the population over time. This simulates r(t).
-"""
-function r0_sim(; pop=200_000, age_dist=age_dist, dectree=dectree, socialparams=socialparams, infectparams=infectparams, density_factor=1.0, scale=5)
-    # create simulation population
-    r0pop = pop_data(pop)
-
-    # seed spreaders in each age group proportional to age distribution
-    cnt_accessible = count(r0pop.status .!= dead)
-    cnt_by_agedist = round.(Int, age_dist ./ minimum(age_dist))
-    scale = set_by_level(cnt_accessible)
-    cnt_by_agedist .*= scale # update with scale
-
-    cnt_spreaders = sum(age_relative)  # COMPARE TO GEN1_INFECTED
-
-    for i in agegrps
-        idx = findall(r0pop.agegrp .== i) 
-
-        for j = 1:cnt_by_agedist[Int(i)]
-            r0pop.status[idx] = infectious
-            r0pop.cond[idx] = nil
-            r0pop.duration[idx] = 1
-            idx += 1
-        end
-    end
-
-    # set infect_idx based on seeding: never update so we measure only 1st gen. spreaders
-    gen1_infect_idx = findall(r0pop.status .== infectious)
-    gen1_infected = length(gen1_infect_idx)
-
-    sdcases = []   # TODO MAYBE this should be an input based on current context of simulation
-    r0_infected = 0
-
-    for i = 1:durationlim        
-        contactable_idx = findall(r0pop.status .!= dead)
-        n_newly_infected = spread!(r0pop, gen1_infect_idx, contactable_idx,  sdcases, socialparams, infectparams, density_factor)  
-        infect_idx = findall(r0pop.status .== infectious)
-        r0_infected += n_newly_infected
-        transition!(r0pop, infect_idx, dectree) 
-        gen1_infect_idx = filter(x -> r0pop.status[x] == infectious, gen1_infect_idx)
-    end
-
-    r0 =  r0_infected / gen1_infected   # n_newly_infected / cnt_spreaders
-    return r0
-
-end
-
-
-function r0_sim(locdat; age_dist=age_dist, dectree=dectree, socialparams=socialparams, infectparams=infectparams, sdcases=sdcases, density_factor=1.0, scale=5)
-    # create simulation population
-    r0pop = deepcopy(locdat)
-
-    ignore_idx = optfindall(==(infectious), r0pop.status, 0.5)
-    # the following only works because we treat recovered as if they are immune
-    r0pop.status[ignore_idx] .= recovered # can't catch what they already have; won't spread for calc of r0
-
-    cnt_accessible = count(r0pop.status .!= dead)
-    age_relative = round.(Int, age_dist ./ minimum(age_dist)) # counts by agegrp
-    scale = set_by_level(cnt_accessible)
-    age_relative .*= scale # update with scale
-    cnt_spreaders = sum(age_relative)
-
-    for i in agegrps  # set the spreaders for the r0 simulation
-        idx = findall((r0pop.agegrp .== i) .& (r0pop.status .== unexposed))
-        for j = 1:age_relative[Int(i)]
-            spr = idx[j]
-            r0pop.status[spr] = infectious
-            r0pop.cond[spr] = nil
-            r0pop.duration[spr] = 1
-        end
-    end     
-
-    r0_infected = 0 
-    for i = 1:durationlim      
-        infect_idx = findall((r0pop.status .== infectious) .& (r0pop.duration .> 0))
-        contactable_idx = findall(r0pop.status .!= dead)
-        r0_infected += spread!(r0pop, infect_idx, contactable_idx, sdcases, socialparams, infectparams, density_factor)  
-
-        transition!(r0pop, infect_idx, dectree) 
-
-        # eliminate the new spreaders so we only track the original spreaders
-        newsick_idx = findall(r0pop.duration .== 1)
-
-        # r0pop.status[newsick_idx] .= unexposed
-        r0pop.status[newsick_idx] .= recovered # only works because infectious and recovered are treated as immune
-    end
-
-    r0 =  r0_infected / cnt_spreaders   # n_newly_infected / cnt_spreaders
-    return r0
-end
-
-
-function set_by_level(x, levels=[[1, 300_000], [5, 500_000], [10, 10_000_000_000]])
-    ret = 0
-    for lvl in levels
-        if x <= lvl[2]
-            ret = lvl[1]
-            break
-        end
-    end
-    return ret
-end
-
-
-function r0_table(n=6, cfstart = 0.9, tfstart = 0.3; socialparams=socialparams, infectparams=infectparams, dt=dt)
-    tbl = zeros(n+1,n+1)
-    cfiter = [cfstart + (i-1) * .1 for i=1:n]
-    tfiter = [tfstart + (i-1) * 0.05 for i=1:n]
-    for (j,cf) in enumerate(cfiter)
-        for (i,tf) = enumerate(tfiter)
-            tbl[i+1,j+1] = r0_sim(socialparams=socialparams, infectparams=infectparams, dt=dt, decpoints=decpoints, shift_contact=(0.2,cf), shift_touch=(.18,tf)).r0
-        end
-    end
-    tbl[1, 2:n+1] .= cfiter
-    tbl[2:n+1, 1] .= tfiter
-    tbl[:] = round.(tbl, digits=2)
-    display(tbl)
-    return tbl
-end
-
-#=
-approximate r0 values from model
-using default age distribution
-model selects a contact_factor, c_f, based on age and infectious case
-model selects a touch_factor, t_f, based on age and condition (includes unexposed and recovered)
-r0 depends on the selection of both c_f and t_f
-Note: simulation uses samples so generated values will vary
-
-           c_f
-  tf       1.1   1.2      1.3   1.4     1.5   1.6    1.7    1.8    1.9    2.0
-           ----------------------------------------------------------
-     0.18 | 0.38| 0.38 | 0.42 | 0.46 | 0.49 | 0.51 | 0.55 | 0.57 | 0.59 | 0.64
-     0.23 | 0.47| 0.47 | 0.49 | 0.55 | 0.64 | 0.65 | 0.68 | 0.68 | 0.73 | 0.77
-     0.28 | 0.53| 0.61 | 0.62 | 0.65 | 0.69 | 0.73 | 0.79 | 0.82 | 0.83 | 0.88
-     0.33 | 0.61| 0.66 | 0.7  | 0.79 | 0.8  | 0.83 | 0.9  | 0.95 | 0.99 | 1.04
-     0.38 | 0.7 | 0.74 | 0.85 | 0.84 | 0.94 | 0.98 | 1.04 | 1.08 | 1.11 | 1.17
-     0.43 | 0.8 | 0.85 | 0.89 | 0.93 | 1.03 | 1.11 | 1.16 | 1.2  | 1.27 | 1.34
-     0.48 | 0.88| 0.91 | 0.99 | 1.03 | 1.16 | 1.23 | 1.26 | 1.32 | 1.42 | 1.47
-     0.53 | 0.97| 1.06 | 1.08 | 1.18 | 1.26 | 1.27 | 1.42 | 1.47 | 1.52 | 1.61
-     0.58 | 1.01| 1.09 | 1.17 | 1.25 | 1.33 | 1.43 | 1.52 | 1.52 | 1.68 | 1.76
-     0.63 | 1.11| 1.2  | 1.25 | 1.38 | 1.42 | 1.5  | 1.65 | 1.75 | 1.78 | 1.95
-
-
-=#|
