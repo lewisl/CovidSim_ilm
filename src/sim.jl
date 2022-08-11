@@ -29,7 +29,7 @@ function buildsim(ndays, locales;
 
         #=
         model = (ndays=ndays, day1=day1, locales=locales, dat=dat, series=series, geo=geodata, 
-                transitionset=transitionset, vaxset=vaxset, vaxschedset=vaxschedset, infectset=infectset, 
+                progressionset=progressionset, vaxset=vaxset, vaxschedset=vaxschedset, infectset=infectset, 
                 social=socialparams, trvec=trvec, vaxlist=vaxlist, variantlist=variantlist, 
                 seriescolnames=seriescolnames)  
         =#    
@@ -55,7 +55,7 @@ function runsim(model;
         ndays = model.ndays
         day1 = model.day1
         locales = model.locales
-        transitionset = model.transitionset  # transition arrays
+        progressionset = model.progressionset  # progression arrays
         trvec = model.trvec # preallocated small vector
         popdat = deepcopy(model.dat.popdat)   # Copy the population data so model can be reused!!!
         agegrp_idx = model.dat.agegrp_idx   # first key is locale
@@ -83,7 +83,7 @@ function runsim(model;
     # execution timers
     vaxtime = 0     # vaccinate
     sprtime = 0     # spread infection
-    trtime = 0      # transition infected population through stages of illness
+    trtime = 0      # progression infected population through stages of illness
     idxtime = 0     # calculate indices for infectious and susceptible
     histtime = 0    # update history time series
     totalsimtime = 0
@@ -105,7 +105,7 @@ function runsim(model;
         age_idx_loc = agegrp_idx[loc]  # indices by agegrp
         density_factor = geodf.density_factor[geodf.fips .== loc][1]
 
-        # Deref columns once per locale and not in the deeper loops. Pass needed columns to spread! and transition!
+        # Deref columns once per locale and not in the deeper loops. Pass needed columns to spread! and progression!
         c_cond       = locdat.cond
         c_status     = locdat.status
         c_agegrp     = locdat.agegrp
@@ -176,7 +176,7 @@ function runsim(model;
                 end  # sprtime
 
                 trtime += @elapsed begin
-                    transition!(p, infectset, transitionset, vaxset, dovax, noop, trvec,   
+                    progression!(p, infectset, progressionset, vaxset, dovax, noop, trvec,   
                                     c_cond,
                                     c_status,
                                     c_agegrp,

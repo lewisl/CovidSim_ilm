@@ -19,8 +19,8 @@ function setup(ndays, locales;  # must provide following inputs
     # social parameters
         socialparams = build_socialparams(socialfilename, paramdir)
 
-    # variants, spread parameters, transition arrays
-        infectset, transitionset, trvec, variantlist = build_infect_params(variantfilename, paramdir)
+    # variants, spread parameters, progression arrays
+        infectset, progressionset, trvec, variantlist = build_infect_params(variantfilename, paramdir)
 
     # vaccines  TODO this is not the right approach: test if we have vax inputs instead
     if dovax
@@ -41,7 +41,7 @@ function setup(ndays, locales;  # must provide following inputs
         series = build_series_table(locales, ndays, day1, seriescolnames)
 
     model = (ndays=ndays, day1=day1, locales=locales, dat=dat, series=series, geo=geodata, 
-            transitionset=transitionset, vaxset=vaxset, vaxschedset=vaxschedset, infectset=infectset, 
+            progressionset=progressionset, vaxset=vaxset, vaxschedset=vaxschedset, infectset=infectset, 
             social=socialparams, trvec=trvec, variantlist=variantlist, vaxlist = vaxlist, 
             seriescolnames=seriescolnames)  
 
@@ -51,7 +51,8 @@ end
 """
     setup(yaml_model)
 
-Create a complete simulation model from a previously saved YAML model definition. The YAML file must first be loaded with function yaml_to_model. The output model is identical to that created from input parameter files to the function buildsim. This output is a named tuple of all required model parameters. 
+Create a complete simulation model from a previously saved YAML model definition. The YAML file must first be loaded with function yaml_to_model. 
+The output model is identical to that created from input parameter files to the function buildsim. This output is a named tuple of all required model parameters. 
 """
 function setup(yaml_model)
     ym = yaml_model
@@ -71,8 +72,8 @@ function setup(yaml_model)
     # social parameters
         socialparams = build_socialparams(YAML.load(ym["socialfile"], dicttype=OrderedDict{Symbol, Any}))
 
-    # variants, spread parameters, transition arrays
-        infectset, transitionset, trvec, variantlist = build_infect_params(YAML.load(ym["variantfile"], dicttype=Dict{Symbol, Any}))
+    # variants, spread parameters, progression arrays
+        infectset, progressionset, trvec, variantlist = build_infect_params(YAML.load(ym["variantfile"], dicttype=Dict{Symbol, Any}))
 
 
     # vaccines  TODO this is not the right approach: test if we have vax inputs instead
@@ -89,7 +90,7 @@ function setup(yaml_model)
     series = build_series_table(ym["locales"], ym["ndays"], day1, seriescolnames) 
 
     model = (ndays=ndays, day1=day1, locales=locales, dat=dat, series=series, geo=geodata, 
-            transitionset=transitionset, vaxset=vaxset, vaxschedset=vaxschedset, infectset=infectset, 
+            progressionset=progressionset, vaxset=vaxset, vaxschedset=vaxschedset, infectset=infectset, 
             social=socialparams, trvec=trvec)  
 
     return model
@@ -215,7 +216,7 @@ end
     function build_infect_params(variantfilename, paramdir)
 
 Build parameters for the spread of infection and the immunity conferred by recovering
-from infection for each variant. Build paramaters for transitioning infected people to
+from infection for each variant. Build paramaters for progressioning infected people to
 different conditions of the virus and to recover or die at the end.
 """
 function build_infect_params(variantfilename, paramdir)
@@ -229,9 +230,9 @@ end
 function build_infect_params(infectdict) 
 
     (infectset, variantlist) = build_spread_params(infectdict)
-    (transitionset, trvec) = build_transition_params(infectdict)
+    (progressionset, trvec) = build_progression_params(infectdict)
 
-    return infectset, transitionset, trvec, variantlist
+    return infectset, progressionset, trvec, variantlist
 end
 
 
@@ -271,42 +272,42 @@ end
 
 
 """
-    function build_transition_params(infectdict)
+    function build_progression_params(infectdict)
 
-This method loads all transition params for all variants from one dict, which contains
+This method loads all progression params for all variants from one dict, which contains
 all variants.
 
-Returns (transitionset, trvec)
+Returns (progressionset, trvec)
 """
-function build_transition_params(infectdict)
+function build_progression_params(infectdict)
     variantlist = collect(keys(infectdict)) # array of strings to array of symbols
-    transitionset = Dict{Symbol, Transitionparams}()
+    progressionset = Dict{Symbol, Transitionparams}()
 
     @assert :base in variantlist "Variants parameter file must contain a variant called :base--not there!"
 
-    # build the transitionset for :base-->needed to build for other variants
+    # build the progressionset for :base-->needed to build for other variants
     variant = :base
-    @assert !isnothing(infectdict[variant][:transition][:tree]) "transition tree for variant must be provided in parameter file--not there!"
-    transitionset[Symbol(variant)] = Transitionparams(
-                                            tree=setup_dt(infectdict[variant][:transition][:tree]),
-                                            factors=Transitionfactors(infectdict[variant][:transition][:factors])
+    @assert !isnothing(infectdict[variant][:progression][:tree]) "progression tree for variant must be provided in parameter file--not there!"
+    progressionset[Symbol(variant)] = Transitionparams(
+                                            tree=setup_dt(infectdict[variant][:progression][:tree]),
+                                            factors=Transitionfactors(infectdict[variant][:progression][:factors])
                                             )
 
     for variant in variantlist
         variant === :base && continue
-        transitionset[Symbol(variant)] = Transitionparams(
-                tree=(  !isnothing(infectdict[variant][:transition][:tree])   ?   
-                            setup_dt(infectdict[variant][:transition][:tree]) :    # transition tree was provided for this variant
-                            setup_dt(deepcopy(transitionset[:base].tree), infectdict[variant][:transition][:factors][:riskadjust])  # build the tree by adjusting :base
+        progressionset[Symbol(variant)] = Transitionparams(
+                tree=(  !isnothing(infectdict[variant][:progression][:tree])   ?   
+                            setup_dt(infectdict[variant][:progression][:tree]) :    # progression tree was provided for this variant
+                            setup_dt(deepcopy(progressionset[:base].tree), infectdict[variant][:progression][:factors][:riskadjust])  # build the tree by adjusting :base
                      ),          
-                factors=Transitionfactors(infectdict[variant][:transition][:factors]))
+                factors=Transitionfactors(infectdict[variant][:progression][:factors]))
     end
 
-    # pre-allocate trvec used in hot loop: no. of columns in transition array
-    sz = size(transitionset[:base].tree.age0_19[5], 2)
+    # pre-allocate trvec used in hot loop: no. of columns in progression array
+    sz = size(progressionset[:base].tree.age0_19[5], 2)
     trvec = zeros(sz)
  
-    return (transitionset, trvec)
+    return (progressionset, trvec)
 end
 
 

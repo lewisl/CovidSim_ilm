@@ -1,15 +1,15 @@
 ####################################################
-# transition.jl for ilm model
+# progression.jl for ilm model
 #     change status of folks in simulation:
-#           transition
+#           progression
 #           travel
 ####################################################
 
     
 """
-    transition!(p, infectset, transitionset, vaxset, dovax, riskshift!, transvec, <columns of locdat>)
+    progression!(p, infectset, progressionset, vaxset, dovax, riskshift!, transvec, <columns of locdat>)
 
-People who have become infectious transition through cases from
+People who have become infectious progression through cases from
 nil (asymptomatic) to mild to sick to severe, depending on their
 agegroup, days of being exposed, and some probability. Finally,  
 they move to recovered or dead.
@@ -17,7 +17,7 @@ they move to recovered or dead.
 Required columns of locdat are cond, status, agegrp, duration, sdcomply, variant, vaxstatus, recovday
 vaxrcvd, vaxday, deadday.
 """
-@inline function transition!(p, infectset, transitionset, vaxset, dovax, riskshift!, transvec,
+@inline function progression!(p, infectset, progressionset, vaxset, dovax, riskshift!, transvec,
             c_cond,
             c_status,
             c_agegrp,
@@ -48,43 +48,43 @@ vaxrcvd, vaxday, deadday.
         p_variant = c_variant[p][end]
     end
 
-    trtree = transitionset[p_variant].tree   
+    trtree = progressionset[p_variant].tree   
 
-    # if person's agegrp and duration match a transition stage
+    # if person's agegrp and duration match a progression stage
     tr_arr = get( getfield(trtree, Symbol(p_agegrp)), p_duration, [])
 
-    if !isempty(tr_arr)  # let's transition person p 
+    if !isempty(tr_arr)  # let's progression person p 
         transvec[:] = tr_arr[mapcondition(p_cond), :] # probabilities of recovery, nil, mild, sick, severe, dead given current condition
 
-        # effect on severity and transitioning based on recovery from a previous infection
+        # effect on severity and progressioning based on recovery from a previous infection
         recoveff =  @inbounds if p_status == recovered
                         recoveffect(today, p_recovday, p_variant, infectset)
                     else
                         1.0
                     end
 
-        # effect on severity and transitioning based on being vaccinated
+        # effect on severity and progressioning based on being vaccinated
         vaxeff = @inbounds if p_vaxstatus === :none
                         1.0
                     else
                         p_vaxrcvd = c_vaxrcvd[p][end]
                         p_vaxday = c_vaxday[p][end]
                         p_variant = c_variant[p][end]
-                        vaxeffect(today, infectset, vaxset, p_vaxstatus, p_variant, p_vaxrcvd, p_vaxday, mode=:transition)
+                        vaxeffect(today, infectset, vaxset, p_vaxstatus, p_variant, p_vaxrcvd, p_vaxday, mode=:progression)
                     end
 
         risk = riskfactor(recoveff, vaxeff)
         
         riskshift!(transvec, risk, p_duration) 
 
-        dotransition!(p, transvec, # perform transition logic and update population table->must pass columns, not scalars  
+        doprogression!(p, transvec, # perform progression logic and update population table->must pass columns, not scalars  
                         c_duration,
                         c_deadday,
                         c_status,
                         c_cond,
                         c_recovday
                     )
-    else # no transition
+    else # no progression
         c_duration[p] += 1  # one more day in current condition
     end
     
@@ -104,19 +104,19 @@ end
 
         excessprob = 0.0
         for toprob in (sick, severe, dead)  
-            idx = maptransition(toprob)
+            idx = mapprogression(toprob)
             excess1 = transvec[idx] * (1.0 - riskfactor)
             transvec[idx] = transvec[idx] - excess1  # reduce likelihood of serious outcomes
             excessprob += excess1
         end
 
         if duration == DURATIONLIM   # clear anyone left to recovered or dead
-            idx = maptransition(recovered)
+            idx = mapprogression(recovered)
             transvec[idx] = transvec[idx] + excessprob
         else
             excessprob = excessprob / 3.0
             for toprob in (recovered, nil, mild)
-                idx = maptransition(toprob)
+                idx = mapprogression(toprob)
                 transvec[idx] = transvec[idx] + excessprob  # redistribute likelihood to less serious outcomes
             end
         end
@@ -126,13 +126,13 @@ end
 
 
 """
-    dotransition!(locdat, p, p_cond, trvec::Union{Vector{Float64}, Nothing})
+    doprogression!(locdat, p, p_cond, trvec::Union{Vector{Float64}, Nothing})
 
 Transition an infected person to a new condition or status if called
-with a transition vector (trvec) or increment
+with a progression vector (trvec) or increment
 the number of days the person has been sick.
 """
-function dotransition!(p, transvec,         
+function doprogression!(p, transvec,         
                 c_duration,
                 c_deadday,
                 c_status,
@@ -145,7 +145,7 @@ function dotransition!(p, transvec,
         # debugging
         @assert choice != 0 "choice of to condition resulted in 0. Must be 1 through 6"
 
-        tocond = maptransition(choice) # 1->recover, 2->nil, 3->mild, 4->sick, 5->severe, 6->dead  see data_mapping.jl
+        tocond = mapprogression(choice) # 1->recover, 2->nil, 3->mild, 4->sick, 5->severe, 6->dead  see data_mapping.jl
 
         if tocond == dead  
             @inbounds begin

@@ -2,7 +2,7 @@
 
 # base variant must exist!
 # base variant must have spread arrays for sendrisk and recvrisk
-# base variant must have full transition tree
+# base variant must have full progression tree
 # other variants may modify base using input factors!
 
 base:                              # variant name
@@ -42,49 +42,49 @@ base:                              # variant name
     immunehalflife: 360   # 240
 
 
-  # transition section: affect how sick infected people get
-  # and when transitions from one disease condition to another
-  transition:
+  # progression section: affect how sick infected people get
+  # and when they progress from one disease condition to another
+  progression:
     tree:
       # agegrp
         # checkpoint
           # duration of checkpoint (no. of days sick)
-          # transition matrix (row vectors)
+          # progression matrix (row vectors)
             # rows are fromcond
             # columns are to status or condition
                 #     recover, nil, mild, sick, severe, dead
       age0_19:       
         1:
           duration: 5
-          transition:
+          progression:
             nil:       [0.0, 0.4, 0.5, 0.1, 0.0, 0.0]
             mild:      [0.0, 0.3, 0.6, 0.1, 0.0, 0.0]
             sick:      [0.0, 0.0, 0.0, 1.0, 0.0, 0.0]
             severe:    [0.0, 0.0, 0.0, 0.0, 1.0, 0.0]
         2:
           duration: 9
-          transition:
+          progression:
             nil:       [0.9, 0.0, 0.0, 0.1, 0.0, 0.0]
             mild:      [0.4, 0.0, 0.6, 0.0, 0.0, 0.0]
             sick:      [0.0, 0.0, 0.0, 0.95, 0.05, 0.0]
             severe:    [0.0, 0.0, 0.0, 0.0, 1.0, 0.0]
         3:
           duration: 14
-          transition:
+          progression:
             nil:       [1.0, 0.0, 0.0, 0.0, 0.0, 0.0]
             mild:      [1.0, 0.0, 0.0, 0.0, 0.0, 0.0]
             sick:      [0.85, 0.0, 0.0, 0.12, 0.03, 0.0]
             severe:    [0.692, 0.0, 0.0, 0.0, 0.302, 0.006]
         4:
           duration: 19
-          transition:
+          progression:
             nil:       [1.0, 0.0, 0.0, 0.0, 0.0, 0.0]
             mild:      [1.0, 0.0, 0.0, 0.0, 0.0, 0.0]
             sick:      [0.0, 0.0, 0.0, 1.0, 0.0, 0.0]
             severe:    [0.891, 0.0, 0.0, 0.0, 0.106, 0.003]
         5:
           duration: 25
-          transition:
+          progression:
             nil:       [1.0, 0.0, 0.0, 0.0, 0.0, 0.0]
             mild:      [1.0, 0.0, 0.0, 0.0, 0.0, 0.0]
             sick:      [0.976, 0.0, 0.0, 0.0, 0.0, 0.024]
@@ -92,35 +92,35 @@ base:                              # variant name
       age20_39:
         1:
           duration: 5
-          transition:
+          progression:
             nil:       [0.0, 0.2, 0.7, 0.1, 0.0, 0.0]
             mild:      [0.0, 0.15, 0.85, 0.0, 0.0, 0.0]
             sick:      [0.0, 0.0, 0.0, 1.0, 0.0, 0.0]
             severe:    [0.0, 0.0, 0.0, 1.0, 0.0, 0.0]
         2:
           duration: 9
-          transition:
+          progression:
             nil:       [0.9, 0.0, 0.0, 0.1, 0.0, 0.0]
             mild:      [.85, 0.0, 0.0, 0.15, 0.0, 0.0]
             sick:      [0.0, 0.0, 0.0, 0.9, 0.1, 0.0]
             severe:    [0.0, 0.0, 0.0, 0.0, 1.0, 0.0]
         3:
           duration: 14
-          transition:
+          progression:
             nil:       [1.0, 0.0, 0.0, 0.0, 0.0, 0.0]
             mild:      [1.0, 0.0, 0.0, 0.0, 0.0, 0.0]
             sick:      [0.83, 0.0, 0.0, 0.1, 0.07, 0.0]
             severe:    [0.474, 0.0, 0.0, 0.0, 0.514, 0.012]
         4:
           duration: 19
-          transition:
+          progression:
             nil:       [1.0, 0.0, 0.0, 0.0, 0.0, 0.0]
             mild:      [1.0, 0.0, 0.0, 0.0, 0.0, 0.0]
             sick:      [0.922, 0.0, 0.0, 0.0, 0.072, 0.006]
             severe:    [0.922, 0.0, 0.0, 0.0, 0.072, 0.006]
         5:
           duration: 25
-          transition:
+          progression:
             nil:       [1.0, 0.0, 0.0, 0.0, 0.0, 0.0]
             mild:      [1.0, 0.0, 0.0, 0.0, 0.0, 0.0]
             sick:      [0.964, 0.0, 0.0, 0.0, 0.0, 0.036]
@@ -128,35 +128,35 @@ base:                              # variant name
       age40_59:
         1:
           duration: 5
-          transition:
+          progression:
             nil:       [0.0, 0.2, 0.7, 0.1, 0.0, 0.0]
             mild:      [0.0, 0.15, 0.85, 0.0, 0.0, 0.0]
             sick:      [0.0, 0.0, 0.0, 1.0, 0.0, 0.0]
             severe:    [0.0, 0.0, 0.0, 0.0, 1.0, 0.0]
         2:
           duration: 9
-          transition:
+          progression:
             nil:       [0.9, 0.0, 0.0, 0.1, 0.0, 0.0]
             mild:      [0.85, 0.0, .05, 0.1, 0.0, 0.0]
             sick:      [0.0, 0.0, 0.0, 0.9, 0.1, 0.0]
             severe:    [0.0, 0.0, 0.0, 0.0, 1.0, 0.0]
         3:
           duration: 14
-          transition:
+          progression:
             nil:       [1.0, 0.0, 0.0, 0.0, 0.0, 0.0]
             mild:      [0.9, 0.0, 0.0, 0.1, 0.0, 0.0]
             sick:      [0.85, 0.0, 0.0, 0.14, 0.01,  0.0]
             severe:    [0.776, 0.0, 0.0, 0.0, 0.206, 0.018]
         4:
           duration: 19
-          transition:
+          progression:
             nil:       [1.0, 0.0, 0.0, 0.0, 0.0, 0.0]
             mild:      [1.0, 0.0, 0.0, 0.0, 0.0, 0.0]
             sick:      [0.856, 0.0, 0.0, 0.0, 0.126, 0.018]
             severe:    [0.856, 0.0, 0.0, 0.0, 0.126, 0.018]
         5:
           duration: 25
-          transition:
+          progression:
             nil:       [1.0, 0.0, 0.0, 0.0, 0.0, 0.0]
             mild:      [1.0, 0.0, 0.0, 0.0, 0.0, 0.0]
             sick:      [0.958, 0.0, 0.0, 0.0, 0.0, 0.042]
@@ -164,35 +164,35 @@ base:                              # variant name
       age60_79:
         1:
           duration: 5
-          transition:
+          progression:
             nil:       [0.0, 0.15, 0.6, 0.25, 0.0, 0.0]
             mild:      [0.0, 0.0, 0.7, 0.3, 0.0, 0.0]
             sick:      [0.0, 0.0, 0.0, 1.0, 0.0, 0.0]
             severe:    [0.0, 0.0, 0.0, 0.0, 1.0, 0.0]
         2:
           duration: 9
-          transition:
+          progression:
             nil:       [0.62, 0.0, 0.0, 0.38, 0.0, 0.0]
             mild:      [0.5, 0.0, .25, 0.25, 0.0, 0.0]
             sick:      [0.0, 0.0, 0.0, 0.78, 0.22, 0.0]
             severe:    [0.0, 0.0, 0.0, 0.0, 1.0, 0.0]
         3:
           duration: 14
-          transition:
+          progression:
             nil:       [0.8, 0.1, 0.1, 0.0, 0.0, 0.0]
             mild:      [0.8, 0.0, 0.15, 0.05, 0.0, 0.0]
             sick:      [0.8, 0.0, 0.0, 0.1, 0.1, 0.0]
             severe:    [0.165, 0.0, 0.0, 0.0, 0.715, 0.12]
         4:
           duration: 19
-          transition:
+          progression:
             nil:       [1.0, 0.0, 0.0, 0.0, 0.0, 0.0]
             mild:      [1.0, 0.0, 0.0, 0.0, 0.0, 0.0]
             sick:      [0.81, 0.0, 0.0, 0.0, 0.13, 0.06]
             severe:    [0.81, 0.0, 0.0, 0.0, 0.13, 0.06]
         5:
           duration: 25
-          transition:
+          progression:
             nil:       [1.0, 0.0, 0.0, 0.0, 0.0, 0.0]
             mild:      [1.0, 0.0, 0.0, 0.0, 0.0, 0.0]
             sick:      [0.76, 0.0, 0.0, 0.0, 0.0, 0.24]
@@ -200,35 +200,35 @@ base:                              # variant name
       age80_up:
         1:
           duration: 5
-          transition:
+          progression:
             nil:       [0.0, 0.1, 0.5, 0.4, 0.0, 0.0]
             mild:      [0.0, 0.1, 0.5, 0.4, 0.0, 0.0]
             sick:      [0.0, 0.1, 0.5, 0.4, 0.0, 0.0]
             severe:    [0.0, 0.0, 0.0, 0.4, 0.6, 0.0]
         2:
           duration: 9
-          transition:
+          progression:
             nil:       [0.5, 0.0, 0.0, 0.5, 0.0, 0.0]
             mild:      [0.0, 0.0, 0.4, 0.6, 0.0, 0.0]
             sick:      [0.0, 0.0, 0.0, 0.6, 0.4, 0.0]
             severe:    [0.0, 0.0, 0.0, 0.0, 1.0, 0.0]
         3:
           duration: 14
-          transition:
+          progression:
             nil:       [0.7, 0.0, 0.3, 0.0, 0.0, 0.0]
             mild:      [0.7, 0.0, 0.0, 0.3, 0.0, 0.0]
             sick:      [0.7, 0.0, 0.0, 0.1, 0.2, 0.0]
             severe:    [0.12, 0.0, 0.0, 0.0, 0.67, 0.21]
         4:
           duration: 19
-          transition:
+          progression:
             nil:       [1.0, 0.0, 0.0, 0.0, 0.0, 0.0]
             mild:      [1.0, 0.0, 0.0, 0.0, 0.0, 0.0]
             sick:      [0.0, 0.0, 0.0, 0.0, 1.0, 0.0]
             severe:    [0.49, 0.0, 0.0, 0.0, 0.24, 0.27]
         5:
           duration: 25
-          transition:
+          progression:
             nil:       [1.0, 0.0, 0.0, 0.0, 0.0, 0.0]
             mild:      [1.0, 0.0, 0.0, 0.0, 0.0, 0.0]
             sick:      [0.682, 0.0, 0.0, 0.0, 0.0, 0.318]
@@ -275,8 +275,8 @@ alpha:
     # half-life of recovery_immunity after recovering
     immunehalflife: 360    # 240
 
-  # transition section: how does this variant affect sickness conditions
-  transition:
+  # progression section: how does this variant affect sickness conditions
+  progression:
     tree: ~  # if no tree, apply factors to base variant tree
     factors:   # risk adjustment to base
               #   recov, nil, mild, sick,  severe,  dead
@@ -321,8 +321,8 @@ delta:
     # half-life of recovery_immunity after recovering
     immunehalflife: 360
 
-  # transition section: how does this variant affect sickness conditions
-  transition:
+  # progression section: how does this variant affect sickness conditions
+  progression:
     tree: ~  # if no tree, apply factors to base variant tree
     factors:   # risk adjustment to base
               #   recov, nil, mild, sick,  severe,  dead
@@ -368,8 +368,8 @@ omicron_ba1:
     # half-life of recovery_immunity after recovering
     immunehalflife: 360
 
-  # transition section: how does this variant affect sickness conditions
-  transition:
+  # progression section: how does this variant affect sickness conditions
+  progression:
     tree: ~  # if no tree, apply factors to base variant tree
     factors:   # risk adjustment to base
               #   recov, nil, mild, sick,  severe,  dead
@@ -413,8 +413,8 @@ omicron_ba2:
     # half-life of recovery_immunity after recovering
     immunehalflife: 360
 
-  # transition section: how does this variant affect sickness conditions
-  transition:
+  # progression section: how does this variant affect sickness conditions
+  progression:
     tree: ~  # if no tree, apply factors to base variant tree
     factors:   # risk adjustment to base
               #   recov, nil, mild, sick,  severe,  dead
@@ -457,8 +457,8 @@ omicron_ba4_5:
     # half-life of recovery_immunity after recovering
     immunehalflife: 360
 
-  # transition section: how does this variant affect sickness conditions
-  transition:
+  # progression section: how does this variant affect sickness conditions
+  progression:
     tree: ~  # if no tree, apply factors to base variant tree
     factors:   # risk adjustment to base
               #   recov, nil, mild, sick,  severe,  dead

@@ -1,7 +1,7 @@
 
 #############################################################
 # dec_tree.jl
-# decision tree for transition
+# decision tree for progression
 #############################################################
 
 Base.@kwdef struct Agetree
@@ -44,21 +44,21 @@ A decision tree is:
     - age60_79
     - age80_up
 - Each field value of Agetree is a dict:
-    - key is duration: the day on which transitions to different disease outcomes occur;
-    - value is transition array: maps from current conditions (rows) to outcomes (columns) based on the probability of
-      transitioning from the current condition to a different infectious condition or a final outcome of recover or dead.
+    - key is duration: the day on which progression to different disease outcomes occur;
+    - value is progression array: maps from current conditions (rows) to outcomes (columns) based on the probability of
+      progressioning from the current condition to a different infectious condition or a final outcome of recover or dead.
 
 
     function setup_dt(basetree::Agetree, adjust::Vector{Float64})
-This method builds the decision tree based on the transition array for the variant called :base (required input), using an adjustment
+This method builds the decision tree based on the progression array for the variant called :base (required input), using an adjustment
 vector for another variant.
 
 """
 function setup_dt(trdict::Dict)
 
     prepdict = Dict(age_key => Dict(brk[:duration] =>
-                                    vcat(brk[:transition][:nil]',  brk[:transition][:mild]',
-                                         brk[:transition][:sick]', brk[:transition][:severe]')
+                                    vcat(brk[:progression][:nil]',  brk[:progression][:mild]',
+                                         brk[:progression][:sick]', brk[:progression][:severe]')
                                 for (_, brk) in sort(params))
                         for (age_key, params) in sort(trdict))
 
@@ -73,7 +73,7 @@ function setup_dt(basetree::Agetree, adjust::Vector{Float64})
 
     for age in Symbol.(AGEGRPS)
         prepdict[age] = getfield(basetree, age)
-        for arr in values(prepdict[age])  # duration==key::Int, arr==transition array 4 x 6
+        for arr in values(prepdict[age])  # duration==key::Int, arr==progression array 4 x 6
             for r in eachrow(arr)
                 if sum(r) != 0.0
                     r[:] = r .* adjust
@@ -120,8 +120,8 @@ function display_tree_array(tree)
         for brkday_idx in keys(agetree)
             durationtree = agetree[brkday_idx]
             println("    duration: ", durationtree[:duration])
-            println("    transitions: ")
-            for r in eachrow(durationtree[:transition])
+            println("    progression: ")
+            for r in eachrow(durationtree[:progression])
                 print("      "); println(r)
             end
         end  # for duration
@@ -136,8 +136,8 @@ function display_tree_struct(tree)
         for brk in eachindex(agetree)
             println("    brk: $brk", " # element of Vector{Transitiondef}")
             println("    duration: ", agetree[brk].duration)
-            println("    transitions: ")
-            for r in eachrow(agetree[brk].transition)
+            println("    progressions: ")
+            for r in eachrow(agetree[brk].progression)
                 print("        "); println(r)
             end
         end
@@ -161,7 +161,7 @@ function sanitycheck(dectree::Agetree)
 end
 
 """
-Use for Dict representation of trees. Find all sequences of conditions by transition date and current condition through to new conditions
+Use for Dict representation of trees. Find all sequences of conditions by progression date and current condition through to new conditions
 for a single agegrp.
 """
 function getseqs(dt_this_age::Dict; maxsearches = 100)
@@ -175,10 +175,10 @@ function getseqs(dt_this_age::Dict; maxsearches = 100)
     # println(dt_this_age)
 
     # gather the outcomes at the first breakday for the starting conditions
-    # no transition has happened yet: these are initial conditions: the first sequence(s) to be extended
+    # no progression has happened yet: these are initial conditions: the first sequence(s) to be extended
     for fromcond in mapcondition(nil)  # everyone starts at nhil
         for i in 1:size(dt_this_age[k1],2)  # no. of columns
-            outcome = maptransition(i)
+            outcome = mapprogression(i)
             prob = dt_this_age[k1][fromcond, i]
             if (prob != 0.0)    
                 push!(todo, [(duration=k1, fromcond=mapcondition(fromcond), tocond=outcome, prob=prob)])
@@ -190,7 +190,7 @@ function getseqs(dt_this_age::Dict; maxsearches = 100)
     ctr = 0
     while !isempty(todo)
         if (ctr += 1) > maxsearches
-            @assert false "maxsearches exceeded when building sequences through transition tree at $ctr"
+            @assert false "maxsearches exceeded when building sequences through progression tree at $ctr"
         end
         seq = popfirst!(todo)  
         lastnode = seq[end]
@@ -200,8 +200,8 @@ function getseqs(dt_this_age::Dict; maxsearches = 100)
             # @show(brk); println()
   
             for i in 1:size(dt_this_age[k1],2)  # no. of columns
-                outcome = maptransition(i)
-                prob = dt_this_age[brk][mapcondition(tocond), maptransition(outcome)]
+                outcome = mapprogression(i)
+                prob = dt_this_age[brk][mapcondition(tocond), mapprogression(outcome)]
                 # @show(outcome, prob); println();
                 newseq = vcat(seq, (duration=brk, fromcond=tocond, tocond=outcome, prob=prob))
                 # @show(newseq); println()
@@ -246,10 +246,10 @@ function verifyprobs(seqs)
 end
 
 # A transtion tree is provided for the :base variant and optionally other variants.
-# If a variant doesn't provide its own transition tree, it can adjust the :base tree.
-# The tree is stored in dict transitionset[:base], which is a struct Transitionparams in 
+# If a variant doesn't provide its own progression tree, it can adjust the :base tree.
+# The tree is stored in dict progressionset[:base], which is a struct Transitionparams in 
 # the field tree.  The tree is a struct Agetree.
-# At transitionset[:base].tree you find...
+# At progressionset[:base].tree you find...
 #=
 age0_19 =               # field of struct Agetree.  The value of this field is a Dict{Int, Matrix{Float64}}
     {5 =>      
@@ -391,7 +391,7 @@ age80_up =
 
 
 
-# what an older version tree built as a Dict looks like using from->to array for transitions
+# what an older version tree built as a Dict looks like using from->to array for progression
 #=
 agegrp: age0_19 =>
     duration: 25

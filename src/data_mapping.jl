@@ -102,7 +102,7 @@ function maptouch(x::Union{Condition, Status}) # from enum to rows of touch para
 end
 
 
-function maptransition(x::Union{Condition, Status}) # from enum to elements of transition vector
+function mapprogression(x::Union{Condition, Status}) # from enum to elements of progression vector
     if x == recovered
         1
     elseif x == nil
@@ -116,12 +116,12 @@ function maptransition(x::Union{Condition, Status}) # from enum to elements of t
     elseif x == dead
         6
     else
-        @assert false "invalid index for transition vector $x"
+        @assert false "invalid index for progression vector $x"
     end
 end
 
 
-function maptransition(x::Integer) # from integer column to elements of transition vector
+function mapprogression(x::Integer) # from integer column to elements of progression vector
     if x == 1 
         recovered
     elseif x == 2
@@ -135,7 +135,7 @@ function maptransition(x::Integer) # from integer column to elements of transiti
     elseif x == 6
         dead
     else
-        @assert false "invalid index for transition vector $x"
+        @assert false "invalid index for progression vector $x"
     end
 end
 

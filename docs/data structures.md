@@ -112,18 +112,18 @@ Table with 109 columns and 180 rows
 
 ```julia
 model = (ndays=ndays, day1=day1, locales=locales, dat=dat, series=series, geo=geodata, 
-        transitionset=transitionset, vaxset=vaxset, vaxschedset=vaxschedset, infectset=infectset, 
+        progressionset=progressionset, vaxset=vaxset, vaxschedset=vaxschedset, infectset=infectset, 
         social=socialparams, trvec=trvec)  
 ```
 
 ### Transition Trees
 
-Accessing a  transition array from a transition tree uses this path in Julia
+Accessing a  progression array from a progression tree uses this path in Julia
 
 ```
  
 --dict------   variant
-transitionset[omicron_ba1].tree.age0_19[14]    
+progressionset[omicron_ba1].tree.age0_19[14]    
                            |    |
 ---Transitionparams--------|    |      |  |
 ------field tree to Agetree-----|      |  |

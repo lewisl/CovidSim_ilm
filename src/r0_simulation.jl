@@ -26,7 +26,7 @@ The second method simulates r at time t given the characteristics of the simulat
 you are running. This shows how r, reproduction rate, is affected by public health
 measures and the characteristics of the population over time. This simulates r(t).
 """
-function r0_sim(; pop=200_000, age_dist=AGE_DIST, transitionset, infectset, vaxset, socialparams, density_factor=1.0, scale=3)
+function r0_sim(; pop=200_000, age_dist=AGE_DIST, progressionset, infectset, vaxset, socialparams, density_factor=1.0, scale=3)
     if pop < 200_000
         @warn "Population size should be greater than 200,000 for r0_sim. Proceeding with 200,000."
         pop = 200_000
@@ -64,11 +64,11 @@ function r0_sim(; pop=200_000, age_dist=AGE_DIST, transitionset, infectset, vaxs
         n_newly_infected = spread!(r0pop, gen1_infect_idx, contactable_idx,  sdcases, socialparams, infectparams, density_factor)  
         r0_infected += n_newly_infected
 
-        # transition all who are currently infected
+        # progression all who are currently infected
         all_infect_idx = findall(r0pop.status .== infectious)
-        transition!(r0pop, all_infect_idx, transitionset) 
+        progression!(r0pop, all_infect_idx, progressionset) 
 
-        # of the gen1 infected, who is still infected? (some will have transitioned to recovered or dead)
+        # of the gen1 infected, who is still infected? (some will have progressioned to recovered or dead)
         gen1_infect_idx = filter(x -> r0pop.status[x] == infectious, gen1_infect_idx)
     end
 
@@ -77,7 +77,7 @@ function r0_sim(; pop=200_000, age_dist=AGE_DIST, transitionset, infectset, vaxs
 
 end
 
-# transition!(p, infectset, transitionset, vaxset, dovax, riskshift!, transvec,
+# progression!(p, infectset, progressionset, vaxset, dovax, riskshift!, transvec,
 #        c_cond,
 #        c_status,
 #        c_agegrp,
@@ -92,7 +92,7 @@ end
 #        )
 
 
-function r0_sim(locdat; age_dist=AGE_DIST, transitionset=transitionset, socialparams=socialparams, infectparams=infectparams, sdcases=sdcases, density_factor=1.0, scale=5)
+function r0_sim(locdat; age_dist=AGE_DIST, progressionset=progressionset, socialparams=socialparams, infectparams=infectparams, sdcases=sdcases, density_factor=1.0, scale=5)
     # create simulation population
     r0pop = deepcopy(locdat)
 
@@ -122,9 +122,9 @@ function r0_sim(locdat; age_dist=AGE_DIST, transitionset=transitionset, socialpa
     contactable_idx = findall(r0pop.status .!= dead)
     r0_infected += spread!(r0pop, infect_idx, contactable_idx, sdcases, socialparams, infectparams, density_factor)  
 
-    transition!(r0pop, infect_idx, transitionset, infectset) 
+    progression!(r0pop, infect_idx, progressionset, infectset) 
 
-    transition!(p, infectset, transitionset, vaxset, dovax, riskshift!, transvec,
+    progression!(p, infectset, progressionset, vaxset, dovax, riskshift!, transvec,
         c_cond,
         c_status,
         c_agegrp,

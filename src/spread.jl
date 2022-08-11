@@ -288,10 +288,10 @@ Immunity from vaccination for a single person.
 
         if mode == :spread
             infectfactor     = vaxset[vaxrcvd].infectfactor[spr_variant]
-        elseif mode == :transition
+        elseif mode == :progression
             infectfactor     = 1.0
         else
-            throw(DomainError(mode, "Argument must be :spread or :transition"))
+            throw(DomainError(mode, "Argument must be :spread or :progression"))
         end
     end
 
@@ -389,6 +389,10 @@ columns in the population table. Runs social distancing cases.
     targets = social_model(spr, poprange, contactfactors, touchfactors, sdcases, density_factor, gammashape,
                            c_sdcomply, c_agegrp, c_cond, c_status)
 
+    if eltype(targets) != Int
+        @warn "Eltype of targets is not Int"
+    end
+
     
     infection_model!(spr, targets, today, infectset, vaxset,  
                     c_recovday, c_variant, c_vaxstatus, c_vaxrcvd, c_vaxday,   
@@ -406,19 +410,30 @@ function social_model(spr, poprange, contactfactors, touchfactors, sdcases, dens
 
     @inbounds contact_param = c_sdcomply[spr] === :none ? contactfactors : sdcases[c_sdcomply[spr]]
     numcontacts = @inbounds @fastmath how_many_contacts(density_factor, gammashape, c_agegrp[spr], c_cond[spr], contact_param)  
+    
+    # targets =  @fastmath @inbounds [target for target in rand(poprange, numcontacts) if   
+    #                     begin 
+    #                         target_status = c_status[target]
+    #                         if (target_status == unexposed) | (target_status == recovered)  # only conditions that can get infected   
+    #                             touch_param = c_sdcomply[target] === :none ? touchfactors : sdcases[c_sdcomply[target]].tfcase
+    #                             istouched(c_agegrp[target], target_status, touch_param)   # returns true or false
+    #                         else
+    #                             false
+    #                         end
+    #                     end  # when the begin block returns true a value for target is included in the array comprehension
+    #                 ]
 
-    targets =  @fastmath [target for target in [rand(poprange) for i in 1:numcontacts] if (
-                        @inbounds begin 
-                            target_status = c_status[target]
-                            if (target_status == unexposed) | (target_status == recovered)  # only conditions that can get infected   
-                                touch_param = c_sdcomply[target] === :none ? touchfactors : sdcases[c_sdcomply[target].tfcase]
-                                istouched(c_agegrp[target], target_status, touch_param)   # is the contact significant? returns true or false
-                            else
-                                false
-                            end
-                        end
-                        )
-                ]
+
+    targets = filter(rand(poprange, numcontacts)) do target
+            target_status = c_status[target]
+            if (target_status == unexposed) | (target_status == recovered)  # only conditions that can get infected   
+                touch_param = c_sdcomply[target] === :none ? touchfactors : sdcases[c_sdcomply[target]].tfcase
+                istouched(c_agegrp[target], target_status, touch_param)   
+            else
+                false
+            end
+        end  
+
     return targets
 end
 

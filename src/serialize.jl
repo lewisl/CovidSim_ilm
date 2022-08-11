@@ -4,7 +4,7 @@
 
 
 """
-Utility function used by series_to_csv, popdat_to_csv, and modeldef_to_csv
+Utility function used by series_to_csv, popdat_to_csv, and modeldef_to_yaml
 """
 function setpathstr(;pathstr="", idstr="", overwrite=false, usetimestamp=true, basedir=:current)
     datestr = usetimestamp ? string(round(Dates.now(), Dates.Minute(1))) : ""
@@ -190,6 +190,7 @@ function modeldef_to_yaml(ndays::Int, locales::Vector{Int};
         close(io)
 
 end
+
 
 """
     yaml_to_model(fname::String; basedir=:home, pathstr="")

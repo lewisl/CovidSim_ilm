@@ -26,7 +26,7 @@ function r0_sim(pop=200_000, age_dist=AGE_DIST, dectree, infectparams, density_f
         n_newly_infected = spread!(r0pop, gen1_infect_idx, contactable_idx,  sdcases, socialparams, infectparams, density_factor)  
         infect_idx = findall(locdat.status .== infectious)
         r0_infected += n_newly_infected
-        transition!(r0pop, infect_idx, dectree) 
+        progression!(r0pop, infect_idx, dectree) 
     end
 
     r0 =  r0_infected / gen1_infected   # n_newly_infected / cnt_spreaders

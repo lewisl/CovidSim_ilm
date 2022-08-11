@@ -1,7 +1,7 @@
 # TODO
-    # rewrite R0 sim assuming individual spreading and transition
+    # rewrite R0 sim assuming individual spreading and progression
     # add age_dist as optional parameter in geodata
-    # rename transition to be progression
+    # rename progression to be progression
     # add still_infected to summary of statuses
     # should we use statuses of reinfected, breakout? equiv to infectious; need to be filtered
         # whenever we filter for infectious; could help history series
@@ -69,7 +69,7 @@ using Interpolations
 """
 const DAY_CTR = counter(Symbol) # from package DataStructures
 
-hash(x::Integer) = uint(x)  # speed up dicts that use integers as keys--especially for transition
+hash(x::Integer) = uint(x)  # speed up dicts that use integers as keys--especially for progression
 
 
 ################################################################
@@ -125,7 +125,7 @@ include("setup.jl")
 include("tracking.jl")
 include("cases.jl")
 include("test_and_trace.jl")
-include("transition.jl")
+include("progression.jl")
 include("spread.jl")
 include("r0_simulation.jl")
 include("vax.jl")
@@ -166,10 +166,10 @@ export
     makevaxfn,
     vaccinate!
 
-# functions for transition
+# functions for progression
 export
-    transition!,
-    dotransition!
+    progression!,
+    doprogression!
 
 # functions for cases
 export

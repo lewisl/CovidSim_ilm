@@ -35,7 +35,7 @@ The basic processes of the simulation are:
 
 - Transition
 
-	A person who is sick with the virus transitions through stages from nil to either recovered or dead, based on user-defined transition arrays that vary by age group.
+	A person who is sick with the virus progresses through stages from nil to either recovered or dead, based on user-defined progression arrays that vary by age group.
 
 Basic tracking includes cumulative data series for each group, new daily values for each group, and detailed daily progression of spreading.  Charts are defined for cumulative data, daily data, and spreading progression.
 
@@ -56,17 +56,17 @@ There are many input parameters that control the behavior of the simulation. Key
 
     The model is more complicated than assuming one r0 applies to the entire population. R0 is *not* an input; it is an outcome.  The factors above provide different effective transmission rates for different age groups, disease conditions, and stage of infection. The r0 simulation provides a sanity check on transmission to see the resulting r0 for a single cohort that includes all age groups and durations. The model defaults provide for an early stage R0 of roughly 1.8. (Early stage assumes that the infected group is small relative to the population so that transmission is *not* affected by a large group of non-susceptible people, who may be dead, recovered, or already infected).  The r0 simulation can be run "mid-stream" during a simulation to see how case scenarios and epidemic dynamics change shortrun r0, which is as much socially determined as biologically.
 
-Transition of infected individuals (in the disease cell groups above) is controlled by input transition arrays:
+Transition of infected individuals (in the disease cell groups above) is controlled by input progression arrays:
 
-- transition tree of arrays 
+- progression tree of arrays 
 
     1 per age group, determine when the condition of an infected person shifts from nil, to mild, to sick, to severe, to recovering or dying. The tree provides different paths through the stages of the illness to eventual recovering or dying.
 
 - checkpoints
 
-    Rather than assign probabilities at disease inception to determine the severity and duration of an infected individual's sickness, each infected person progresses through up to 25 days of infection. At set intervals--checkpoints--each infected person probabilistically transitions to a new infection condition, recovery, or death.
+    Rather than assign probabilities at disease inception to determine the severity and duration of an infected individual's sickness, each infected person progresses through up to 25 days of infection. At set intervals--checkpoints--each infected person probabilistically progresses to a new infection condition, recovery, or death.
 
-- sanity check on checkpoints and transition matrices
+- sanity check on checkpoints and progression matrices
 
    Each decision tree (for an age group) must resolve all infected individuals to recovered or dead at the end of the maximum duration period (25 days by default). Total probability across all outcomes must sum to 1.0.  The sanity check can be quickly run on a set of decision trees for all 5 age groups. In addition to verifying that probabilities sum to 1, this reports the expected % of recovered and dead by age group, which can be compared to reported clinical outcomes. [Read more...](https://github.com/lewisl/CovidSim_ilm/blob/master/docs/decision%20tree%20concept.md)
 
