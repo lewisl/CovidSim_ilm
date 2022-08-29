@@ -1,5 +1,7 @@
 # TODO
     # rewrite R0 sim assuming individual spreading and progression
+    # get rid of old seeding approach
+    # create generic condition setting function instead of using literals in spread!
     # add age_dist as optional parameter in geodata
     # rename progression to be progression
     # add still_infected to summary of statuses
@@ -118,11 +120,99 @@ const AGEGRPVEC = collect(Symbol.(AGEGRPS)) # vector of symbols
 const AGENAMES = vcat(AGEGRPVEC, :total)
 
 
+#################################################################################
+#   structs
+#################################################################################
+
+# for spread
+
+Base.@kwdef struct Infectparams
+    sendrisk::Vector{Float64}
+    recvrisk::Vector{Float64}
+    recovery_immunity::Dict{Symbol, Float64}
+    immunehalflife::Int64
+    basemultiplier::Float64
+end
+
+        """
+        Method for converting a dict loaded from YAML to this struct
+        """
+        function Infectparams(indict::Dict{Symbol, Any})
+            Infectparams(
+                sendrisk = indict[:sendrisk],
+                recvrisk = indict[:recvrisk],
+                recovery_immunity = indict[:recovery_immunity],
+                immunehalflife = indict[:immunehalflife],
+                basemultiplier = indict[:basemultiplier]
+                )
+        end
+
+
+Base.@kwdef struct SocialParams
+    gammashape::Float64
+    contactfactors::Matrix{Float64}     
+    touchfactors::Matrix{Float64}     
+end
+
+
+Base.@kwdef struct SpreadCase       # Base.@kwdef -> use keyword arguments and defaults in constructor
+    name::Symbol
+    day::Int
+    cfdelta::Tuple{Float64,Float64}  
+    tfdelta::Tuple{Float64,Float64}  
+    comply::Float64             # compliance fraction
+    cfcase::Matrix{Float64}
+    tfcase::Matrix{Float64}
+end
+
+# for progression through disease conditions
+
+Base.@kwdef struct Agetree
+    age0_19::Dict{Int, Matrix{Float64}} = Dict{Int, Matrix{Float64}}()
+    age20_39::Dict{Int, Matrix{Float64}} = Dict{Int, Matrix{Float64}}()
+    age40_59::Dict{Int, Matrix{Float64}} = Dict{Int, Matrix{Float64}}()
+    age60_79::Dict{Int, Matrix{Float64}} =  Dict{Int, Matrix{Float64}}()
+    age80_up::Dict{Int, Matrix{Float64}} = Dict{Int, Matrix{Float64}}()
+end
+
+Base.@kwdef struct ProgressionFactors
+    riskadjust::Union{Vector{Float64}, Nothing}
+    vaxhalflifeadjust::Union{Dict{Symbol, Float64}, Nothing}
+    
+        # inner method
+        function ProgressionFactors(factordict)
+            riskadj = get(factordict, :riskadjust, nothing)
+            vaxadj = get(factordict, :vaxhalflifeadjust, nothing)
+            vaxadj = if !isnothing(vaxadj)
+                        Dict(Symbol(k)=>v for (k,v) in vaxadj)
+                     end
+            new(riskadj, vaxadj)
+        end
+end
+
+Base.@kwdef struct ProgressionParams
+    tree::Union{Agetree, Nothing}
+    factors::ProgressionFactors   # use [] for nothing
+end
+
+
+# for Johns Hopkins US actual data
+struct Col_ref
+    date::String
+    col::Int64
+end
+
+
+########################################################################
+#  file includes
+########################################################################
+
 # order matters for these includes!
 include("data_mapping.jl")
 include("dec_tree.jl")
 include("setup.jl")
-include("tracking.jl")
+include("plotting.jl")
+include("simstats.jl")
 include("cases.jl")
 include("test_and_trace.jl")
 include("progression.jl")
@@ -132,6 +222,11 @@ include("vax.jl")
 include("sim.jl")
 include("johns_hopkins_data.jl")
 include("serialize.jl")
+
+
+##########################################################################################
+# exports
+##########################################################################################
 
 # functions for simulation
 export    
@@ -145,8 +240,7 @@ export
     input!,
     plus!,
     minus!,
-    r0_sim,
-    set_by_level
+    r0_sim
 
 # functions for spreading
 export
@@ -174,7 +268,7 @@ export
 # functions for cases
 export
     test_and_trace,     
-    Spreadcase,
+    SpreadCase,
     sd_gen,
     Term,
     Seedset,
@@ -192,7 +286,7 @@ export
     build_data,
     setup
 
-# functions for tracking
+# functions for plotting
 export                  
     reviewdays,
     cumplot,

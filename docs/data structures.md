@@ -7,18 +7,18 @@ The population data is a table containing a row for each person with columns for
 ##### Trait Columns
 |   Column |   Type   |  Description                            |
 | ----------  | --------- | ----------------------------------- |
-| **status** | Enum{Int} | one of unexposed, infectious[1], recovered, dead |
-| **agegrp** | Enum{Int} | one of age0_19, age20_39, age40_59, age60_79, age80_up |
-| **cond** | Enum{Int} | one of uninfected, nil, mild, sick, severe |
-| **duration** | Integer | no. of days a person has been sick, from 1 to 25 |
-| **variant** |  Symbol | provdied by parameter inputs, currently :base, :alpha, :delta, :omicron_ba1, :omicron_ba2 |
+| **status** | Enum{Int} | Defined by model structure: one of unexposed, infectious[1], recovered, dead |
+| **agegrp** | Enum{Int} | Defined by model structure: one of age0_19, age20_39, age40_59, age60_79, age80_up |
+| **cond** | Enum{Int} | Defined by model structure: one of uninfected, nil, mild, sick, severe |
+| **duration** | Integer | Defined by model structure: no. of days a person has been sick, from 1 to 25 |
+| **variant** |  Symbol | provdied by parameter inputs, currently :base, :alpha, :delta, :omicron_ba1, :omicron_ba2, :omicron_ba4_5 |
 | **sickday** | Vector{Int} | array of each day a person became sick, to account for reinfection |
 | **recovday** | Vector{Int} | array of days a person has recovered |
 | **deadday** | Integer | day of death |
 | **ring** | Symbol | currently not used, but to encode groups of people more likely to interact with each other than people in another ring |
-| **sdcomply** | Symbol | social distancing case applicable to a person |
-| **vaxstatus** | Symbol | one of :none, :first, :full, :booster |
-| **vaxrcvd** | Vector{Symbol} | vector of vaccines received. Currently one of :JnJ, :Moderna, :Pfizer |
+| **sdcase** | Symbol | social distancing case applicable to a person |
+| **vaxstatus** | Symbol | Defined by model structure: one of :none, :first, :full, :booster |
+| **vaxrcvd** | Vector{Symbol} | vector of vaccines received. Provided by parameter inputs, currently one of :JnJ, :Moderna, :Pfizer |
 | **vaxday** | Vector{Int} | vector of days a vaccine shot was received |
 | **tested** | Bool[2] | true or false if a person has been tested in "test and trace" |
 | **testday** | Integer | day of test |
@@ -116,16 +116,16 @@ model = (ndays=ndays, day1=day1, locales=locales, dat=dat, series=series, geo=ge
         social=socialparams, trvec=trvec)  
 ```
 
-### Transition Trees
+### Progression Trees
 
-Accessing a  progression array from a progression tree uses this path in Julia
+Accessing a progression array from a progression tree uses this path in Julia
 
 ```
  
 --dict------   variant
 progressionset[omicron_ba1].tree.age0_19[14]    
                            |    |
----Transitionparams--------|    |      |  |
+---ProgressionParams--------|    |      |  |
 ------field tree to Agetree-----|      |  |
 ---------field age0_19 to a dict-------|  |
 ----------------- dict key duration ---|--| -> pointing

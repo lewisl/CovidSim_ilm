@@ -154,7 +154,7 @@ function pop_data(pop; age_dist=AGE_DIST)
             recovday = [[0] for _ in 1:pop],                                        # Vector{Int}
             deadday = zeros(Int, pop),                                              # Int
             ring = zeros(Int, pop),                                                 # Int (not used as yet)
-            sdcomply = fill(:none, pop),                                            # Symbol
+            sdcase = fill(:none, pop),                                            # Symbol
             vaxstatus = fill(:none, pop),          # :none, :first, :full, :booster  maybe others later...
             vaxrcvd = [[:none] for _ in 1:pop],    # Vector{Symbol} of vaccine symbols  :Pfizer, :Moderna, :JnJ
             vaxday = [[0] for _ in 1:pop],                                          # Vector{Int}
@@ -169,6 +169,7 @@ end
 
 function build_series_table(locales, n_days, day1, seriescolnames)
     calday = range(day1, step=Day(1), length=n_days)
+
     # cols = [col for group in seriescolnames for item in group for col in item]
     cols = [col for group in values(seriescolnames) for item in values(group) for col in values(item)]
     colvals = [zeros(Int,n_days) for _ in 1:length(cols)]
@@ -281,26 +282,26 @@ Returns (progressionset, trvec)
 """
 function build_progression_params(infectdict)
     variantlist = collect(keys(infectdict)) # array of strings to array of symbols
-    progressionset = Dict{Symbol, Transitionparams}()
+    progressionset = Dict{Symbol, ProgressionParams}()
 
     @assert :base in variantlist "Variants parameter file must contain a variant called :base--not there!"
 
     # build the progressionset for :base-->needed to build for other variants
     variant = :base
     @assert !isnothing(infectdict[variant][:progression][:tree]) "progression tree for variant must be provided in parameter file--not there!"
-    progressionset[Symbol(variant)] = Transitionparams(
+    progressionset[Symbol(variant)] = ProgressionParams(
                                             tree=setup_dt(infectdict[variant][:progression][:tree]),
-                                            factors=Transitionfactors(infectdict[variant][:progression][:factors])
+                                            factors=ProgressionFactors(infectdict[variant][:progression][:factors])
                                             )
 
     for variant in variantlist
         variant === :base && continue
-        progressionset[Symbol(variant)] = Transitionparams(
+        progressionset[Symbol(variant)] = ProgressionParams(
                 tree=(  !isnothing(infectdict[variant][:progression][:tree])   ?   
                             setup_dt(infectdict[variant][:progression][:tree]) :    # progression tree was provided for this variant
                             setup_dt(deepcopy(progressionset[:base].tree), infectdict[variant][:progression][:factors][:riskadjust])  # build the tree by adjusting :base
                      ),          
-                factors=Transitionfactors(infectdict[variant][:progression][:factors]))
+                factors=ProgressionFactors(infectdict[variant][:progression][:factors]))
     end
 
     # pre-allocate trvec used in hot loop: no. of columns in progression array
@@ -351,7 +352,7 @@ function build_socialparams(social_inputs::T) where T <: AbstractDict
         end
 
 
-    Socialparams(
+    SocialParams(
         gammashape      = Float64(social_inputs[:gammashape]),
         contactfactors  = cfarr,
         touchfactors    = tfarr
@@ -407,10 +408,24 @@ end
     newmin + (newmax - newmin) / (oldmax - oldmin) * (x - oldmin)
 end
 
-@inline function shifter(x::Array, newmin, newmax)
+@inline function shifter(x::AbstractArray, newmin, newmax)
     oldmin = minimum(x)
     oldmax = maximum(x)
     shifter(x, oldmin, oldmax, newmin, newmax)
+end
+
+
+@inline function shifter(x::AbstractArray, newval, mode::Symbol)
+    if mode === :min
+        newmin = newval
+        newmax = maximum(x)
+    elseif mode === :max
+        newmin = minimum(x)
+        newmax = newval
+    else
+        throw(DomainError(mode, "mode must be one of :min or :max"))
+    end
+    shifter(x, minimum(x), maximum(x), newmin, newmax)
 end
 
 

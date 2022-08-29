@@ -67,6 +67,7 @@ function runsim(model;
         vaxset = model.vaxset
         vaxlist = model.vaxlist
         seriescolnames = model.seriescolnames
+
         vaxschedset = model.vaxschedset
         for sched in values(vaxschedset) 
             for vax in values(sched.vaxesincluded) 
@@ -74,10 +75,16 @@ function runsim(model;
             end
         end
 
+        sdcases = Dict{Symbol, SpreadCase}()  # hold definitions of spreadcases
+
+        if showr0
+            r0sim_output = IOBuffer()  # bullshit to create correct output in VS Code notebooks
+        end
+
     # restart the day counter to zero
     reset!(DAY_CTR, :day)  # return and reset key to 0 :day leftover from prior runs
 
-    sdcases = Dict{Symbol, Spreadcase}()  # hold definitions of spreadcases
+    
 
 
     # execution timers
@@ -110,7 +117,7 @@ function runsim(model;
         c_status     = locdat.status
         c_agegrp     = locdat.agegrp
         c_duration   = locdat.duration
-        c_sdcomply   = locdat.sdcomply
+        c_sdcase   = locdat.sdcase
         c_variant    = locdat.variant
         c_vaxstatus  = locdat.vaxstatus
         c_sickday    = locdat.sickday
@@ -165,7 +172,7 @@ function runsim(model;
                                     c_status,
                                     c_agegrp,
                                     c_duration,
-                                    c_sdcomply,
+                                    c_sdcase,
                                     c_sickday,
                                     c_variant,
                                     c_vaxstatus,
@@ -181,7 +188,7 @@ function runsim(model;
                                     c_status,
                                     c_agegrp,
                                     c_duration,
-                                    c_sdcomply,
+                                    c_sdcase,
                                     c_variant,
                                     c_vaxstatus,
                                     c_recovday,
@@ -198,9 +205,11 @@ function runsim(model;
 
             # r0 displayed every 10 days
             if showr0 && (mod(DAY_CTR[:day],10) == 0)   # do we ever want to do this by locale -- maybe
-                current_r0 = r0_sim(locdat, age_dist=AGE_DIST, dectree=dectree, socialparams=socialparams, 
-                        infectparams=infectparams, sdcases=sdcases)
-                println("day $(DAY_CTR[:day]), locale $loc: rt = $current_r0")
+                current_r0 =  r0_sim(locdat, progressionset, trvec, infectset, vaxset, 
+                        socialparams, dovax, :base, density_factor, 3)
+                write(r0sim_output, "Day: $(DAY_CTR[:day])")
+                write(r0sim_output, " Locale: $loc")
+                write(r0sim_output, " Current r(t): $current_r0 \n"); 
             end
 
             histtime += @elapsed do_history!(locdat, newhist, cumhist, age_idx_loc, today, vaxlist, variantlist, seriescolnames)
@@ -219,7 +228,14 @@ function runsim(model;
     end # locale loop
     end # for totalsimtime
 
-    print_timings(idxtime, vaxtime, sprtime, trtime, histtime, totalsimtime)
+    if showr0                  # bullshit for correct output in VS Code notebooks
+        flush(r0sim_output)
+        printthis = String(take!(r0sim_output))
+        close(r0sim_output)
+    end
+
+    flush(stdout); print_timings(idxtime, vaxtime, sprtime, trtime, histtime, totalsimtime); flush(stdout)
+    showr0 && begin; flush(stdout); println(printthis); end
 
     return popdat, series
 end
@@ -367,7 +383,7 @@ function print_timings(idxtime, vaxtime, sprtime, trtime, histtime, totalsimtime
     @printf "Indexing    %.3f\n" idxtime
     @printf "Vaccination %.3f\n" vaxtime
     @printf "Spread      %.3f\n" sprtime
-    @printf "Transition  %.3f\n" trtime
+    @printf "Progression  %.3f\n" trtime
     @printf "History     %.3f\n" histtime
     @printf "Total       %.3f\n" totalsimtime
 end

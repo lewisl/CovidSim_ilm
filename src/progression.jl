@@ -9,12 +9,12 @@
 """
     progression!(p, infectset, progressionset, vaxset, dovax, riskshift!, transvec, <columns of locdat>)
 
-People who have become infectious progression through cases from
+People who have become infectious progress through conditions from
 nil (asymptomatic) to mild to sick to severe, depending on their
 agegroup, days of being exposed, and some probability. Finally,  
 they move to recovered or dead.
 
-Required columns of locdat are cond, status, agegrp, duration, sdcomply, variant, vaxstatus, recovday
+Required columns of locdat are cond, status, agegrp, duration, sdcase, variant, vaxstatus, recovday,
 vaxrcvd, vaxday, deadday.
 """
 @inline function progression!(p, infectset, progressionset, vaxset, dovax, riskshift!, transvec,
@@ -22,7 +22,7 @@ vaxrcvd, vaxday, deadday.
             c_status,
             c_agegrp,
             c_duration,
-            c_sdcomply,
+            c_sdcase,
             c_variant,
             c_vaxstatus,
             c_recovday,
@@ -34,7 +34,7 @@ vaxrcvd, vaxday, deadday.
     today = DAY_CTR[:day]
 
     if dovax
-        riskshift! = riskshift! == noop ? redistprob! : riskshift!  # last branch new riskshift! was passed in
+        riskshift! = riskshift! == noop ? redistribute_probability! : riskshift!  # last branch new riskshift! was passed in
     end
 
     # extract traits for this person p where p is the row index in locdat
@@ -98,8 +98,11 @@ function riskfactor(recoveff, vaxeff)
 end
 
 
-# this function set to the variable riskshift!
-@inline function redistprob!(transvec, riskfactor, duration)
+"""
+Redistribute the probabilty of progressing through conditions based on
+vaccination, recovery from prior infection and the variant of the patient.
+"""
+@inline function redistribute_probability!(transvec, riskfactor, duration)
     @inbounds begin
 
         excessprob = 0.0
@@ -128,7 +131,7 @@ end
 """
     doprogression!(locdat, p, p_cond, trvec::Union{Vector{Float64}, Nothing})
 
-Transition an infected person to a new condition or status if called
+Progress an infected person to a new condition or status if called
 with a progression vector (trvec) or increment
 the number of days the person has been sick.
 """

@@ -4,123 +4,127 @@
 #    spreading the infection
 ################################
 
+"""
+Infectious people spread the virus to susceptible people for a single locale. Changes attribute
+columns in the population table. Runs social distancing cases.
+"""
+@inline function spread!(spr::Int, thisday::Int, sdcases, socialparams,   
+     infectset, vaxset, density_factor, poprange,    
+        c_cond,
+        c_status,
+        c_agegrp,
+        c_duration,
+        c_sdcase,
+        c_sickday,
+        c_variant,
+        c_vaxstatus,
+        c_recovday,
+        c_vaxrcvd,
+        c_vaxday
+     )
 
-#######################################################################
-# social distancing cases
-#      struct to hold parameters for defining the case
-#      implement the case: 
-#           - set social distance compliance for each person
-#           - define the contactfactors and touchfactors for the case
-#######################################################################          
-# mod_90 = sd_gen(start=90,cf=(.2,1.5), tf=(.18,.6),comply=.85)
-# str_45 = sd_gen(start=45, comply=.90, cf=(.2,1.0), tf=(.18,.3))
-# str_55 = sd_gen(start=55, comply=.95, cf=(.2,1.0), tf=(.18,.3))
+    today = thisday
 
+    # retrieve params
+    contactfactors = socialparams.contactfactors
+    touchfactors   = socialparams.touchfactors
+    gammashape     = socialparams.gammashape
 
-Base.@kwdef struct Infectparams
-    sendrisk::Vector{Float64}
-    recvrisk::Vector{Float64}
-    recovery_immunity::Dict{Symbol, Float64}
-    immunehalflife::Int64
-    basemultiplier::Float64
-end
+    targets = social_model(spr, poprange, contactfactors, touchfactors, sdcases, density_factor, gammashape,
+                           c_sdcase, c_agegrp, c_cond, c_status)
 
-        """
-        Method for converting a dict loaded from YAML to this struct
-        """
-        function Infectparams(indict::Dict{Symbol, Any})
-            Infectparams(
-                sendrisk = indict[:sendrisk],
-                recvrisk = indict[:recvrisk],
-                recovery_immunity = indict[:recovery_immunity],
-                immunehalflife = indict[:immunehalflife],
-                basemultiplier = indict[:basemultiplier]
-                )
-        end
-
-
-Base.@kwdef struct Socialparams
-    gammashape::Float64
-    contactfactors::Matrix{Float64}     
-    touchfactors::Matrix{Float64}     
-end
-
-
-Base.@kwdef struct Spreadcase                 # Base.@kwdef -> use keyword arguments in constructor
-    name::Symbol
-    day::Int
-    cfdelta::Tuple{Float64,Float64}  
-    tfdelta::Tuple{Float64,Float64}  
-    comply::Float64             # compliance fraction
-    cfcase::Matrix{Float64}
-    tfcase::Matrix{Float64}
-end
-
-function sd_gen(;startday::Int, comply::Float64, cf::Tuple{Float64, Float64},
-                tf::Tuple{Float64, Float64}, name::Symbol, include_ages=[])
-    function caserunner(locdat, socialparams, infectset, sdcases, age_idx_loc; day, startofday, locale)   
-        s_d_seed!(locdat, sdcases, startday, comply, cf, tf, name, include_ages, socialparams, infectset, age_idx_loc;
-                    startofday=startofday)
-    end
-end
-
-
-@inline function s_d_seed!(locdat, sdcases, startday, comply, cf, tf, name, include_ages, socialparams, infectset, age_idx_loc; startofday)
-    @assert 0.0 <= comply <= 1.0  "comply must be floating point in 0.0 to 1.0 inclusive"
+    # @assert eltype(targets) == Int "Eltype of targets is not Int"                # for debugging
     
-    startofday || return
+    cnt = infection_model!(spr, targets, today, infectset, vaxset,  
+                    c_recovday, c_variant, c_vaxstatus, c_vaxrcvd, c_vaxday,   
+                    c_duration, c_agegrp, c_sickday, c_cond, c_status)        
 
-    if startday == DAY_CTR[:day]
+    return cnt 
+end       
 
-        if comply == 0.0  # magic signal: if comply is zero turn off this case for include_ages
-            cancel_sd_case!(locdat, sdcases, name, include_ages, age_idx_loc)
-            return
-        end
 
-        # create the Spreadcase in sdcases
-        sdcases[name] = Spreadcase(
-                            name    = name,   # TODO  if we never use this get rid of it
-                            day     = startday,   
-                            cfdelta = cf,         
-                            tfdelta = tf,         
-                            comply  = comply,     
-                            cfcase  = shifter(socialparams.contactfactors, cf...),  
-                            tfcase  = shifter(socialparams.touchfactors, tf...)     
-                            )
+"""
+    Who has been touched by a spreader and might later become infected?
+"""
+function social_model(spr, poprange, contactfactors, touchfactors, sdcases, density_factor, gammashape,
+                      c_sdcase, c_agegrp, c_cond, c_status)
 
-        # load the sdcomply column of the population table
-        # filter1 is everyone who is unexposed, recovered or sick: nil or mild
-        filter1 = findall(((locdat.status .== unexposed) .| (locdat.status .== recovered)) .| 
-                ((locdat.cond .== nil) .| (locdat.cond .== mild)))
-        if (comply == 1.0)   # include everyone in filter1 in this case
-            complyfilter = filter1
-        else
-            complyfilter = sample(filter1, round(Int, comply*length(filter1)), replace=false)
-        end
-        
-        if isempty(include_ages)   # include all include_ages
-            locdat.sdcomply[complyfilter] .= name
-        else
-            byage_idx = intersect(complyfilter, union((age_idx_loc[i] for i in include_ages)...))
-            locdat.sdcomply[byage_idx] .= name
+    @inbounds contact_param = c_sdcase[spr] === :none ? contactfactors : sdcases[c_sdcase[spr]]
+    numcontacts = @inbounds @fastmath how_many_contacts(density_factor, gammashape, c_agegrp[spr], c_cond[spr], contact_param)  
+    
+    targets =  @fastmath @inbounds [target for target in rand(poprange, numcontacts) if   
+                        begin 
+                            target_status = c_status[target]
+                            if (target_status == unexposed) | (target_status == recovered)  # only conditions that can get infected   
+                                touch_param = c_sdcase[target] === :none ? touchfactors : sdcases[c_sdcase[target]].tfcase
+                                istouched(c_agegrp[target], target_status, touch_param)   # returns true or false
+                            else
+                                false
+                            end
+                        end  # when the begin block returns true a value for target is included in the array comprehension
+                    ]
+
+
+    # targets = filter(rand(poprange, numcontacts)) do target
+    #         target_status = c_status[target]
+    #         if (target_status == unexposed) | (target_status == recovered)  # only conditions that can get infected   
+    #             touch_param = c_sdcase[target] === :none ? touchfactors : sdcases[c_sdcase[target]].tfcase
+    #             istouched(c_agegrp[target], target_status, touch_param)   
+    #         else
+    #             false
+    #         end
+    #     end  
+
+    return targets
+end
+
+
+"""
+    Of the targets who have been touched by a spreader, update trait columns for those who become infected...
+"""
+function infection_model!(spr, targets, today, infectset, vaxset,  
+            c_recovday, c_variant, c_vaxstatus, c_vaxrcvd, c_vaxday,   # trait columns
+            c_duration, c_agegrp, c_sickday, c_cond, c_status)         # trait columns
+
+    ret = 0
+
+    @inbounds for target in targets
+        recovday = c_recovday[target][end]
+        spr_variant = c_variant[spr][end]
+
+        recovfactor = if c_status[target] == recovered
+                            targ_variant = c_variant[target][end]
+                            recoveffect(today, recovday, targ_variant, spr_variant, infectset)
+                        else 
+                            1.0
+                        end
+
+        vaxstatus = c_vaxstatus[target]
+        vaxfactor = if vaxstatus === :none
+                        1.0 
+                    else
+                        vaxrcvd = c_vaxrcvd[target][end]
+                        vaxday = c_vaxday[target][end]
+                        vaxeffect(today, infectset, vaxset, vaxstatus, spr_variant, vaxrcvd, vaxday; mode=:spread)
+                    end
+
+        spr_duration = c_duration[spr]
+        targ_agegrp = c_agegrp[target]
+
+        risk = infectrisk(infectset, spr_variant, spr_duration, targ_agegrp, recovfactor, vaxfactor)
+
+        if isinfected(risk)
+            push!(c_variant[target], spr_variant)  # first of possibly several infections...  c_variant[spr][end]
+            push!(c_sickday[target], today)
+            c_duration[target] = 1
+            c_cond[target] = nil
+            c_status[target] = infectious
+            ret += 1
         end
     end
+    return ret
 end
 
-
-function cancel_sd_case!(locdat, sdcases, name, include_ages, age_idx_loc)
-    # filter on who is in this case now
-    incase_idx = findall(locdat.sdcomply .== name)
-
-    if isempty(include_ages)   # include all ages
-        locdat.sdcomply[incase_idx] .= :none
-        delete!(sdcases, name)  # there is no one left in this case...
-    else  # only turn it off for some ages
-        byage_idx = intersect(incase_idx, union((age_idx_loc[i] for i in include_ages)...))
-        locdat.sdcomply[byage_idx] .= :none
-    end    
-
-end
 
 ###################################################################
 # basic functions for the default definition of spread
@@ -139,13 +143,13 @@ method uses the default contactfactors for the current spreader.
 end
 
 """
-    how_many_contacts(density_factor, gammashape, agegrp, cond, acase::Spreadcase)::Int
+    how_many_contacts(density_factor, gammashape, agegrp, cond, acase::SpreadCase)::Int
 
 Returns the number of contacts that someone spreading the disease will make on a day. This 
 method uses the spreadcase applicable to the current spreader but with contactfactors set by
 a spreadcase.
 """
-@inline function how_many_contacts(density_factor, gammashape, agegrp, cond, acase::Spreadcase)::Int
+@inline function how_many_contacts(density_factor, gammashape, agegrp, cond, acase::SpreadCase)::Int
     @inbounds @fastmath scale = density_factor * acase.cfcase[mapcondition(cond), mapagegrp(agegrp)]  
     @fastmath round(Int,rand(Gamma(gammashape, scale)))
 end
@@ -360,125 +364,88 @@ sigmoid(x) = 1.0 / (1.0 + exp(-x))  # smoosh input to 0.0, 1.0
 altrisk(risk) = sigmoid(spreadin(risk))
 
 
-"""
-Infectious people spread the virus to susceptible people for a single locale. Changes attribute
-columns in the population table. Runs social distancing cases.
-"""
-@inline function spread!(spr::Int, thisday::Int, sdcases, socialparams,   
-     infectset, vaxset, density_factor, poprange,    
-        c_cond,
-        c_status,
-        c_agegrp,
-        c_duration,
-        c_sdcomply,
-        c_sickday,
-        c_variant,
-        c_vaxstatus,
-        c_recovday,
-        c_vaxrcvd,
-        c_vaxday
-     )
 
-    today = thisday
+#######################################################################
+# social distancing cases
+#      struct SpreadCase holds parameters for the case
+#      implement the case: 
+#           - set social distance compliance for each person
+#           - define the contactfactors and touchfactors for the case
+#######################################################################          
+# mod_90 = sd_gen(start=90,cf=(.2,1.5), tf=(.18,.6),comply=.85)
+# str_45 = sd_gen(start=45, comply=.90, cf=(.2,1.0), tf=(.18,.3))
+# str_55 = sd_gen(start=55, comply=.95, cf=(.2,1.0), tf=(.18,.3))
 
-    # retrieve params
-    contactfactors = socialparams.contactfactors
-    touchfactors   = socialparams.touchfactors
-    gammashape     = socialparams.gammashape
 
-    targets = social_model(spr, poprange, contactfactors, touchfactors, sdcases, density_factor, gammashape,
-                           c_sdcomply, c_agegrp, c_cond, c_status)
 
-    if eltype(targets) != Int
-        @warn "Eltype of targets is not Int"
+
+function sd_gen(;startday::Int, comply::Float64, cf::Tuple{Float64, Float64},
+                tf::Tuple{Float64, Float64}, name::Symbol, include_ages=[])
+    function caserunner(locdat, socialparams, infectset, sdcases, age_idx_loc; day, startofday, locale)   
+        s_d_seed!(locdat, sdcases, startday, comply, cf, tf, name, include_ages, socialparams, infectset, age_idx_loc;
+                    startofday=startofday)
     end
-
-    
-    infection_model!(spr, targets, today, infectset, vaxset,  
-                    c_recovday, c_variant, c_vaxstatus, c_vaxrcvd, c_vaxday,   
-                    c_duration, c_agegrp, c_sickday, c_cond, c_status)        
-
-    return nothing 
-end       
-
-
-"""
-    Who has been touched by a spreader and might later become infected?
-"""
-function social_model(spr, poprange, contactfactors, touchfactors, sdcases, density_factor, gammashape,
-                      c_sdcomply, c_agegrp, c_cond, c_status)
-
-    @inbounds contact_param = c_sdcomply[spr] === :none ? contactfactors : sdcases[c_sdcomply[spr]]
-    numcontacts = @inbounds @fastmath how_many_contacts(density_factor, gammashape, c_agegrp[spr], c_cond[spr], contact_param)  
-    
-    # targets =  @fastmath @inbounds [target for target in rand(poprange, numcontacts) if   
-    #                     begin 
-    #                         target_status = c_status[target]
-    #                         if (target_status == unexposed) | (target_status == recovered)  # only conditions that can get infected   
-    #                             touch_param = c_sdcomply[target] === :none ? touchfactors : sdcases[c_sdcomply[target]].tfcase
-    #                             istouched(c_agegrp[target], target_status, touch_param)   # returns true or false
-    #                         else
-    #                             false
-    #                         end
-    #                     end  # when the begin block returns true a value for target is included in the array comprehension
-    #                 ]
-
-
-    targets = filter(rand(poprange, numcontacts)) do target
-            target_status = c_status[target]
-            if (target_status == unexposed) | (target_status == recovered)  # only conditions that can get infected   
-                touch_param = c_sdcomply[target] === :none ? touchfactors : sdcases[c_sdcomply[target]].tfcase
-                istouched(c_agegrp[target], target_status, touch_param)   
-            else
-                false
-            end
-        end  
-
-    return targets
 end
 
 
-"""
-    Of the targets who have been touched by a spreader, update trait columns for those who become infected...
-"""
-function infection_model!(spr, targets, today, infectset, vaxset,  
-            c_recovday, c_variant, c_vaxstatus, c_vaxrcvd, c_vaxday,   # trait columns
-            c_duration, c_agegrp, c_sickday, c_cond, c_status)         # trait columns
+@inline function s_d_seed!(locdat, sdcases, startday, comply, cf, tf, name, include_ages, socialparams, infectset, age_idx_loc; startofday)
+    @assert 0.0 <= comply <= 1.0  "comply must be floating point in 0.0 to 1.0 inclusive"
+    
+    startofday || return
 
-    @inbounds for target in targets
-        recovday = c_recovday[target][end]
-        spr_variant = c_variant[spr][end]
+    if startday == DAY_CTR[:day]
 
-        recovfactor = if c_status[target] == recovered
-                            targ_variant = c_variant[target][end]
-                            recoveffect(today, recovday, targ_variant, spr_variant, infectset)
-                        else 
-                            1.0
-                        end
+        if comply == 0.0  # magic signal: if comply is zero turn off this case for include_ages
+            cancel_sd_case!(locdat, sdcases, name, include_ages, age_idx_loc)
+            return
+        end
 
-        vaxstatus = c_vaxstatus[target]
-        vaxfactor = if vaxstatus === :none
-                        1.0 
-                    else
-                        vaxrcvd = c_vaxrcvd[target][end]
-                        vaxday = c_vaxday[target][end]
-                        vaxeffect(today, infectset, vaxset, vaxstatus, spr_variant, vaxrcvd, vaxday; mode=:spread)
-                    end
+        # create the SpreadCase in sdcases
+        sdcases[name] = SpreadCase(
+                            name    = name,   # TODO  if we never use this get rid of it
+                            day     = startday,   
+                            cfdelta = cf,         
+                            tfdelta = tf,         
+                            comply  = comply,     
+                            cfcase  = shifter(socialparams.contactfactors, cf...),  
+                            tfcase  = shifter(socialparams.touchfactors, tf...)     
+                            )
 
-        spr_duration = c_duration[spr]
-        targ_agegrp = c_agegrp[target]
-
-        risk = infectrisk(infectset, spr_variant, spr_duration, targ_agegrp, recovfactor, vaxfactor)
-
-        if isinfected(risk)
-            push!(c_variant[target], spr_variant)  # first of possibly several infections...  c_variant[spr][end]
-            push!(c_sickday[target], today)
-            c_duration[target] = 1
-            c_cond[target] = nil
-            c_status[target] = infectious
+        # load the sdcase column of the population table
+        # filter1 is everyone who is unexposed, recovered or sick: nil or mild
+        filter1 = findall(((locdat.status .== unexposed) .| (locdat.status .== recovered)) .| 
+                ((locdat.cond .== nil) .| (locdat.cond .== mild)))
+        if (comply == 1.0)   # include everyone in filter1 in this case
+            complyfilter = filter1
+        else
+            complyfilter = sample(filter1, round(Int, comply*length(filter1)), replace=false)
+        end
+        
+        if isempty(include_ages)   # include all include_ages
+            locdat.sdcase[complyfilter] .= name
+        else
+            byage_idx = intersect(complyfilter, union((age_idx_loc[i] for i in include_ages)...))
+            locdat.sdcase[byage_idx] .= name
         end
     end
 end
+
+
+function cancel_sd_case!(locdat, sdcases, name, include_ages, age_idx_loc)
+    # filter on who is in this case now
+    incase_idx = findall(locdat.sdcase .== name)
+
+    if isempty(include_ages)   # include all ages
+        locdat.sdcase[incase_idx] .= :none
+        delete!(sdcases, name)  # there is no one left in this case...
+    else  # only turn it off for some ages
+        byage_idx = intersect(incase_idx, union((age_idx_loc[i] for i in include_ages)...))
+        locdat.sdcase[byage_idx] .= :none
+    end    
+
+end
+
+
 
 
 # simple make_sick! for a single person. Assumes that caller doesn't invoke structure of population data
@@ -486,7 +453,7 @@ function make_sick!(locdat, target::Int; cond, variant, duration)
     @inbounds locdat.condition[target] = cond
     @inbounds locdat.status[target] = infectious
     @inbounds push!(c_sickday[target], DAY_CTR[:day])
-    push!(locdat.variant, variant)
+    push!(locdat.variant[target], variant)
     @inbounds locdat.duration[target] = duration
 end
 

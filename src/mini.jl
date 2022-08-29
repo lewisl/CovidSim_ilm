@@ -60,7 +60,7 @@ function pop_data1(pop; age_dist=AGE_DIST)
             recovday = [[0] for _ in 1:pop],                                        # Vector{Int}
             deadday = zeros(Int, pop),                                              # Int
             ring = zeros(Int, pop),                                                 # Int (not used as yet)
-            sdcomply = fill(:none, pop),                                            # Symbol
+            sdcase = fill(:none, pop),                                            # Symbol
             vaxstatus = fill(:none, pop),          # :none, :first, :full, :booster  maybe others later...
             vaxrcvd = [[:none] for _ in 1:pop],    # Vector{Symbol} of vaccine symbols  :Pfizer, :Moderna, :JnJ
             vaxday = [[0] for _ in 1:pop],                                          # Vector{Int}
@@ -88,7 +88,7 @@ function pop_data2(pop; age_dist=AGE_DIST)
         recovday = [[0] for _ in 1:pop],                                        # Vector{Int}
         deadday = zeros(Int, pop),                                              # Int
         ring = zeros(Int, pop),                                                 # Int (not used as yet)
-        sdcomply = fill(:none, pop),                                            # Symbol
+        sdcase = fill(:none, pop),                                            # Symbol
         vaxstatus = fill(:none, pop),          # :none, :first, :full, :booster  maybe others later...
         vaxrcvd = [[:none] for _ in 1:pop],    # Vector{Symbol} of vaccine symbols  :Pfizer, :Moderna, :JnJ
         vaxday = [[0] for _ in 1:pop],                                          # Vector{Int}
@@ -144,7 +144,7 @@ Notes:
 
     NOT IMPLEMENTED YET:
     :quar and :tested may be used to implement cases
-    :sdcomply may used to implement cases
+    :sdcase may used to implement cases
 
 
 locdat[(getproperty(locdat, Symbol(status)) .== unexposed) .& (getproperty(locdat, Symbol(agegrp)) .== age20_39)]

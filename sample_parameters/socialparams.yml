@@ -22,7 +22,8 @@ contactfactors:
 # touchfactors: probability input to binomial distribution 
 #     - determines if target is "touched"
 #     - must be between 0.0 and 1.0
-#     - converted to Matrix{Float64} 5x6 when loaded
+#     - converted to Matrix{Float64} 6x5 when loaded
+#     - 6 statuses as rows by 5 agegrps as columns
 #
 touchfactors:
   age0_19:                                                    

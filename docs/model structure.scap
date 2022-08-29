@@ -17,7 +17,7 @@ variant
 recovday  
 deadday  
 cluster 
-sdcomply   
+sdcase   
 vaxstatus      # :none, :first, :full, :booster
 vaxrcvd        # :pfizer, :moderna, :jnj
 vaxday         # array of int days 

@@ -4,33 +4,6 @@
 # decision tree for progression
 #############################################################
 
-Base.@kwdef struct Agetree
-    age0_19::Dict{Int, Matrix{Float64}} = Dict{Int, Matrix{Float64}}()
-    age20_39::Dict{Int, Matrix{Float64}} = Dict{Int, Matrix{Float64}}()
-    age40_59::Dict{Int, Matrix{Float64}} = Dict{Int, Matrix{Float64}}()
-    age60_79::Dict{Int, Matrix{Float64}} =  Dict{Int, Matrix{Float64}}()
-    age80_up::Dict{Int, Matrix{Float64}} = Dict{Int, Matrix{Float64}}()
-end
-
-Base.@kwdef struct Transitionfactors
-    riskadjust::Union{Vector{Float64}, Nothing}
-    vaxhalflifeadjust::Union{Dict{Symbol, Float64}, Nothing}
-    
-        # inner method
-        function Transitionfactors(factordict)
-            riskadj = get(factordict, :riskadjust, nothing)
-            vaxadj = get(factordict, :vaxhalflifeadjust, nothing)
-            vaxadj = if !isnothing(vaxadj)
-                        Dict(Symbol(k)=>v for (k,v) in vaxadj)
-                     end
-            new(riskadj, vaxadj)
-        end
-end
-
-Base.@kwdef struct Transitionparams
-    tree::Union{Agetree, Nothing}
-    factors::Transitionfactors   # use [] for nothing
-end
 
 
 # method for creating from Dict to nested structs
@@ -134,7 +107,7 @@ function display_tree_struct(tree)
         agetree = getfield(tree, Symbol(agegrp))
         println(agegrp, " # field of struct Agetree, values are vectors")
         for brk in eachindex(agetree)
-            println("    brk: $brk", " # element of Vector{Transitiondef}")
+            println("    brk: $brk", " # sickness duration day on which progression occurs")
             println("    duration: ", agetree[brk].duration)
             println("    progressions: ")
             for r in eachrow(agetree[brk].progression)
@@ -247,7 +220,7 @@ end
 
 # A transtion tree is provided for the :base variant and optionally other variants.
 # If a variant doesn't provide its own progression tree, it can adjust the :base tree.
-# The tree is stored in dict progressionset[:base], which is a struct Transitionparams in 
+# The tree is stored in dict progressionset[:base], which is a struct ProgressionParams in 
 # the field tree.  The tree is a struct Agetree.
 # At progressionset[:base].tree you find...
 #=

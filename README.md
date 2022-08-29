@@ -33,7 +33,7 @@ The basic processes of the simulation are:
 
 	The disease spreads from those who are infected to those who are not. Transmissibility varies with the number of days that an infected person has had it, with asymptomatic transmission assumed. Susceptibility varies by the age group of the recipient. Variants, vaccination, and recovery from prior infection all affect spread. Partial, temporary immunity conferred by recovering from an infection or being vaccinated declines over time.
 
-- Transition
+- Progression
 
 	A person who is sick with the virus progresses through stages from nil to either recovered or dead, based on user-defined progression arrays that vary by age group.
 
@@ -56,7 +56,7 @@ There are many input parameters that control the behavior of the simulation. Key
 
     The model is more complicated than assuming one r0 applies to the entire population. R0 is *not* an input; it is an outcome.  The factors above provide different effective transmission rates for different age groups, disease conditions, and stage of infection. The r0 simulation provides a sanity check on transmission to see the resulting r0 for a single cohort that includes all age groups and durations. The model defaults provide for an early stage R0 of roughly 1.8. (Early stage assumes that the infected group is small relative to the population so that transmission is *not* affected by a large group of non-susceptible people, who may be dead, recovered, or already infected).  The r0 simulation can be run "mid-stream" during a simulation to see how case scenarios and epidemic dynamics change shortrun r0, which is as much socially determined as biologically.
 
-Transition of infected individuals (in the disease cell groups above) is controlled by input progression arrays:
+Progression of infected individuals (in the disease cell groups above) is controlled by input progression arrays:
 
 - progression tree of arrays 
 
