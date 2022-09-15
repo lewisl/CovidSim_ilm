@@ -103,6 +103,9 @@ locdat = popdat[locale];
 # %%
 cumplot(series, locale, [:unexposed, :infectious, :recovered, :dead])
 
+
+
+
 # %% [markdown] tags=[]
 # ### Run and profile
 

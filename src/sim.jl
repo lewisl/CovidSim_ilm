@@ -248,53 +248,51 @@ end
 
 @inline function do_history!(locdat, newhist, cumhist, age_idx_loc, today, vaxlist, variantlist, seriescolnames)  
 
-    # create a 'view' to get rid of unused columns for performance
-        # only using status, cond, vaxrcvd, variant
-        # cuts time by 60%! # this is FAST--reduces time to subset the rows
-        # this is almost costless to do each time function is called
-    sourcedat = getproperties(locdat, (:status, :cond, :vaxrcvd, :variant))
+    statuscol = locdat.status
+    condcol = locdat.cond
+    vaxcol = locdat.vaxrcvd
+    variantcol = locdat.variant
     scn = seriescolnames
 
     @inbounds @fastmath for age in AGEGRPS
 
         age_idx = age_idx_loc[age]
-        dat_age = sourcedat[age_idx]   
+        # dat_age = sourcedat[age_idx]   
+
+        # vectors of count of outcome by trait column for status, cond, vax, and variant
+        status_today = zeros(Int, 4)
+        sick_today = zeros(Int, 4)
+        vax_today = zeros(Int, 3)
+        variant_today = zeros(Int, 6)
 
         # iterate through each person p in the age group
-        # for p in age_idx
+        for p in age_idx
+
             # get the source data: status
-            status_today = zeros(Int, 4)
-            countvec!(status_today, dat_age.status, mapstatus)    # values are Enum status
-            update_series!(cumhist, newhist, scn, STATUSES, status_today, age, today, 
-                            group=:statuscols, intmapper=mapstatus)
+            status_today[mapstatus(statuscol[p])] += 1
 
             # get the source data: conditions in (nil, mild, sick, severe)
-            filt_infectious = findall(dat_age.status .== infectious)
-            if length(filt_infectious) > 0
-                sick_today = zeros(Int, 4)
-                countvec!(sick_today, dat_age.cond[filt_infectious], mapcondition)  #         values are enum Condition
-                update_series!(cumhist, newhist, scn, INFECTIOUS_CASES, sick_today, age, today, 
-                                group=:condcols, intmapper=mapcondition)
-            end   
+            # get the source data: variant in <list of variants.
+            if statuscol[p] == infectious
+                sick_today[mapcondition(condcol[p])] += 1
+                variant_today[variantdict[last(variantcol[p])]] += 1
+            end
+ 
 
             # get the source data: vaccination
-            filt_vaccinated = findall(last.(dat_age.vaxrcvd) .!= :none)
-            if length(filt_vaccinated) > 0
-                vax_today = zeros(Int, 3)
-                countvec!(vax_today, last.(dat_age.vaxrcvd[filt_vaccinated]), vaxdict)  # values are symbol
-                update_series!(cumhist, newhist, scn, vaxlist, vax_today, age, today, 
-                                group=:vaxcols, mapdict=vaxdict)
+            vax_of_p = last(vaxcol[p])
+            if vax_of_p != :none
+                vax_today[vaxdict[vax_of_p]] += 1
             end
+                
+        end # for p in age_idx
 
-            # get the source data: variants: use filt_infectious from above...
-            if length(filt_infectious) > 0
-                variant_today = zeros(Int, 6)
-                countvec!(variant_today, last.(dat_age.variant[filt_infectious]), variantdict)    #  values are symbol
-                update_series!(cumhist, newhist, scn, variantlist, variant_today, age, today, 
-                                    group=:variantcols, mapdict=variantdict)
-            end
-        # end # for p in age_idx
-        
+        # put the counts into the history series
+        update_series!(cumhist, newhist, scn, STATUSES, status_today, age, today, group=:statuscols, intmapper=mapstatus)
+        update_series!(cumhist, newhist, scn, INFECTIOUS_CASES, sick_today, age, today, group=:condcols, intmapper=mapcondition)
+        update_series!(cumhist, newhist, scn, vaxlist, vax_today, age, today, group=:vaxcols, mapdict=vaxdict)
+        update_series!(cumhist, newhist, scn, variantlist, variant_today, age, today, group=:variantcols, mapdict=variantdict)
+
     end # for age in AGEGRPS
 
     # :unexposed special case:  no new people on day 1
