@@ -258,21 +258,21 @@ end
 
 
 
-function vax_recov1(vaxfactor, recovfactor)
+function vax_recov_1(vaxfactor, recovfactor)::Float64
     x = vaxfactor * recovfactor
     x * exp(0.2 - x)
 end
 
-function vax_recov2(vaxfactor, recovfactor)
+function vax_recov_2(vaxfactor, recovfactor)::Float64
     min(vaxfactor, recovfactor)  # each factor is 1 - immunity_effect: small is good because risk = infectrisk * combined factor
 end
 
 
 # choice of simple factor adjustments
-vax_recov_combo = vax_recov2
+vax_recov_combo = vax_recov2  # this seems to cause type instability at line 355 or 356
 
 # the squashfunc must keep the product of ALL combinations of sendrisk and recvrisk between 0.0 and 1.0 inclusive
-squashfunc = simpleclamp
+squashfunc = simpleclamp   # This also causes type instability at line 358
 
 
 """
@@ -280,7 +280,8 @@ squashfunc = simpleclamp
 
 Immunity from vaccination for a single person.
 """
-@inline @fastmath function vaxeffect(today, infectset, vaxset, vaxstatus, spr_variant, vaxrcvd, vaxday; mode=:spread, csig=6.0, decay_lower=0.15)
+@inline @fastmath function vaxeffect(today, infectset, vaxset, vaxstatus, spr_variant, vaxrcvd, vaxday; 
+    mode=:spread, csig=6.0, decay_lower=0.15)::Float64
 
     # vaccine characteristics
     @inbounds begin
@@ -344,7 +345,8 @@ end
 
 
 
-@inline @fastmath function infectrisk(infectset, spr_variant, spr_duration, targ_agegrp, recovfactor, vaxfactor)
+@inline @fastmath function infectrisk(infectset, spr_variant, spr_duration, 
+    targ_agegrp, recovfactor::Float64, vaxfactor::Float64)
 
     # spreader person characteristics
     sendrisk = @inbounds infectset[spr_variant].sendrisk[spr_duration]
@@ -352,8 +354,8 @@ end
     # target person characteristics
     recvrisk = @inbounds infectset[spr_variant].recvrisk[Int(targ_agegrp)]
 
-    combinedfactor = recvrisk * sendrisk * vax_recov_combo(vaxfactor, recovfactor)
-    risk = squashfunc(combinedfactor)                 # this is required because combinedfactor could exceed 1.0
+    combinedfactor = recvrisk * sendrisk * vax_recov_2(vaxfactor, recovfactor)
+    risk = simpleclamp(combinedfactor)                 # this is required because combinedfactor could exceed 1.0
 end
 
 

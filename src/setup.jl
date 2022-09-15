@@ -3,7 +3,8 @@
 ######################################################################################
 
 
-function setup(ndays, locales;  # must provide following inputs
+function setup(ndays::Int64
+    , locales;  # must provide following inputs
     day1,
     dovax=false,
     paramdir,

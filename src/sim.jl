@@ -183,7 +183,7 @@ function runsim(model;
                 end  # sprtime
 
                 trtime += @elapsed begin
-                    progression!(p, infectset, progressionset, vaxset, dovax, noop, trvec,   
+                    progression!(p, infectset, progressionset, vaxset, dovax, trvec,   
                                     c_cond,
                                     c_status,
                                     c_agegrp,
@@ -260,37 +260,40 @@ end
         age_idx = age_idx_loc[age]
         dat_age = sourcedat[age_idx]   
 
-        # get the source data: status
-        status_today = zeros(Int, 4)
-        countvec!(status_today, dat_age.status, mapstatus)    # values are Enum status
-        update_series!(cumhist, newhist, scn, STATUSES, status_today, age, today, 
-                        group=:statuscols, intmapper=mapstatus)
+        # iterate through each person p in the age group
+        # for p in age_idx
+            # get the source data: status
+            status_today = zeros(Int, 4)
+            countvec!(status_today, dat_age.status, mapstatus)    # values are Enum status
+            update_series!(cumhist, newhist, scn, STATUSES, status_today, age, today, 
+                            group=:statuscols, intmapper=mapstatus)
 
-        # get the source data: conditions in (nil, mild, sick, severe)
-        filt_infectious = findall(dat_age.status .== infectious)
-        if length(filt_infectious) > 0
-            sick_today = zeros(Int, 4)
-            countvec!(sick_today, dat_age.cond[filt_infectious], mapcondition)  #         values are enum Condition
-            update_series!(cumhist, newhist, scn, INFECTIOUS_CASES, sick_today, age, today, 
-                            group=:condcols, intmapper=mapcondition)
-        end   
+            # get the source data: conditions in (nil, mild, sick, severe)
+            filt_infectious = findall(dat_age.status .== infectious)
+            if length(filt_infectious) > 0
+                sick_today = zeros(Int, 4)
+                countvec!(sick_today, dat_age.cond[filt_infectious], mapcondition)  #         values are enum Condition
+                update_series!(cumhist, newhist, scn, INFECTIOUS_CASES, sick_today, age, today, 
+                                group=:condcols, intmapper=mapcondition)
+            end   
 
-        # get the source data: vaccination
-        filt_vaccinated = findall(last.(dat_age.vaxrcvd) .!= :none)
-        if length(filt_vaccinated) > 0
-            vax_today = zeros(Int, 3)
-            countvec!(vax_today, last.(dat_age.vaxrcvd[filt_vaccinated]), vaxdict)  # values are symbol
-            update_series!(cumhist, newhist, scn, vaxlist, vax_today, age, today, 
-                            group=:vaxcols, mapdict=vaxdict)
-        end
+            # get the source data: vaccination
+            filt_vaccinated = findall(last.(dat_age.vaxrcvd) .!= :none)
+            if length(filt_vaccinated) > 0
+                vax_today = zeros(Int, 3)
+                countvec!(vax_today, last.(dat_age.vaxrcvd[filt_vaccinated]), vaxdict)  # values are symbol
+                update_series!(cumhist, newhist, scn, vaxlist, vax_today, age, today, 
+                                group=:vaxcols, mapdict=vaxdict)
+            end
 
-        # get the source data: variants: use filt_infectious from above...
-        if length(filt_infectious) > 0
-            variant_today = zeros(Int, 6)
-            countvec!(variant_today, last.(dat_age.variant[filt_infectious]), variantdict)    #  values are symbol
-            update_series!(cumhist, newhist, scn, variantlist, variant_today, age, today, 
-                                group=:variantcols, mapdict=variantdict)
-        end
+            # get the source data: variants: use filt_infectious from above...
+            if length(filt_infectious) > 0
+                variant_today = zeros(Int, 6)
+                countvec!(variant_today, last.(dat_age.variant[filt_infectious]), variantdict)    #  values are symbol
+                update_series!(cumhist, newhist, scn, variantlist, variant_today, age, today, 
+                                    group=:variantcols, mapdict=variantdict)
+            end
+        # end # for p in age_idx
         
     end # for age in AGEGRPS
 

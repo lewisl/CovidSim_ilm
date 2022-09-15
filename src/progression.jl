@@ -17,7 +17,7 @@ they move to recovered or dead.
 Required columns of locdat are cond, status, agegrp, duration, sdcase, variant, vaxstatus, recovday,
 vaxrcvd, vaxday, deadday.
 """
-@inline function progression!(p, infectset, progressionset, vaxset, dovax, riskshift!, transvec,
+@inline function progression!(p, infectset, progressionset, vaxset, dovax, transvec,
             c_cond,
             c_status,
             c_agegrp,
@@ -33,9 +33,6 @@ vaxrcvd, vaxday, deadday.
 
     today = DAY_CTR[:day]
 
-    if dovax
-        riskshift! = riskshift! == noop ? redistribute_probability! : riskshift!  # last branch new riskshift! was passed in
-    end
 
     # extract traits for this person p where p is the row index in locdat
     @inbounds begin
@@ -75,7 +72,9 @@ vaxrcvd, vaxday, deadday.
 
         risk = riskfactor(recoveff, vaxeff)
         
-        riskshift!(transvec, risk, p_duration) 
+        if dovax
+            redistribute_probability!(transvec, risk, p_duration) 
+        end
 
         doprogression!(p, transvec, # perform progression logic and update population table->must pass columns, not scalars  
                         c_duration,

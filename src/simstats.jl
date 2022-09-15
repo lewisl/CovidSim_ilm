@@ -73,7 +73,6 @@ function stat_cond(series, locale)
                   )
 
 
-    @show sum(stat1.total)
 
     # add pct of population columns
     statpct = Table(item = stat1.item, total = stat1.total, total_pct = stat1.total ./ stat1.total[1],   # 
