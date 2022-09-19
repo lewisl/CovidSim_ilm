@@ -237,7 +237,7 @@ function runsim(model;
     flush(stdout); print_timings(idxtime, vaxtime, sprtime, trtime, histtime, totalsimtime); flush(stdout)
     showr0 && begin; flush(stdout); println(printthis); end
 
-    return popdat, series
+    return popdat, series  # final state of population matrix, history data for simulation run by day
 end
 
 
@@ -278,7 +278,6 @@ end
                 variant_today[variantdict[last(variantcol[p])]] += 1
             end
  
-
             # get the source data: vaccination
             vax_of_p = last(vaxcol[p])
             if vax_of_p != :none
@@ -336,13 +335,6 @@ Sum all the series columns for all ages for all groups and items into a :total c
             sumcols = Tuple(scn[group][item][age] for age in AGEGRPVEC)
             getproperty(newhist, totalcol)[:] .= .+(columns(getproperties(newhist, sumcols))...)  # a tuple of column names
             getproperty(cumhist, totalcol)[:] .= .+(columns(getproperties(cumhist, sumcols))...)
-            # keep this around for comparison: easier to understand, but possibly slower
-            # for age in keys(seriescolnames[group][item])   
-            #     age == :total && continue
-            #     thiscol = seriescolnames[group][item][age]
-            #     getproperty(newhist, totalcol)[:] .+= getproperty(newhist, thiscol)
-            #     getproperty(cumhist, totalcol)[:] .+= getproperty(cumhist, thiscol)   
-            # end
         end
     end
 end
@@ -381,12 +373,12 @@ end
 
 function print_timings(idxtime, vaxtime, sprtime, trtime, histtime, totalsimtime)
     println("\nExecution Times")
-    @printf "Indexing    %.3f\n" idxtime
-    @printf "Vaccination %.3f\n" vaxtime
-    @printf "Spread      %.3f\n" sprtime
+    @printf "Indexing     %.3f\n" idxtime
+    @printf "Vaccination  %.3f\n" vaxtime
+    @printf "Spread       %.3f\n" sprtime
     @printf "Progression  %.3f\n" trtime
-    @printf "History     %.3f\n" histtime
-    @printf "Total       %.3f\n" totalsimtime
+    @printf "History      %.3f\n" histtime
+    @printf "Total        %.3f\n" totalsimtime
 end
 
 

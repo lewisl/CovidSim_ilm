@@ -1,13 +1,13 @@
 ####################################################
 # progression.jl for ilm model
-#     change status of folks in simulation:
+#     change condition or status of folks who have gotten sick in the simulation:
 #           progression
-#           travel
+#     travel
 ####################################################
 
     
 """
-    progression!(p, infectset, progressionset, vaxset, dovax, riskshift!, transvec, <columns of locdat>)
+    progression!(p, infectset, progressionset, vaxset, dovax, riskshift!, probvec, <columns of locdat>)
 
 People who have become infectious progress through conditions from
 nil (asymptomatic) to mild to sick to severe, depending on their
@@ -17,7 +17,7 @@ they move to recovered or dead.
 Required columns of locdat are cond, status, agegrp, duration, sdcase, variant, vaxstatus, recovday,
 vaxrcvd, vaxday, deadday.
 """
-@inline function progression!(p, infectset, progressionset, vaxset, dovax, transvec,
+@inline function progression!(p, infectset, progressionset, vaxset, dovax, probvec,
             c_cond,
             c_status,
             c_agegrp,
@@ -45,13 +45,13 @@ vaxrcvd, vaxday, deadday.
         p_variant = c_variant[p][end]
     end
 
-    trtree = progressionset[p_variant].tree   
+    prtree = progressionset[p_variant].tree   
 
-    # if person's agegrp and duration match a progression stage
-    tr_arr = get( getfield(trtree, Symbol(p_agegrp)), p_duration, [])
+    # if person's agegrp and duration match a progression stage, get the progression array for rows=from and cols=to
+    pr_arr = get( getfield(prtree, Symbol(p_agegrp)), p_duration, [])
 
-    if !isempty(tr_arr)  # let's progression person p 
-        transvec[:] = tr_arr[mapcondition(p_cond), :] # probabilities of recovery, nil, mild, sick, severe, dead given current condition
+    if !isempty(pr_arr)  # let's progress person p 
+        probvec[:] = pr_arr[mapcondition(p_cond), :] # probabilities of recovery, nil, mild, sick, severe, dead given current condition
 
         # effect on severity and progressioning based on recovery from a previous infection
         recoveff =  @inbounds if p_status == recovered
@@ -73,10 +73,10 @@ vaxrcvd, vaxday, deadday.
         risk = riskfactor(recoveff, vaxeff)
         
         if dovax
-            redistribute_probability!(transvec, risk, p_duration) 
+            redistribute_probability!(probvec, risk, p_duration) 
         end
 
-        doprogression!(p, transvec, # perform progression logic and update population table->must pass columns, not scalars  
+        doprogression!(p, probvec, # perform progression logic and update population table->must pass columns, not scalars  
                         c_duration,
                         c_deadday,
                         c_status,
@@ -101,25 +101,25 @@ end
 Redistribute the probabilty of progressing through conditions based on
 vaccination, recovery from prior infection and the variant of the patient.
 """
-@inline function redistribute_probability!(transvec, riskfactor, duration)
+@inline function redistribute_probability!(probvec, riskfactor, duration)
     @inbounds begin
 
         excessprob = 0.0
         for toprob in (sick, severe, dead)  
-            idx = mapprogression(toprob)
-            excess1 = transvec[idx] * (1.0 - riskfactor)
-            transvec[idx] = transvec[idx] - excess1  # reduce likelihood of serious outcomes
+            idx = mapprogression(toprob) # in file data_mapping.jl: map enum of condition or status to integer index in the probability vector
+            excess1 = probvec[idx] * (1.0 - riskfactor)
+            probvec[idx] = probvec[idx] - excess1  # reduce probability of serious outcomes
             excessprob += excess1
         end
 
         if duration == DURATIONLIM   # clear anyone left to recovered or dead
             idx = mapprogression(recovered)
-            transvec[idx] = transvec[idx] + excessprob
+            probvec[idx] = probvec[idx] + excessprob
         else
             excessprob = excessprob / 3.0
             for toprob in (recovered, nil, mild)
                 idx = mapprogression(toprob)
-                transvec[idx] = transvec[idx] + excessprob  # redistribute likelihood to less serious outcomes
+                probvec[idx] = probvec[idx] + excessprob  # redistribute probability to less serious outcomes
             end
         end
 
@@ -134,7 +134,7 @@ Progress an infected person to a new condition or status if called
 with a progression vector (trvec) or increment
 the number of days the person has been sick.
 """
-function doprogression!(p, transvec,         
+function doprogression!(p, probvec,         
                 c_duration,
                 c_deadday,
                 c_status,
@@ -142,7 +142,7 @@ function doprogression!(p, transvec,
                 c_recovday
             )
 
-        choice = categorical_sim(transvec) # which outcome based on probability...?
+        choice = categorical_sim(probvec) # which outcome based on probability...?
 
         # debugging
         @assert choice != 0 "choice of to condition resulted in 0. Must be 1 through 6"
@@ -170,6 +170,9 @@ function doprogression!(p, transvec,
     # end
 end
 
+
+
+# TODO   This is ancient code and WILL NOT WORK in current version of simulaton code
 
 """
 For a locale, randomly choose the number of people from each agegroup with

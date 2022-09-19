@@ -269,7 +269,7 @@ end
 
 
 # choice of simple factor adjustments
-vax_recov_combo = vax_recov2  # this seems to cause type instability at line 355 or 356
+vax_recov_combo = vax_recov_2  # this seems to cause type instability at line 355 or 356
 
 # the squashfunc must keep the product of ALL combinations of sendrisk and recvrisk between 0.0 and 1.0 inclusive
 squashfunc = simpleclamp   # This also causes type instability at line 358

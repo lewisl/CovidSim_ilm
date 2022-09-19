@@ -5,7 +5,7 @@ version = "0.8.0"
 repo = "https://github.com/lewisl/CovidSim_ilm.git"
 
 [compat]
-julia = "1.6, 1.7"
+julia = "1"
 #PlotlyBase = "0.7"
 
 [deps]
