@@ -6,11 +6,11 @@
 #       extension: .jl
 #       format_name: percent
 #       format_version: '1.3'
-#       jupytext_version: 1.13.8
+#       jupytext_version: 1.14.1
 #   kernelspec:
-#     display_name: julia 1.8 threads auto env v1.8 1.8.0
+#     display_name: Julia (4 threads) 1.8.1
 #     language: julia
-#     name: julia-1.8-threads-auto-env-v1.8-1.8
+#     name: julia-4-threads-1.8
 # ---
 
 # %%
@@ -18,6 +18,9 @@ using Pkg
 # Pkg.activate("/Users/lewis/.julia/environments/v1.8")
 
 # %%
+readdir()
+
+# %% tags=[]
 # Run this when actively modifying the code in the package
 Pkg.develop(path="/Users/lewis/Dropbox/Covid Modeling/Covid-ILM")
 
@@ -43,7 +46,15 @@ using Tables
 using PrettyTables
 
 # %%
+# Use this command running locally
 cd(joinpath(homedir(),"Dropbox/Covid Modeling/Covid-ILM/src"))
+
+# %%
+# Use this command running on Github Codespaces
+cd("/workspaces/CovidSim_ilm/src")
+
+# %%
+;pwd
 
 # %% [markdown] jp-MarkdownHeadingCollapsed=true tags=[] jp-MarkdownHeadingCollapsed=true tags=[] jp-MarkdownHeadingCollapsed=true tags=[] jp-MarkdownHeadingCollapsed=true jp-MarkdownHeadingCollapsed=true tags=[] jp-MarkdownHeadingCollapsed=true jp-MarkdownHeadingCollapsed=true tags=[] jp-MarkdownHeadingCollapsed=true jp-MarkdownHeadingCollapsed=true tags=[] jp-MarkdownHeadingCollapsed=true jp-MarkdownHeadingCollapsed=true tags=[] jp-MarkdownHeadingCollapsed=true jp-MarkdownHeadingCollapsed=true tags=[] jp-MarkdownHeadingCollapsed=true jp-MarkdownHeadingCollapsed=true jp-MarkdownHeadingCollapsed=true tags=[]
 # # Test setup and population matrix
@@ -61,8 +72,6 @@ model180 = buildsim(ndays, locale;
     scheddir = "vaccine_100k",
     variantfilename = "variants.yml",
 );
-
-
 
 # %% [markdown]
 # # Run the small model
@@ -89,30 +98,19 @@ popdat, series = runsim(model180;
 locdat = popdat[locale];
 
 # %% [markdown] tags=[]
-# ### Run again after compilation
-
-popdat, series = runsim(model180;
-            dovax=false, vaxscheds=:all,
-            runcases=[seed20_39_day1, seed40_59_day1]   
-            );
-locdat = popdat[locale];
-
-# %% [markdown] tags=[]
 # ### Plot results
 
 # %%
 cumplot(series, locale, [:unexposed, :infectious, :recovered, :dead])
 
-
-
-
 # %% [markdown] tags=[]
 # ### Run and profile
-
-@profview popdat, series = runsim(model180;
-                    dovax=false, vaxscheds=:all,
-                runcases=[seed20_39_day1, seed40_59_day1]   
-                );
+#
+# # only in local VS Code
+# @profview popdat, series = runsim(model180;
+#                     dovax=false, vaxscheds=:all,
+#                 runcases=[seed20_39_day1, seed40_59_day1]   
+#                 );
 
 # %% [markdown]
 # ### R0 Simulation
