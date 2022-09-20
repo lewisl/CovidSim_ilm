@@ -138,20 +138,34 @@ function daily_cases_plot(series, popdat, locale, plotcols=[:total]; days="all",
 
     # construct the data series
     maxtimes = maximum(length.(locdat.sickday)) - 1  # maximum no. of times anyone has gotten infected
+
     daily_cases_series = zeros(Int, n, numcols)
+    daily_recoveries_series = zeros(Int, n, numcols)
+    daily_deaths_series = zeros(Int, n, numcols)
+
     for i in 2:maxtimes+1
         for age in AGEGRPS  # accumulate all days on which anyone got sick the 1st, 2nd, 3rd... time
-            daygotsick = countmap(get.(locdat.sickday[locdat.agegrp .== age],i,0))
-            for (k,v) in daygotsick
-                if k == 0
-                    continue  # ignore people who never got infected
+            daygotsick = countmap(get.(locdat.sickday[locdat.agegrp .== age],i,0)) # can get sick multiple times
+            dayrecovered = countmap(get.(locdat.recovday[locdat.agegrp .== age],i,0)) # can recover multiple times
+            daydied = countmap(locdat.deadday[locdat.agegrp .== age])   # you only die once
+
+            for (series, counts) in zip(
+                        [daily_cases_series, daily_recoveries_series, daily_deaths_series], 
+                        [daygotsick, dayrecovered, daydied]
+                        )
+                for (k,v) in counts
+                    if k == 0
+                        continue  # ignore people who never got infected
+                    end
+                    series[k, Int(age)] += v
                 end
-                daily_cases_series[k, Int(age)] += v
             end
         end
     end
 
-    daily_cases_series[:, numcols] = sum(daily_cases_series, dims=2)  # sum the columns across each row
+    for series in [daily_cases_series, daily_recoveries_series, daily_deaths_series]
+        series[:, numcols] = sum(series, dims=2)  # sum the columns across each row
+    end
 
     # prepare plot series
     series_selector = Int[]
@@ -170,6 +184,7 @@ function daily_cases_plot(series, popdat, locale, plotcols=[:total]; days="all",
 
     # annotations and labels
     labels = reshape([labels...], 1, length(labels))
+    labels = reshape(["Cases", "Recoveries", "Deaths"], 1, 3)
     people = if !isempty(geo)
                     geo.pop[geo.fips .== locale]
                 else # this will off by a tiny bit because of rounding
@@ -183,23 +198,26 @@ function daily_cases_plot(series, popdat, locale, plotcols=[:total]; days="all",
     xtickrange = caldays[10]:Day(180):caldays[length(caldays)-10]
     xtickfmt = Dates.format.(xtickrange, "yyyy-mm-dd")
 
-
+    plseries =  hcat(daily_cases_series[days, series_selector],
+                     daily_recoveries_series[days, series_selector],
+                     daily_deaths_series[days, series_selector]
+                    )
 
     # the plot
-    plot(   caldays, daily_cases_series[days, series_selector], 
+    plot(   caldays, plseries[days, :], 
             label=labels,
             size = (700,500),
             lw = 1.5,
             title = "Daily Cases",
             xlabel = "Simulation Days",
             xticks = (xtickrange, xtickfmt),
-            # xticks = caldays[10]:Day(180):caldays[length(caldays)-10],
-            # yaxis = ("People"),
             ylabel = "People",
             color_palette = co_pal,
             reuse =false,
-            # background_color_legend=nothing,
-            # foreground_color_legend=nothing
+            legend_position = :right,
+            legendfontsize = 10,
+            background_color_legend=nothing,
+            foreground_color_legend=nothing
          )
 
     annotate!(caldays[1] + Day(6), 0.51 * ylims()[2],              # half_yscale,
