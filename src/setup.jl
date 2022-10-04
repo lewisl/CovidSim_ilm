@@ -182,6 +182,50 @@ function build_series_table(locales, n_days, day1, seriescolnames)
 end
 
 
+function build_indoor_seq!(indoor_seq, calday, indoor_lift, indoor_start_str, indoor_end_str)
+    indoor_end = Date(indoor_end_str)
+        year_end = year(indoor_end)
+    indoor_start = Date(indoor_start_str)
+        year_start = year(indoor_start)
+
+    if year_end == year_start  # start and end within a calendar year
+
+        for i in eachindex(indoor_seq)
+            testdate = Date(year_end, month(calday[i]), day(calday[i]))  # use relative year
+            if (testdate >= indoor_start) & (testdate <= indoor_end) 
+                indoor_seq[i] += indoor_lift
+            end
+        end
+
+    elseif year_end > year_start  # start in first year, end in following year
+
+        current_year = year(first(calday))
+        set_year = year_start
+
+        for i in eachindex(indoor_seq)
+            if year(calday[i]) > current_year
+                set_year = set_year == year_start ? year_end : year_start # toggle set_year
+                current_year = year(calday[i])     # advance current_year
+            end
+
+            if (month(calday[i]) == 2) & (day(calday[i]) == 29)
+                continue  # the simulation year may be a leap year but the pseudo year is not
+            end
+
+            testdate = Date(set_year, month(calday[i]), day(calday[i]))
+            if (testdate >= indoor_start) & (testdate <= indoor_end) 
+                indoor_seq[i] += indoor_lift
+            end
+        end
+
+    else
+
+        throw(DomainError((indoor_start_str, indoor_end_str), "Date for indoor_end must be > indoor_start"))
+
+    end
+end
+
+
 # column names for series table returned as Dict
 function make_col_names_dict(arr::Vector{Pair{Symbol, Vector}})
     agenames = collect((Symbol.(AGEGRPS)..., :total))
@@ -192,6 +236,7 @@ function make_col_names_dict(arr::Vector{Pair{Symbol, Vector}})
     end
     return ret
 end
+
 
 function gen_col_names_dict(items1, items2)
     Dict(zip(Symbol.(items1), [Dict(zip(items2, repeat_join([st], items2))) for st in items1]))
@@ -207,7 +252,8 @@ function buildgeodata(geotable::T) where T <: Table
     Table(geotable, 
         density_factor = shifter(geotable.density,0.9,1.25), 
         anchor         = quickdate(geotable.anchor),
-        limit          = quickdate(geotable.limit)
+        indoor_st      = quickdate(geotable.indoor_st),
+        indoor_end     = quickdate(geotable.indoor_end)
         )
 end
 
@@ -313,7 +359,7 @@ function build_progression_params(infectdict)
 end
 
 
-function build_socialparams(socialfilename, paramdir)
+function build_socialparams(socialfilename, paramdir)  # first step: read the input file
 
     social_inputs = YAML.load_file(joinpath(paramdir, socialfilename), dicttype=OrderedDict{Symbol, Any})
 
@@ -323,12 +369,11 @@ end
 
 
 
-function build_socialparams(social_inputs::T) where T <: AbstractDict
+function build_socialparams(social_inputs::T) where T <: AbstractDict  # build the data structures based on the inputs
 
-    # social_inputs = YAML.load_file(joinpath(paramdir, socialfilename), dicttype=OrderedDict{Symbol, Any})
 
     # check for all required params
-        required_params = [:contactfactors, :touchfactors, :gammashape]
+        required_params = [:contactfactors, :touchfactors, :gammashape, :indoor_uplift]
         has_all = true
         lacking = []
         for p in required_params
@@ -352,9 +397,10 @@ function build_socialparams(social_inputs::T) where T <: AbstractDict
             tfarr[:, i] .= Float64.(values(v1[2]))
         end
 
-
-    SocialParams(
+    
+    SocialParams(       # struct defined in CovidSim_ilm.jl
         gammashape      = Float64(social_inputs[:gammashape]),
+        indoor_uplift   = Float64(social_inputs[:indoor_uplift]),
         contactfactors  = cfarr,
         touchfactors    = tfarr
         )
@@ -440,6 +486,7 @@ end
     newmax = maxmult * oldmax
     shifter(x, oldmin, oldmax, newmin, newmax)
 end
+
 
 """
     limdict(dct::Dict, op::Function)

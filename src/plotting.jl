@@ -119,7 +119,11 @@ function selpos!(tab::Table)
     end
 end
 
-
+"""
+These plots are different than cumplot, which shows the current value of a status or condition; and from newplot, which shows the net
+change on a given day: additions less subtractions. Daily_cases_plot shows only the additions to a condition
+or status.
+"""
 function daily_cases_plot(series, popdat, locale, plotcols=[:total]; days="all", geo=[], thm=:ggplot2)
     cumhist = series[locale].cum
     newhist = series[locale].new
@@ -133,7 +137,6 @@ function daily_cases_plot(series, popdat, locale, plotcols=[:total]; days="all",
     n = length(newhist)
     days = days == "all" ? (1:n) : days
     numcols = length(AGEGRPS) + 1
-    numseries = length(plotcols)
     caldays = newhist.calday[days]
 
     # construct the data series
@@ -198,6 +201,7 @@ function daily_cases_plot(series, popdat, locale, plotcols=[:total]; days="all",
     xtickrange = caldays[10]:Day(180):caldays[length(caldays)-10]
     xtickfmt = Dates.format.(xtickrange, "yyyy-mm-dd")
 
+    # series
     plseries =  hcat(daily_cases_series[days, series_selector],
                      daily_recoveries_series[days, series_selector],
                      daily_deaths_series[days, series_selector]
@@ -218,10 +222,13 @@ function daily_cases_plot(series, popdat, locale, plotcols=[:total]; days="all",
             legendfontsize = 10,
             background_color_legend=nothing,
             foreground_color_legend=nothing
-         )
+        )
 
-    annotate!(caldays[1] + Day(6), 0.51 * ylims()[2],              # half_yscale,
-         text("Died: $died\nInfected: $infected\nRecovered: $recovered\nUnexposed: $unexp", 
-             11, :left))
+        annotate!(caldays[1] + Day(6), 0.51 * ylims()[2],    # half_yscale,
+            text("Died: $died\n
+                  Infected: $infected\n
+                  Recovered: $recovered\n
+                  Unexposed: $unexp",   # all one string--no commas
+                  11, :left)) # fontsize, alignment
            
 end

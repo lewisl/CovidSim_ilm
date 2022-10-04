@@ -11,3 +11,6 @@ plot(alts.min1)
 plot!(alts.exp1)
 plot!(alts.exp2)
 
+# Squashing functions
+xs = range(0.01,3.0,300)
+

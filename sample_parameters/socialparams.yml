@@ -3,6 +3,15 @@
 #     - Float64, typically in [0.6, 1.5]
 gammashape: 1.0
 #
+#
+# indoor_uplift
+#     how much impact does being indoors more during colder months have on:
+#        - an infected person having more contacts?
+#        - a contact being a more significant touch? (longer/closer interaction)
+#        - used with indoor_st and indoor_end dates in geodata
+#        - reasonable values are between 1.1 and 1.4
+#
+indoor_uplift: 2.0
 # contactfactors: gamma distribution size parameter 
 #     - determines number of contacts per day for each spreader
 #     - converted to Matrix{Float64} 4 x 5 (conditions converted to rows, agegrps to columns)
