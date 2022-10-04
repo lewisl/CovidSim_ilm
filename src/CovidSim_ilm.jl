@@ -1,5 +1,6 @@
 # TODO
-    # rewrite R0 sim assuming individual spreading and progression
+    # extend Term to include comparison operations: ==, <=, <, >=, >, in, and not
+    # provide a function that filters using Term
     # get rid of old seeding approach
     # create generic condition setting function instead of using literals in spread!
     # add age_dist as optional parameter in geodata
@@ -150,6 +151,7 @@ end
 
 Base.@kwdef struct SocialParams
     gammashape::Float64
+    indoor_uplift::Float64
     contactfactors::Matrix{Float64}     
     touchfactors::Matrix{Float64}     
 end

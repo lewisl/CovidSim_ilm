@@ -5,11 +5,11 @@
 ################################
 
 """
-Infectious people spread the virus to susceptible people for a single locale. Changes attribute
-columns in the population table. Runs social distancing cases.
+Infectious people spread the virus to susceptible people for a single locale on thisday. 
+Changes attribute columns in the population table. Runs social distancing cases.
 """
 @inline function spread!(spr::Int, thisday::Int, sdcases, socialparams,   
-     infectset, vaxset, density_factor, poprange,    
+     infectset, vaxset, density_factor, indoor_seq, poprange,    
         c_cond,
         c_status,
         c_agegrp,
@@ -23,19 +23,18 @@ columns in the population table. Runs social distancing cases.
         c_vaxday
      )
 
-    today = thisday
-
     # retrieve params
     contactfactors = socialparams.contactfactors
     touchfactors   = socialparams.touchfactors
     gammashape     = socialparams.gammashape
+    indoor_factor  = indoor_seq[thisday]
 
-    targets = social_model(spr, poprange, contactfactors, touchfactors, sdcases, density_factor, gammashape,
-                           c_sdcase, c_agegrp, c_cond, c_status)
+    targets = social_model(spr, poprange, contactfactors, touchfactors, sdcases, density_factor, indoor_factor, 
+                           gammashape, c_sdcase, c_agegrp, c_cond, c_status)
 
     # @assert eltype(targets) == Int "Eltype of targets is not Int"                # for debugging
     
-    cnt = infection_model!(spr, targets, today, infectset, vaxset,  
+    cnt = infection_model!(spr, targets, thisday, infectset, vaxset,  
                     c_recovday, c_variant, c_vaxstatus, c_vaxrcvd, c_vaxday,   
                     c_duration, c_agegrp, c_sickday, c_cond, c_status)        
 
@@ -46,34 +45,26 @@ end
 """
     Who has been touched by a spreader and might later become infected?
 """
-function social_model(spr, poprange, contactfactors, touchfactors, sdcases, density_factor, gammashape,
-                      c_sdcase, c_agegrp, c_cond, c_status)
+function social_model(spr, poprange, contactfactors, touchfactors, sdcases, density_factor, indoor_factor, 
+                      gammashape, c_sdcase, c_agegrp, c_cond, c_status)
 
+    # how many contacts does the infected person have?
     @inbounds contact_param = c_sdcase[spr] === :none ? contactfactors : sdcases[c_sdcase[spr]]
-    numcontacts = @inbounds @fastmath how_many_contacts(density_factor, gammashape, c_agegrp[spr], c_cond[spr], contact_param)  
-    
+    numcontacts = @inbounds @fastmath how_many_contacts(density_factor, indoor_factor, gammashape, 
+                                                        c_agegrp[spr], c_cond[spr], contact_param)  
+
+    # which targets experienced a meaningful touch by an infected person?
     targets =  @fastmath @inbounds [target for target in rand(poprange, numcontacts) if   
                         begin 
                             target_status = c_status[target]
                             if (target_status == unexposed) | (target_status == recovered)  # only conditions that can get infected   
                                 touch_param = c_sdcase[target] === :none ? touchfactors : sdcases[c_sdcase[target]].tfcase
-                                istouched(c_agegrp[target], target_status, touch_param)   # returns true or false
+                                istouched(c_agegrp[target], target_status, indoor_factor, touch_param)   # returns true or false
                             else
                                 false
                             end
                         end  # when the begin block returns true a value for target is included in the array comprehension
                     ]
-
-
-    # targets = filter(rand(poprange, numcontacts)) do target
-    #         target_status = c_status[target]
-    #         if (target_status == unexposed) | (target_status == recovered)  # only conditions that can get infected   
-    #             touch_param = c_sdcase[target] === :none ? touchfactors : sdcases[c_sdcase[target]].tfcase
-    #             istouched(c_agegrp[target], target_status, touch_param)   
-    #         else
-    #             false
-    #         end
-    #     end  
 
     return targets
 end
@@ -137,8 +128,9 @@ end
 Returns the number of contacts that someone spreading the disease will make on a day. This
 method uses the default contactfactors for the current spreader.
 """
-@inline function how_many_contacts(density_factor, gammashape, agegrp, cond, contactfactors)::Int 
-    @inbounds @fastmath scale = density_factor * contactfactors[mapcondition(cond), mapagegrp(agegrp)]
+@inline function how_many_contacts(density_factor, indoor_factor, gammashape, agegrp, cond, contactfactors)::Int 
+    # indoor_factor is in [1.0, 1.4]. greater than 1.0 increases scale factor for gamma distribution
+    @inbounds @fastmath scale = density_factor * indoor_factor * contactfactors[mapcondition(cond), mapagegrp(agegrp)]
     @fastmath round(Int,rand(Gamma(gammashape, scale)))
 end
 
@@ -149,8 +141,9 @@ Returns the number of contacts that someone spreading the disease will make on a
 method uses the spreadcase applicable to the current spreader but with contactfactors set by
 a spreadcase.
 """
-@inline function how_many_contacts(density_factor, gammashape, agegrp, cond, acase::SpreadCase)::Int
-    @inbounds @fastmath scale = density_factor * acase.cfcase[mapcondition(cond), mapagegrp(agegrp)]  
+@inline function how_many_contacts(density_factor, indoor_factor, gammashape, agegrp, cond, acase::SpreadCase)::Int
+    # indoor_factor is in [1.0, 1.4]. greater than 1.0 increases scale factor for gamma distribution
+    @inbounds @fastmath scale = density_factor * indoor_factor * acase.cfcase[mapcondition(cond), mapagegrp(agegrp)]  
     @fastmath round(Int,rand(Gamma(gammashape, scale)))
 end
 
@@ -162,10 +155,13 @@ Returns true if the contact made was significant to the recipient or false if no
 First method uses the default touchfactors for the current recipient.
 Second method uses the spreadcase for the recipient.
 """
-@inline function istouched(agegrp, lookup, touchfactors)::Bool
-    return @inbounds @fastmath rand(Binomial(1, touchfactors[maptouch(lookup), mapagegrp(agegrp)])) == 1
+@inline function istouched(agegrp, lookup, indoor_factor, touchfactors)::Bool
+    touchprob = (   indoor_factor == 1.0 ? touchfactors[maptouch(lookup), mapagegrp(agegrp)] : 
+                    # squash multiplicative factor to stay under 1.0
+                    tanh(indoor_factor * touchfactors[maptouch(lookup), mapagegrp(agegrp)])
+                    )
+    return @inbounds @fastmath rand(Binomial(1, touchprob)) == 1
 end
-
 
 
 """

@@ -6,11 +6,11 @@
 #       extension: .jl
 #       format_name: percent
 #       format_version: '1.3'
-#       jupytext_version: 1.11.1
+#       jupytext_version: 1.13.8
 #   kernelspec:
-#     display_name: Julia 1.6.0
+#     display_name: julia 1.8 threads auto env v1.8 1.8.0
 #     language: julia
-#     name: julia-1.6
+#     name: julia-1.8-threads-auto-env-v1.8-1.8
 # ---
 
 # %%
@@ -18,6 +18,8 @@ using DataFrames
 using Distributions
 using Plots
 using Random
+using StatsBase
+using Markdown
 
 # %% [markdown]
 # ## Figuring out what distribution and paramaters to use; how to apply to events
@@ -29,10 +31,10 @@ dbin = Binomial(1000,0.1)
 x = rand(dbin,100);
 println(mean(x))
 println(x)
-pyplot()
 histogram(x, bins=10)
-gui()
 
+
+# %%
 # bin the data
 histdata = [count(isequal(i),x) for i in unique(x)]
 println(histdata)
@@ -45,16 +47,13 @@ println(histdata)
 dhypergeo = Hypergeometric(100,200,100) # successes, failures, draws
 x = rand(dhypergeo,100)
 println(mean(x))
-pyplot()
 histogram(x,bins=10)
-gui()
 
 # %%
 dpoiss = Poisson(1)
 x = rand(dpoiss, 1000)
 println(mean(x))
 histogram(x)
-gui()
 
 # %% [markdown]
 # ### The long tail of (some) gamma distributions.
@@ -73,7 +72,9 @@ histogram(x, bins=22)
 derlang = Erlang(1,5)  # integer shape, scale
 x = rand(derlang,100);
 histogram(x,bins=22)
-gui()
+
+
+# %%
 println(round.(Int,x))
 println(round(mean(x)))
 
@@ -83,7 +84,6 @@ println(round(mean(x)))
 
 # %%
 # multiple gamma distributions, varying parameters shape, scale
-pyplot()
 shapes = [0.5, 0.8, 1.0, 1.2, 1.5, 2.0]
 scales = [0.2, 0.5, 1.0, 1.5, 2.0, 2.5]
 p = Array{Any,2}(undef,6,6)
@@ -102,16 +102,16 @@ l = @layout([a1 a2 a3 a4 a5 a6;
              d1 d2 d3 d4 d5 d6; 
              e1 e2 e3 e4 e5 e6; 
              f1 f2 f3 f4 f5 f6])
+display(md"# Gamma Distribution Parameters")
+display(md"Rows: Shape        Columns: Scale")
 plot(p..., layout=l, legend=false, yaxis=false, tickfontsize=6)
-gui()
-        
+
 
 # %% [markdown]
 # ### Variations in Erlang Parameters
 
 # %%
 # multiple gamma distributions, varying parameters shape, scale
-pyplot()
 shapes = [1, 2, 3, 4, 5, 6]
 scales = [1, 2, 3, 4, 5, 6]
 p = Array{Any,2}(undef,6,6)
@@ -129,9 +129,10 @@ l = @layout([a1 a2 a3 a4 a5 a6;
              d1 d2 d3 d4 d5 d6; 
              e1 e2 e3 e4 e5 e6; 
              f1 f2 f3 f4 f5 f6])
+
+display(md"# Erlang Distribution Parameters")
 plot(p..., layout=l, legend=false, yaxis=false, tickfontsize=6)
-gui()
-        
+
 
 # %% [markdown]
 # #### The pdf is a static characteristic of the distribution
@@ -149,16 +150,21 @@ dgamma = Gamma(0.5,1.0)
 x = rand(0.1:0.1:1.5,6)
 rand(dgamma,6)
 
+# %% jupyter={"outputs_hidden": true} tags=[]
+methods(fit)
+
 # %%
-nilprobs = [.6, 0.0, .3, .1, 0.0, 0.0]
+nilprobs = [.6, 0.0, .1, .1, 0.1, 0.1]
 
 dcat = Categorical(nilprobs)
 x = rand(dcat,100)
 println(x)
 println([count(x->x==i, x) for i in 1:6])
-hh = hist(x,6);
-println(hh[1])
-println(hh[2])
+hh = fit(Histogram, x, nbins=6)
+println(fieldnames(typeof(hh)))
+println(hh.weights)
+println(length(hh.weights))
+println(hh.edges)
 
 # %% [markdown]
 # ## Categorical Distribution

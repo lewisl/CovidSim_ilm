@@ -51,7 +51,7 @@ function runsim(model;
             vaxscheds=:none
             )
 
-    # split up  members of model and initialize
+    # split up  members of model
         ndays = model.ndays
         day1 = model.day1
         locales = model.locales
@@ -68,6 +68,7 @@ function runsim(model;
         vaxlist = model.vaxlist
         seriescolnames = model.seriescolnames
 
+        # initialize some factors
         vaxschedset = model.vaxschedset
         for sched in values(vaxschedset) 
             for vax in values(sched.vaxesincluded) 
@@ -111,13 +112,14 @@ function runsim(model;
         cumhist = series[loc].cum
         age_idx_loc = agegrp_idx[loc]  # indices by agegrp
         density_factor = geodf.density_factor[geodf.fips .== loc][1]
+        calday = cumhist.calday
 
         # Deref columns once per locale and not in the deeper loops. Pass needed columns to spread! and progression!
         c_cond       = locdat.cond
         c_status     = locdat.status
         c_agegrp     = locdat.agegrp
         c_duration   = locdat.duration
-        c_sdcase   = locdat.sdcase
+        c_sdcase     = locdat.sdcase
         c_variant    = locdat.variant
         c_vaxstatus  = locdat.vaxstatus
         c_sickday    = locdat.sickday
@@ -129,6 +131,12 @@ function runsim(model;
 
         # other per locale initialization
         poprange = 1:length(locdat)
+        indoor_seq = ones(Float64, ndays)
+        indoor_st = geodf.indoor_st[geodf.fips .== loc][1]
+        indoor_end = geodf.indoor_end[geodf.fips .== loc][1]
+
+        # evaluate which days get indoor_uplift for the entire simulation run instead of in a hot loop
+        build_indoor_seq!(indoor_seq, calday, socialparams.indoor_uplift, indoor_st, indoor_end)
 
         # day loop
         for i = 1:ndays  
@@ -167,7 +175,7 @@ function runsim(model;
                     
                     if sendrisk > 0.0     
                         spread!(p, today, sdcases,  socialparams, infectset, 
-                                vaxset, density_factor, poprange, 
+                                vaxset, density_factor, indoor_seq, poprange, 
                                     c_cond,
                                     c_status,
                                     c_agegrp,
