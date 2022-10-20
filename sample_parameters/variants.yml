@@ -36,7 +36,7 @@ base:                              # variant name
       delta: 0.6
       omicron_ba1: 0.6
       omicron_ba2: 0.6
-      omicron_ba4_5: 0.6
+      omicron_ba4_5: 0.4
 
     # half-life of recovery_immunity after recovering
     immunehalflife: 360   # 240
@@ -257,7 +257,7 @@ alpha:
     recvrisk: []
 
     # muliplier for infectiousness compared to base
-    basemultiplier: 1.2
+    basemultiplier: 1.1
 
 
   immunity:
@@ -268,9 +268,9 @@ alpha:
       base: 0.8
       alpha: 0.8
       delta: 0.7
-      omicron_ba1: 0.7
-      omicron_ba2: 0.7
-      omicron_ba4_5: 0.6
+      omicron_ba1: 0.6
+      omicron_ba2: 0.6
+      omicron_ba4_5: 0.4
 
     # half-life of recovery_immunity after recovering
     immunehalflife: 360    # 240
@@ -304,7 +304,7 @@ delta:
     recvrisk: []
 
     # muliplier for infectiousness compared to base
-    basemultiplier: 1.1
+    basemultiplier: 1.2
 
   immunity:
     # immunity section: how does recovery provide immunity to subsequent re-infection?
@@ -313,9 +313,9 @@ delta:
       base: 0.8
       alpha: 0.8
       delta: 0.9
-      omicron_ba1: 0.8
-      omicron_ba2: 0.7
-      omicron_ba4_5: 0.6
+      omicron_ba1: 0.6
+      omicron_ba2: 0.6
+      omicron_ba4_5: 0.4
 
 
     # half-life of recovery_immunity after recovering
@@ -350,7 +350,7 @@ omicron_ba1:
        # or if not base variant, can be empty
     recvrisk: [0.1, 0.39, 0.44, 0.54, 0.56]
 
-      # muliplier for infectiousness compared to base; ignored if both sendrisk and rcvrisk are NOT empty
+      # muliplier for infectiousness compared to base; ignored if BOTH sendrisk and rcvrisk are provided
     basemultiplier: 1.2
 
   immunity:
@@ -360,9 +360,9 @@ omicron_ba1:
       base: 0.95
       alpha: 0.95
       delta: 0.8
-      omicron_ba1: 0.9
-      omicron_ba2: 0.9
-      omicron_ba4_5: 0.7
+      omicron_ba1: 0.8
+      omicron_ba2: 0.8
+      omicron_ba4_5: 0.6
 
 
     # half-life of recovery_immunity after recovering
@@ -405,9 +405,9 @@ omicron_ba2:
       base: 0.95
       alpha: 0.95
       delta: 0.8
-      omicron_ba1: 0.9
-      omicron_ba2: 0.9
-      omicron_ba4_5: 0.9
+      omicron_ba1: 0.8
+      omicron_ba2: 0.8
+      omicron_ba4_5: 0.6
 
 
     # half-life of recovery_immunity after recovering
@@ -450,9 +450,9 @@ omicron_ba4_5:
       base: 0.95
       alpha: 0.95
       delta: 0.8
-      omicron_ba1: 0.9
-      omicron_ba2: 0.9
-      omicron_ba4_5: 0.9
+      omicron_ba1: 0.8
+      omicron_ba2: 0.8
+      omicron_ba4_5: 0.75
 
     # half-life of recovery_immunity after recovering
     immunehalflife: 360

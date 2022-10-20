@@ -52,35 +52,35 @@ function runsim(model;
             )
 
     # split up  members of model
-        ndays = model.ndays
-        day1 = model.day1
-        locales = model.locales
-        progressionset = model.progressionset  # progression arrays
-        trvec = model.trvec # preallocated small vector
-        popdat = deepcopy(model.dat.popdat)   # Copy the population data so model can be reused!!!
-        agegrp_idx = model.dat.agegrp_idx   # first key is locale
-        series = deepcopy(model.series)  # dict of locales => namedtuple(.cum, .new), TypedTable of history columns
-        geodf = model.geo
-        infectset = model.infectset
-        variantlist = model.variantlist
-        socialparams = model.social
-        vaxset = model.vaxset
-        vaxlist = model.vaxlist
-        seriescolnames = model.seriescolnames
+    ndays = model.ndays
+    day1 = model.day1
+    locales = model.locales
+    progressionset = model.progressionset  # progression arrays
+    trvec = model.trvec # preallocated small vector
+    popdat = deepcopy(model.dat.popdat)   # Copy the population data so model can be reused!!!
+    agegrp_idx = model.dat.agegrp_idx   # first key is locale
+    series = deepcopy(model.series)  # dict of locales => namedtuple(.cum, .new), TypedTable of history columns
+    geodf = model.geo
+    infectset = model.infectset
+    variantlist = model.variantlist
+    socialparams = model.social
+    vaxset = model.vaxset
+    vaxlist = model.vaxlist
+    seriescolnames = model.seriescolnames
 
-        # initialize some factors
-        vaxschedset = model.vaxschedset
-        for sched in values(vaxschedset) 
-            for vax in values(sched.vaxesincluded) 
-                vax.doses = vax.starting_doses   
-            end
+    # initialize some factors
+    vaxschedset = model.vaxschedset
+    for sched in values(vaxschedset) 
+        for vax in values(sched.vaxesincluded) 
+            vax.doses = vax.starting_doses   
         end
+    end
 
-        sdcases = Dict{Symbol, SpreadCase}()  # hold definitions of spreadcases
+    sdcases = Dict{Symbol, SpreadCase}()  # hold definitions of spreadcases
 
-        if showr0
-            r0sim_output = IOBuffer()  # bullshit to create correct output in VS Code notebooks
-        end
+    if showr0
+        r0sim_output = IOBuffer()  # bullshit to create correct output in VS Code notebooks
+    end
 
     # restart the day counter to zero
     reset!(DAY_CTR, :day)  # return and reset key to 0 :day leftover from prior runs
@@ -174,8 +174,8 @@ function runsim(model;
                     sendrisk = infectset[spr_variant].sendrisk[spr_duration]
                     
                     if sendrisk > 0.0     
-                        spread!(p, today, sdcases,  socialparams, infectset, 
-                                vaxset, density_factor, indoor_seq, poprange, 
+                        spread!(p, today, sdcases,  socialparams, infectset, vaxset, density_factor, indoor_seq, poprange, 
+                                    # columns of state table
                                     c_cond,
                                     c_status,
                                     c_agegrp,
@@ -192,6 +192,7 @@ function runsim(model;
 
                 trtime += @elapsed begin
                     progression!(p, infectset, progressionset, vaxset, dovax, trvec,   
+                                    # columns of state table
                                     c_cond,
                                     c_status,
                                     c_agegrp,
@@ -361,10 +362,10 @@ Sum all the series columns for all ages and total across ages for all infectious
     end 
 end
 
+
 """
 Sum all the series columns for all ages and total across ages for all vaccines into :totvaccinated series group of columns.
 """
-
 @inline function update_totvaccinated_series!(newhist, cumhist, vaxlist, scn)
     @fastmath @inbounds for age in AGENAMES  # for each age and "total"  # Tuple(scn[:vaxcols][vax][age] for vax in vaxlist)
         totalcol = scn[:vaxcols][:totvaccinated][age]

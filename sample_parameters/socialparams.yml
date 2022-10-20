@@ -11,7 +11,7 @@ gammashape: 1.0
 #        - used with indoor_st and indoor_end dates in geodata
 #        - reasonable values are between 1.0 (no effect) and 1.4
 #
-indoor_uplift: 1.2
+indoor_uplift: 1.1
 # contactfactors: gamma distribution size parameter 
 #     - determines number of contacts per day for each spreader
 #     - converted to Matrix{Float64} 4 x 5 (conditions converted to rows, agegrps to columns)

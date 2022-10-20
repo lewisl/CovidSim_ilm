@@ -3,8 +3,8 @@
 ######################################################################################
 
 
-function setup(ndays::Int64
-    , locales;  # must provide following inputs
+function setup(ndays::Int64, locales;  
+    # must provide following inputs
     day1,
     dovax=false,
     paramdir,
@@ -138,7 +138,8 @@ end
 Pre-allocate and initialize population data for one locale in the simulation.
 Returns a TypedTable which is a tuple of arrays:
 - each column is a trait of people
-- rows are days of the simulatoin
+- each row is a person who lives in that locale
+This table is updated each day of the simulation.
 """
 function pop_data(pop; age_dist=AGE_DIST)
     
@@ -168,6 +169,19 @@ function pop_data(pop; age_dist=AGE_DIST)
 end
 
 
+"""
+Pre-allocate and initialize table to hold history of the simulation.
+Returns a Dict of TypedTable with 2 keys:
+- key cum is cumulative data for the entire locale. Or you may think of cum as the current value of a statistic.
+- key new is the net change of a statistic for the entire locale. Note that this includes both additions and substractions. In other words, this
+cannot be used as "new daily infections," for example.
+
+For each table the structure is:
+- columns are statistics that are recorded for each day of the simulation
+- rows are days.
+
+This table is updated at the end of each day of the simulation.
+"""
 function build_series_table(locales, n_days, day1, seriescolnames)
     calday = range(day1, step=Day(1), length=n_days)
 
@@ -305,12 +319,16 @@ function build_spread_params(infectdict::Dict)
         if variant === :base
             continue
         end
-        if isempty(infectset[variant].recvrisk) & isempty(infectset[variant].sendrisk)  # use :base for both recvrisk and sendrisk
-            append!(infectset[variant].recvrisk, infectset[:base].recvrisk .* infectset[variant].basemultiplier)
-            append!(infectset[variant].sendrisk, infectset[:base].sendrisk)
+
+        # if no factors provided for this variant, apply multiplier to the base variant 
+        if isempty(infectset[variant].recvrisk) & isempty(infectset[variant].sendrisk)  
+            # use :base for both recvrisk and apply multiplier to sendrisk
+            append!(infectset[variant].recvrisk, infectset[:base].recvrisk)
+            append!(infectset[variant].sendrisk, infectset[:base].sendrisk .* infectset[variant].basemultiplier)
         elseif isempty(infectset[variant].recvrisk)         # use :base for recvrisk
-            append!(infectset[variant].recvrisk, infectset[:base].recvrisk .* infectset[variant].basemultiplier)
-        else isempty(infectset[variant].sendrisk)           # use :base for sendrisk
+            append!(infectset[variant].recvrisk, infectset[:base].recvrisk)
+        else isempty(infectset[variant].sendrisk)           
+            # use :base for sendrisk and apply multiplier
             append!(infectset[variant].sendrisk, infectset[:base].sendrisk .* infectset[variant].basemultiplier)
         end
     end

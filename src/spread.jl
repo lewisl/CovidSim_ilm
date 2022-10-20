@@ -53,7 +53,9 @@ function social_model(spr, poprange, contactfactors, touchfactors, sdcases, dens
     numcontacts = @inbounds @fastmath how_many_contacts(density_factor, indoor_factor, gammashape, 
                                                         c_agegrp[spr], c_cond[spr], contact_param)  
 
-    # which targets experienced a meaningful touch by an infected person?
+    # select the contacts
+
+    # which contacts experienced a meaningful touch by an infected person?
     targets =  @fastmath @inbounds [target for target in rand(poprange, numcontacts) if   
                         begin 
                             target_status = c_status[target]
@@ -158,7 +160,7 @@ Second method uses the spreadcase for the recipient.
 @inline function istouched(agegrp, lookup, indoor_factor, touchfactors)::Bool
     touchprob = (   indoor_factor == 1.0 ? touchfactors[maptouch(lookup), mapagegrp(agegrp)] : 
                     # squash multiplicative factor to stay under 1.0
-                    tanh(indoor_factor * touchfactors[maptouch(lookup), mapagegrp(agegrp)])
+                    simpleclamp(indoor_factor * touchfactors[maptouch(lookup), mapagegrp(agegrp)]) # or tanh--much slower
                     )
     return @inbounds @fastmath rand(Binomial(1, touchprob)) == 1
 end
@@ -248,8 +250,8 @@ function sigmoidshift(x; risk_discount=0.2)
             )
 end
 
-@inline function simpleclamp(x)
-    clamp(x, 0.0, 1.0)
+@inline function simpleclamp(x; bot=0.0, top=0.97)
+    clamp(x, bot, top)
 end
 
 
@@ -319,8 +321,8 @@ Immunity from recovery for a single person.
 
         days_post_recov = today - recovday 
 
-        @inbounds if days_post_recov >= 0   # TODO should be an assert: does this run day of or day after recovery?
-            # get the max immunity
+        @inbounds if days_post_recov >= 0   
+            # get the max immunity for the variant that target recovered from against the variant of the spreader
             immstrength = infectset[targ_variant].recovery_immunity[spr_variant]
 
             # get the declined value
