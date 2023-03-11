@@ -2,7 +2,12 @@
 # Data mapping: generally for enums to ordinal integers
 #       or ordinal integers to enums
 #
+# If/elseif is the fastest way to do this; 
+#    use a struct as the mapper would be a close second: 10% slower
+#    Dictionaries.jl would be close third: 15% slower   ("Dictionary" is the constructor)
+#    both of the latter are easier to maintain and document the assignment
 #####################################################################################
+
 
 """
     mapit(x, keyarr, valuearr)
@@ -24,7 +29,7 @@ Ex:
     targetarr = [150, 225, 325, 471]
     mapit(x, sourcearr, targetarr) # returns 325
 """
-function mapit(x, keyarr, valuearr)
+@inline function mapit(x, keyarr, valuearr)
     @assert length(keyarr) == length(valuearr) "Length of sourcearr not equal length of targetarr"
     for i in eachindex(keyarr)
         if x == keyarr[i]
@@ -35,66 +40,110 @@ function mapit(x, keyarr, valuearr)
 end  # not used as hardwired if-test mapping is WAY faster
 
 
-function countvec!(resvec::Vector{Int}, sourcevec, intmapper::Function)
+@inline function countvec!(resvec::Vector{Int}, sourcevec, intmapper::Function)
     for val in sourcevec
         resvec[intmapper(val)] += 1
     end
 end
 
-function countvec!(resvec::Vector{Int}, sourcevec, mapdict::Dict,  intmapper=mapviadict)
+@inline function countvec!(resvec::Vector{Int}, sourcevec, mapdict::Dict,  intmapper=mapviadict)
     for val in sourcevec
         resvec[intmapper(mapdict, val)] += 1
     end
 end
 
 
-@inline function mapcondition(x::Condition) # from enum to ordinal int
-    if x == uninfected
+@inline function mapcondition(x::Symbol)::Int64 # from symbol to int
+
+    if x === :uninfected
         0
-    else
-        Int(x)-4
-    end
-end
-
-
-@inline function mapcondition(x::Int) # from ordinal int to enum
-    if 0 <= x <= 4
-        if x == 0
-            uninfected
-        elseif x == 1
-            nil
-        elseif x == 2
-            mild
-        elseif x == 3
-            sick
-        else # last condition 4
-            severe
-        end
-    else
-        @assert false "invalid integer for mapping to condition $x"
-    end
-end
-
-@inline function mapagegrp(x::Agegrp) # from enum to int
-    Int(x)
-end
-
-function mapstatus(x::Status)
-    Int(x)
-end
-
-function maptouch(x::Union{Condition, Status}) # from enum to rows of touch parameters
-    if x == unexposed
+    elseif x === :nil
         1
-    elseif x == recovered
+    elseif x === :mild
         2
-    elseif x == nil
+    elseif x === :sick
         3
-    elseif x == mild
+    elseif x === :severe
         4
-    elseif x == sick
+    end
+end
+
+
+# not using this:  close second for performance
+# struct conditions
+#     nil::Int64
+#     mild::Int64
+#     sick::Int64
+#     severe::Int64
+# end
+# 
+# const mapconds = conditions(1,2,3,4)
+
+# @inline function mapcondition_str(x::Symbol, mapconds=mapconds)::Int64
+#     getfield(mapconds,x)
+# end
+
+@inline function mapcondition(x::Int)::Symbol # from int to symbol
+        if x == 0
+            :uninfected
+        elseif x == 1
+            :nil
+        elseif x == 2
+            :mild
+        elseif x == 3
+            :sick
+        elseif x == 4 
+            :severe
+        end
+end
+
+
+
+@inline function mapagegrp(x::Symbol)::Int64
+
+    if x === :age0_19
+        1
+    elseif x === :age20_39
+        2
+    elseif x === :age40_59
+        3
+    elseif x === :age60_79
+        4
+    elseif x === :age80_up
         5
-    elseif x == severe
+    end
+end
+
+
+
+
+
+@inline function mapstatus(x::Symbol)::Int64 # from symbol to int
+    if x === :unexposed
+        1
+    elseif x === :infectious
+        2
+    elseif x === :recovered
+        3
+    elseif x === :dead
+        4
+    end
+end
+
+
+
+@inline function maptouch(x::Symbol)::Int64 # from symbol to rows of touch parameters
+    if x === :unexposed
+        1
+    elseif x === :recovered
+        2
+    elseif x === :nil
+        3
+    elseif x === :mild
+        4
+    elseif x === :sick
+        5
+    elseif x === :severe
         6
     else
         @assert false "invalid index to touchfactors $x"
@@ -102,18 +151,18 @@ function maptouch(x::Union{Condition, Status}) # from enum to rows of touch para
 end
 
 
-function mapprogression(x::Union{Condition, Status}) # from enum to elements of progression vector
-    if x == recovered
+@inline function map_progression(x::Symbol)::Int64 # from enum to elements of progression vector
+    if x === :recovered
         1
-    elseif x == nil
+    elseif x === :nil
         2
-    elseif x == mild
+    elseif x === :mild
         3
-    elseif x == sick
+    elseif x === :sick
         4
-    elseif x == severe
+    elseif x === :severe
         5
-    elseif x == dead
+    elseif x === :dead
         6
     else
         @assert false "invalid index for progression vector $x"
@@ -121,23 +170,25 @@ function mapprogression(x::Union{Condition, Status}) # from enum to elements of 
 end
 
 
-function mapprogression(x::Integer) # from integer column to elements of progression vector
+
+@inline function map_progression(x::Integer)::Symbol # from integer column to symbol elements of progression vector
     if x == 1 
-        recovered
+        :recovered
     elseif x == 2
-        nil
+        :nil
     elseif x == 3
-        mild
+        :mild
     elseif x == 4
-        sick
+        :sick
     elseif x == 5
-        severe
+        :severe
     elseif x == 6
-        dead
+        :dead
     else
         @assert false "invalid index for progression vector $x"
     end
 end
+
 
 const vaxdict = Dict(:Pfizer=>1, :Moderna=>2, :JnJ=>3)
 const variantdict = Dict(:base => 1, :alpha=>2, :delta=>3, :omicron_ba1=>4, :omicron_ba2=>5, :omicron_ba4_5=>6)
@@ -172,52 +223,11 @@ Examples:
 - symbol2agegrp("age0_19") result: agegrp::age0_19 = 1
     
 """
-function symbol2agegrp(x::Union{Symbol, String})::Agegrp
-    x = Symbol(x)
-    inst_a = instances(Agegrp)
-    symtoage = freeze(Dict(zip(Symbol.(inst_a), inst_a))) # .5x time of regular dict
-    @assert in(x, keys(symtoage)) "Error: input symbol $x is not an agegrp value."
-
-    symtoage[x]
+function symbol2agegrp(x::Union{Symbol, String})::Symbol    # Agegrp
+    x = Symbol(x)  # YAML loads age0_19 as string "age0_19"--> convert to Symbol
+    return x
 end
 
-
-"""
-    symbol2condition(x::Union{Symbol String})::Condition  
-Lookup a string or symbol that matches an enum value of Enum Condition.
-Generates an error if the string or symbol does not match.
-
-Examples:
-- symbol2cond(:nil)  result: nil::Condition = 5
-- symbol2cond("nil") result: nil::Condition = 5
-    
-"""
-function symbol2condition(x::Union{Symbol, String})::Condition  
-    x = Symbol(x) 
-    inst_cond = instances(Condition)
-    symtocond = freeze(Dict(zip(Symbol.(inst_cond), inst_cond)))
-
-    symtocond[x]
-end
-
-
-"""
-    symbol2status(x::Union{Symbol String})::Status  
-Lookup a string or symbol that matches an enum value of Enum Status.
-Generates an error if the string or symbol does not match.
-
-Examples:
-- symbol2cond(:recovered)  result: recovered::Status = 3
-- symbol2cond("recovered") result: recovered::Status = 3
-    
-"""
-function symbol2status(x::Union{Symbol, String})::Status  
-    x = Symbol(x) 
-    inst_status = instances(Status)
-    symtostatus = freeze(Dict(zip(Symbol.(inst_status), inst_status)))
-
-    symtostatus[x]
-end
 
 
 function repeat_join(l1::Vector, l2::Vector)

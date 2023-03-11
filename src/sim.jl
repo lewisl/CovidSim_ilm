@@ -149,7 +149,7 @@ function runsim(model;
             end    ## TODO extend ages to be any filter for who participates in a given case
 
             # filter for key people
-            idxtime += @elapsed infect_idx = findall(locdat.status .== infectious) # all the sick and maybe infectious
+            idxtime += @elapsed infect_idx = findall(locdat.status .== :infectious) # all the sick and maybe infectious
             
             # if dovax vaccinate (e.g., give shots)
             dovax && begin
@@ -164,7 +164,7 @@ function runsim(model;
                      end
 
             # person loop
-            @inbounds for p in infect_idx    
+            @inbounds for p in infect_idx    # p is an infected person who potentially spreads virus
 
                 sprtime += @elapsed begin
                     # is this person ACTIVELY infectious
@@ -174,7 +174,8 @@ function runsim(model;
                     sendrisk = infectset[spr_variant].sendrisk[spr_duration]
                     
                     if sendrisk > 0.0     
-                        spread!(p, today, sdcases,  socialparams, infectset, vaxset, density_factor, indoor_seq, poprange, 
+                        spread!(p, today, sdcases,  socialparams, 
+                                infectset, vaxset, density_factor, indoor_seq, poprange, 
                                     # columns of state table
                                     c_cond,
                                     c_status,
@@ -282,7 +283,7 @@ end
 
             # get the source data: conditions in (nil, mild, sick, severe)
             # get the source data: variant in <list of variants.
-            if statuscol[p] == infectious
+            if statuscol[p] == :infectious
                 sick_today[mapcondition(condcol[p])] += 1
                 variant_today[variantdict[last(variantcol[p])]] += 1
             end

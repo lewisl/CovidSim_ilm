@@ -104,7 +104,9 @@ function settraits!(locdat, s::Seedset)
     filt = s.cnt < length(filt) ? filt[1:s.cnt] : filt
 
     for ch in s.change
+
         col = getproperty(locdat, ch.trait)
+
         if isa(first(col), Vector) # if element of the column is a vector, push! the value
             for idx in filt
                 if isempty(col[idx])
@@ -124,15 +126,15 @@ end
 
 
 """
-    makesickseedfunc( ; cond=nil, variant=:base, duration=1, filter::Vector{Term}, cnt, forlocale=0, triggerdate, startofday)
+    makesickseedfunc( ; cond=:nil, variant=:base, duration=1, filter::Vector{Term}, cnt, forlocale=0, triggerdate, startofday)
 
 Create a Seedset that contains the filter for whom to make sick, the traits to be set, and the cnt of people to be changed. 
 
 **And** call seed\\_case\\_gen for you to return the callback function that encloses this Seedset.
 """
-function makesickseedfunc( ; cond=nil, variant=:base, duration=1, filter::Vector{Term}, cnt, forlocale=0, triggerdate, forstartofday)
+function makesickseedfunc( ; cond=:nil, variant=:base, duration=1, filter::Vector{Term}, cnt, forlocale=0, triggerdate, forstartofday)
     ss = Seedset(filter=filter, cnt=cnt, 
-            change=[Term(:status, infectious), Term(:cond, cond), Term(:sickday, triggerdate), Term(:variant, variant), Term(:duration, duration)])
+            change=[Term(:status, :infectious), Term(:cond, cond), Term(:sickday, triggerdate), Term(:variant, variant), Term(:duration, duration)])
 
     seed_case_gen(ss; forlocale=forlocale, triggerdate=triggerdate, forstartofday=forstartofday)
 end

@@ -54,7 +54,7 @@ vaxrcvd, vaxday, deadday.
         probvec[:] = pr_arr[mapcondition(p_cond), :] # probabilities of recovery, nil, mild, sick, severe, dead given current condition
 
         # effect on severity and progressioning based on recovery from a previous infection
-        recoveff =  @inbounds if p_status == recovered
+        recoveff =  @inbounds if p_status == :recovered
                         recoveffect(today, p_recovday, p_variant, infectset)
                     else
                         1.0
@@ -105,20 +105,20 @@ vaccination, recovery from prior infection and the variant of the patient.
     @inbounds begin
 
         excessprob = 0.0
-        for toprob in (sick, severe, dead)  
-            idx = mapprogression(toprob) # in file data_mapping.jl: map enum of condition or status to integer index in the probability vector
+        for toprob in (:sick, :severe, :dead)  
+            idx = map_progression(toprob) # in file data_mapping.jl: map Symbol of condition or status to integer index in the probability vector
             excess1 = probvec[idx] * (1.0 - riskfactor)
             probvec[idx] = probvec[idx] - excess1  # reduce probability of serious outcomes
             excessprob += excess1
         end
 
         if duration == DURATIONLIM   # clear anyone left to recovered or dead
-            idx = mapprogression(recovered)
+            idx = map_progression(:recovered)
             probvec[idx] = probvec[idx] + excessprob
         else
             excessprob = excessprob / 3.0
-            for toprob in (recovered, nil, mild)
-                idx = mapprogression(toprob)
+            for toprob in (:recovered, :nil, :mild)
+                idx = map_progression(toprob)
                 probvec[idx] = probvec[idx] + excessprob  # redistribute probability to less serious outcomes
             end
         end
@@ -147,19 +147,19 @@ function doprogression!(p, probvec,
         # debugging
         @assert choice != 0 "choice of to condition resulted in 0. Must be 1 through 6"
 
-        tocond = mapprogression(choice) # 1->recover, 2->nil, 3->mild, 4->sick, 5->severe, 6->dead  see data_mapping.jl
+        tocond = map_progression(choice) # 1->recover, 2->nil, 3->mild, 4->sick, 5->severe, 6->dead  see data_mapping.jl
 
-        if tocond == dead  
+        if tocond == :dead  
             @inbounds begin
             c_deadday[p] = DAY_CTR[:day]
-            c_status[p] = dead  # change the status
-            c_cond[p] = uninfected # change the condition
+            c_status[p] = :dead  # change the status
+            c_cond[p] = :uninfected # change the condition
             end
-        elseif tocond == recovered
+        elseif tocond == :recovered
             @inbounds begin
             push!(c_recovday[p], DAY_CTR[:day])
-            c_status[p] = recovered
-            c_cond[p] = uninfected   # TODO decide if this makes sense--using this to maintain a history of past infection
+            c_status[p] = :recovered
+            c_cond[p] = :uninfected   # TODO decide if this makes sense--using this to maintain a history of past infection
             end
         else  # tocond to another infectious condition 
             @inbounds begin

@@ -7,9 +7,9 @@ The population data is a table containing a row for each person with columns for
 ##### Trait Columns
 |   Column |   Type   |  Description                            |
 | ----------  | --------- | ----------------------------------- |
-| **status** | Enum{Int} | Defined by model structure: one of unexposed, infectious[1], recovered, dead |
-| **agegrp** | Enum{Int} | Defined by model structure: one of age0_19, age20_39, age40_59, age60_79, age80_up |
-| **cond** | Enum{Int} | Defined by model structure: one of uninfected, nil, mild, sick, severe |
+| **status** | Symbol | Defined by model structure: one of :unexposed, :infectious[1], :recovered, :dead |
+| **agegrp** | Symbol | Defined by model structure: one of :age0_19, :age20_39, :age40_59, :age60_79, :age80_up |
+| **cond** | Symbol | Defined by model structure: one of :uninfected, :nil, :mild, :sick, :severe |
 | **duration** | Integer | Defined by model structure: no. of days a person has been sick, from 1 to 25 |
 | **variant** |  Symbol | provdied by parameter inputs, currently :base, :alpha, :delta, :omicron_ba1, :omicron_ba2, :omicron_ba4_5 |
 | **sickday** | Vector{Int} | array of each day a person became sick, to account for reinfection |

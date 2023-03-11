@@ -38,6 +38,7 @@ function setup(ndays::Int64, locales;
     # history series columns and history series
         colgroups = [:statuscols=>STATUSES, :condcols=>push!(Symbol.(INFECTIOUS_CASES), :totinfected), 
                     :vaxcols=>push!(Symbol.(vaxlist), :totvaccinated), :variantcols=>variantlist]
+
         seriescolnames = make_col_names_dict(colgroups)
         series = build_series_table(locales, ndays, day1, seriescolnames)
 
@@ -145,18 +146,21 @@ function pop_data(pop; age_dist=AGE_DIST)
     
         parts = apportion(pop, age_dist)
 
+        # @show parts
+
         # must use comprehension to initialize vector of vector NOT fill--fill creates identical vectors
         dat = Table(
-            status = fill(unexposed, pop),                                          # enum status
-            agegrp = reduce(vcat,[fill(age, parts[Int(age)]) for age in AGEGRPS]),  # enum agegrp
-            cond = fill(uninfected, pop),                                           # enum Condition
+            status = fill(:unexposed, pop),                                          # Symbol status
+            # agegrp = reduce(vcat,[fill(age, parts[Int(age)]) for age in AGEGRPS]),  # Symbol agegrp
+            agegrp = reduce(vcat,[fill(age, parts[i]) for (i,age) in enumerate(AGEGRPS)]),  # Symbol agegrp
+            cond = fill(:uninfected, pop),                                           # Symbol Condition
             duration = zeros(Int, pop),                                             # Int
             variant = [Symbol[] for _ in 1:pop],                                    # Vector{Symbol}
             sickday = [[0] for _ in 1:pop],                                         # Vector{Int}
             recovday = [[0] for _ in 1:pop],                                        # Vector{Int}
             deadday = zeros(Int, pop),                                              # Int
             ring = zeros(Int, pop),                                                 # Int (not used as yet)
-            sdcase = fill(:none, pop),                                            # Symbol
+            sdcase = fill(:none, pop),                                              # Symbol
             vaxstatus = fill(:none, pop),          # :none, :first, :full, :booster  maybe others later...
             vaxrcvd = [[:none] for _ in 1:pop],    # Vector{Symbol} of vaccine symbols  :Pfizer, :Moderna, :JnJ
             vaxday = [[0] for _ in 1:pop],                                          # Vector{Int}
@@ -241,7 +245,7 @@ end
 
 
 # column names for series table returned as Dict
-function make_col_names_dict(arr::Vector{Pair{Symbol, Vector}})
+function make_col_names_dict(arr::Vector{Pair{Symbol, Vector{Symbol}}})     # Vector{Pair{Symbol, Vector}}
     agenames = collect((Symbol.(AGEGRPS)..., :total))
        #       group         item         age    colname
     ret = Dict{Symbol, Dict{Symbol, Dict{Symbol, Symbol}}}()
@@ -546,7 +550,7 @@ numerical values at the lower level.
 end
 
 
-function apportion(x::Int, splits::Array)
+function apportion(x::Int, splits::Array)  # x is the number to be split into portions
     @assert isapprox(sum(splits), 1.0)
     maxidx = argmax(splits)
     parts = round.(Int, splits .* x)

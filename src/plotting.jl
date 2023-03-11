@@ -160,7 +160,7 @@ function daily_cases_plot(series, popdat, locale, plotcols=[:total]; days="all",
                     if k == 0
                         continue  # ignore people who never got infected
                     end
-                    series[k, Int(age)] += v
+                    series[k, mapagegrp(age)] += v
                 end
             end
         end

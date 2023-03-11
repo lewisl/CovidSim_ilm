@@ -151,7 +151,7 @@ function getseqs(dt_this_age::Dict; maxsearches = 100)
     # no progression has happened yet: these are initial conditions: the first sequence(s) to be extended
     for fromcond in mapcondition(nil)  # everyone starts at nhil
         for i in 1:size(dt_this_age[k1],2)  # no. of columns
-            outcome = mapprogression(i)
+            outcome = map_progression(i)
             prob = dt_this_age[k1][fromcond, i]
             if (prob != 0.0)    
                 push!(todo, [(duration=k1, fromcond=mapcondition(fromcond), tocond=outcome, prob=prob)])
@@ -173,8 +173,8 @@ function getseqs(dt_this_age::Dict; maxsearches = 100)
             # @show(brk); println()
   
             for i in 1:size(dt_this_age[k1],2)  # no. of columns
-                outcome = mapprogression(i)
-                prob = dt_this_age[brk][mapcondition(tocond), mapprogression(outcome)]
+                outcome = map_progression(i)
+                prob = dt_this_age[brk][mapcondition(tocond), map_progression(outcome)]
                 # @show(outcome, prob); println();
                 newseq = vcat(seq, (duration=brk, fromcond=tocond, tocond=outcome, prob=prob))
                 # @show(newseq); println()

@@ -6,11 +6,11 @@
 #       extension: .jl
 #       format_name: percent
 #       format_version: '1.3'
-#       jupytext_version: 1.14.1
+#       jupytext_version: 1.13.8
 #   kernelspec:
-#     display_name: Julia (4 threads) 1.8.1
+#     display_name: julia 1.8 threads auto env v1.8 1.8.0
 #     language: julia
-#     name: julia-4-threads-1.8
+#     name: julia-1.8-threads-auto-env-v1.8-1.8
 # ---
 
 # %%
@@ -18,11 +18,8 @@ using Pkg
 # Pkg.activate("/Users/lewis/.julia/environments/v1.8")
 
 # %%
-readdir()
-
-# %% tags=[]
 # Run this when actively modifying the code in the package
-Pkg.develop(path="/Users/lewis/Dropbox/Covid Modeling/Covid-ILM")
+Pkg.develop(path=joinpath(homedir(),"Dropbox/Covid Modeling/Covid-ILM"))
 
 # %%
 using CovidSim_ilm
@@ -40,23 +37,14 @@ using PrettyPrint
 using LinearAlgebra
 using Dates
 using Plots
-using TableView
 using SplitApplyCombine
 using Tables
 using PrettyTables
 
 # %%
-# Use this command running locally
 cd(joinpath(homedir(),"Dropbox/Covid Modeling/Covid-ILM/src"))
 
-# %%
-# Use this command running on Github Codespaces
-cd("/workspaces/CovidSim_ilm/src")
-
-# %%
-;pwd
-
-# %% [markdown] jp-MarkdownHeadingCollapsed=true tags=[] jp-MarkdownHeadingCollapsed=true tags=[] jp-MarkdownHeadingCollapsed=true tags=[] jp-MarkdownHeadingCollapsed=true jp-MarkdownHeadingCollapsed=true tags=[] jp-MarkdownHeadingCollapsed=true jp-MarkdownHeadingCollapsed=true tags=[] jp-MarkdownHeadingCollapsed=true jp-MarkdownHeadingCollapsed=true tags=[] jp-MarkdownHeadingCollapsed=true jp-MarkdownHeadingCollapsed=true tags=[] jp-MarkdownHeadingCollapsed=true jp-MarkdownHeadingCollapsed=true tags=[] jp-MarkdownHeadingCollapsed=true jp-MarkdownHeadingCollapsed=true jp-MarkdownHeadingCollapsed=true tags=[]
+# %% [markdown] jp-MarkdownHeadingCollapsed=true tags=[] jp-MarkdownHeadingCollapsed=true tags=[] jp-MarkdownHeadingCollapsed=true tags=[] jp-MarkdownHeadingCollapsed=true jp-MarkdownHeadingCollapsed=true tags=[] jp-MarkdownHeadingCollapsed=true jp-MarkdownHeadingCollapsed=true tags=[] jp-MarkdownHeadingCollapsed=true jp-MarkdownHeadingCollapsed=true tags=[] jp-MarkdownHeadingCollapsed=true jp-MarkdownHeadingCollapsed=true tags=[] jp-MarkdownHeadingCollapsed=true jp-MarkdownHeadingCollapsed=true tags=[] jp-MarkdownHeadingCollapsed=true jp-MarkdownHeadingCollapsed=true tags=[]
 # # Test setup and population matrix
 
 # %% tags=[]
@@ -80,14 +68,15 @@ model180 = buildsim(ndays, locale;
 # ### Seed with base variant on day 1
 
 # %%
-
-seed20_39_day1 = makesickseedfunc(; cond=nil, variant=:base, duration=1, filter=[Term(:agegrp, age20_39), Term(:status, unexposed)], 
+seed20_39_day1 = makesickseedfunc(; cond=:nil, variant=:base, duration=1, filter=[Term(:agegrp, :age20_39), Term(:status, :unexposed)], 
                             cnt=3, forlocale=0, triggerdate=1, forstartofday=true);
-seed40_59_day1 = makesickseedfunc(; cond=nil, variant=:base, duration=1, filter=[Term(:agegrp, age40_59), Term(:status, unexposed)], 
+seed40_59_day1 = makesickseedfunc(; cond=:nil, variant=:base, duration=1, filter=[Term(:agegrp, :age40_59), Term(:status, :unexposed)], 
                             cnt=3, forlocale=0, triggerdate=1, forstartofday=true);           
 
+# %%
+model180.social.indoor_uplift
 
-# %% [markdown] tags=[]
+# %% [markdown]
 # ### Run and Compile
 
 # %%
@@ -97,20 +86,12 @@ popdat, series = runsim(model180;
             );
 locdat = popdat[locale];
 
+
 # %% [markdown] tags=[]
 # ### Plot results
 
 # %%
 cumplot(series, locale, [:unexposed, :infectious, :recovered, :dead])
-
-# %% [markdown] tags=[]
-# ### Run and profile
-#
-# # only in local VS Code
-# @profview popdat, series = runsim(model180;
-#                     dovax=false, vaxscheds=:all,
-#                 runcases=[seed20_39_day1, seed40_59_day1]   
-#                 );
 
 # %% [markdown]
 # ### R0 Simulation
@@ -222,17 +203,20 @@ model180.infectset
 # %%
 fieldnames(typeof(model180.infectset[:omicron_ba1]))
 
-# %%
+# %% jupyter={"outputs_hidden": true} tags=[]
 pprintln(model180.infectset)
 
-# %%
+# %% jupyter={"outputs_hidden": true} tags=[]
 pprintln(model180.infectset[:base])
+
+# %%
+model180.infectset[:base].basemultiplier
 
 # %%
 sendbase = model180.infectset[:base].sendrisk
 recvbase = model180.infectset[:base].recvrisk
 
-# %%
+# %% jupyter={"outputs_hidden": true} tags=[]
 pprint(model180.infectset[:alpha])
 
 # %%
@@ -288,6 +272,15 @@ basetransition.factors.vaxhalflifeadjust
 model180.vaxset
 
 # %%
+model180.vaxset[:Moderna]
+
+# %%
+fieldnames(typeof(model180.vaxset[:Moderna]))
+
+# %%
+model180.vaxset[:Moderna].infectfactor
+
+# %%
 model180.vaxschedset[:loc38015]
 
 # %% [markdown]
@@ -303,7 +296,7 @@ cs.sanitycheck(basetransition.tree)
 # ### Build the simulation model
 
 # %%
-ndays = 850
+ndays = 1269
 locale = 38015
 model = buildsim(ndays, locale;  
     day1 = Date("2020-01-01", "yyyy-mm-dd"),
@@ -316,14 +309,17 @@ model = buildsim(ndays, locale;
     variantfilename = "variants.yml",
 );
 
+# %%
+model.social.indoor_uplift
+
 # %% [markdown]
 # ### Seed with base variant on day 1
 
 # %%
 
-seed20_39_day1 = makesickseedfunc(; cond=nil, variant=:base, duration=1, filter=[Term(:agegrp, age20_39), Term(:status, unexposed)], 
+seed20_39_day1 = makesickseedfunc(; cond=:nil, variant=:base, duration=1, filter=[Term(:agegrp, :age20_39), Term(:status, :unexposed)], 
                             cnt=3, forlocale=0, triggerdate=1, forstartofday=true);
-seed40_59_day1 = makesickseedfunc(; cond=nil, variant=:base, duration=1, filter=[Term(:agegrp, age40_59), Term(:status, unexposed)], 
+seed40_59_day1 = makesickseedfunc(; cond=:nil, variant=:base, duration=1, filter=[Term(:agegrp, :age40_59), Term(:status, :unexposed)], 
                             cnt=3, forlocale=0, triggerdate=1, forstartofday=true);           
 
 # %% [markdown]
@@ -331,9 +327,9 @@ seed40_59_day1 = makesickseedfunc(; cond=nil, variant=:base, duration=1, filter=
 
 # %%
 
-seed20_39_delta = makesickseedfunc(; cond=nil, variant=:delta, duration=1, filter=[Term(:agegrp, age20_39), Term(:status, unexposed)], 
+seed20_39_delta = makesickseedfunc(; cond=:nil, variant=:delta, duration=1, filter=[Term(:agegrp, :age20_39), Term(:status, :unexposed)], 
         cnt=3, forlocale=0, triggerdate=300, forstartofday=true);
-seed40_59_delta = makesickseedfunc(; cond=nil, variant=:delta, duration=1, filter=[Term(:agegrp, age40_59), Term(:status, unexposed)], 
+seed40_59_delta = makesickseedfunc(; cond=:nil, variant=:delta, duration=1, filter=[Term(:agegrp, :age40_59), Term(:status, :unexposed)], 
         cnt=3, forlocale=0, triggerdate=300, forstartofday=true);        
 
 # %% [markdown]
@@ -341,9 +337,9 @@ seed40_59_delta = makesickseedfunc(; cond=nil, variant=:delta, duration=1, filte
 
 # %%
 
-seed20_39_omicron = makesickseedfunc(; cond=nil, variant=:omicron_ba1, duration=1, filter=[Term(:agegrp, age20_39), Term(:status, unexposed)], 
+seed20_39_omicron = makesickseedfunc(; cond=:nil, variant=:omicron_ba1, duration=1, filter=[Term(:agegrp, :age20_39), Term(:status, :unexposed)], 
                             cnt=3, forlocale=0, triggerdate=640, forstartofday=true);
-seed40_59_omicron = makesickseedfunc(; cond=nil, variant=:omicron_ba1, duration=1, filter=[Term(:agegrp, age40_59), Term(:status, unexposed)], 
+seed40_59_omicron = makesickseedfunc(; cond=:nil, variant=:omicron_ba1, duration=1, filter=[Term(:agegrp, :age40_59), Term(:status, :unexposed)], 
                             cnt=3, forlocale=0, triggerdate=640, forstartofday=true);                            
 
 # %% [markdown]
@@ -351,9 +347,9 @@ seed40_59_omicron = makesickseedfunc(; cond=nil, variant=:omicron_ba1, duration=
 
 # %%
 
-seed20_39_omicron_ba2 = makesickseedfunc(; cond=nil, variant=:omicron_ba2, duration=1, filter=[Term(:agegrp, age20_39), Term(:status, unexposed)], 
+seed20_39_omicron_ba2 = makesickseedfunc(; cond=:nil, variant=:omicron_ba2, duration=1, filter=[Term(:agegrp, :age20_39), Term(:status, :unexposed)], 
                             cnt=6, forlocale=0, triggerdate=680, forstartofday=true);
-seed40_59_omicron_ba2 = makesickseedfunc(; cond=nil, variant=:omicron_ba2, duration=1, filter=[Term(:agegrp, age40_59), Term(:status, unexposed)], 
+seed40_59_omicron_ba2 = makesickseedfunc(; cond=:nil, variant=:omicron_ba2, duration=1, filter=[Term(:agegrp, :age40_59), Term(:status, :unexposed)], 
                             cnt=6, forlocale=0, triggerdate=680, forstartofday=true);                            
 
 # %% [markdown]
@@ -361,9 +357,9 @@ seed40_59_omicron_ba2 = makesickseedfunc(; cond=nil, variant=:omicron_ba2, durat
 
 # %%
 
-seed20_39_omicron_ba4_5 = makesickseedfunc(; cond=nil, variant=:omicron_ba4_5, duration=1, filter=[ Term(:agegrp, age20_39), Term(:status, recovered) ], 
+seed20_39_omicron_ba4_5 = makesickseedfunc(; cond=:nil, variant=:omicron_ba4_5, duration=1, filter=[ Term(:agegrp, :age20_39), Term(:status, :recovered) ], 
                             cnt=6, forlocale=0, triggerdate=740, forstartofday=true);
-seed40_59_omicron_ba4_5 = makesickseedfunc(; cond=nil, variant=:omicron_ba4_5, duration=1, filter=[ Term(:agegrp, age40_59), Term(:status, recovered) ], 
+seed40_59_omicron_ba4_5 = makesickseedfunc(; cond=:nil, variant=:omicron_ba4_5, duration=1, filter=[ Term(:agegrp, :age40_59), Term(:status, :recovered) ], 
                             cnt=6, forlocale=0, triggerdate=740, forstartofday=true);                            
 
 # %% [markdown]
@@ -427,7 +423,7 @@ cumplot(series, locale, [:unexposed, :infectious, :recovered, :dead, :totvaccina
 
 # %%
                   
-cs.daily_cases_plot(series, popdat, locale, [:total]; geo=[], thm=:ggplot2)
+cs.daily_cases_plot(series, popdat, locale, [:total]; geo=[])
 
 # %% tags=[]
 cumplot(series, locale, [:nil, :mild, :sick, :severe])
@@ -696,3 +692,37 @@ cumplot(series, locale, [:unexposed, :infectious, :recovered, :dead, :totvaccina
 
 # %%
 @Select(status, agegrp, cond, sdcomply)(locdat)
+
+# %% [markdown]
+# # Evaluate squashing functions
+
+# %%
+xs = collect(0.01:0.01:2.5)
+
+# %%
+plot(xs, cs.simpleclamp.(xs), label="Simple Clamp", ylims=[0.0, 1.1], legend=:right)
+
+# %%
+plot(xs, tanh.(xs), label="tanh", legend=:right, ylims=[0.0, 1.1])
+
+# %%
+plot(xs, cs.simpleclamp.(xs), label="Simple Clamp", ylims=[0.0, 1.1], legend=:right)
+plot!(xs, tanh.(xs), label="tanh", legend=:right, ylims=[0.0, 1.1])
+plot!(xs, tanh.((1.2 .* xs)), label="tanh x 1.5", legend=:right, ylims=[0.0, 1.1])
+# plot!(xs, cs.sigmoid.((8.0 .* xs) .- 3.9), label="sigmoid((8.0 * x) - 3.9) ", legend=:right, ylims=[0.0, 1.1])
+
+
+# %%
+plot(xs, cs.sigmoid.((8.0 .* xs) .- 3.9), label="sigmoid((8.0 * x) - 3.9) ", legend=:right, ylims=[0.0, 1.1])
+
+# %%
+@btime cs.simpleclamp.(xs)
+
+# %%
+471.0 / 250.0
+
+# %%
+@btime tanh.(xs)
+
+# %%
+2000.0 / 250.0

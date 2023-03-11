@@ -94,11 +94,11 @@ function stat_vax(popdat, locale)
     stat_vax = Table(item=Symbol[], total=Int[], age0_19=Int[], age20_39=Int[], age40_59=Int[], age60_79=Int[], age80_up=Int[])
     calc_cols = [:total, :age0_19, :age20_39, :age40_59, :age60_79, :age80_up]
     
-    col_age0_19  = countmap(last.(vaxes[(td.agegrp .== age0_19) .& (td.status .!= dead)]))
-    col_age20_39 = countmap(last.(vaxes[(td.agegrp .== age20_39) .& (td.status .!= dead)]))
-    col_age40_59 = countmap(last.(vaxes[(td.agegrp .== age40_59) .& (td.status .!= dead)]))
-    col_age60_79 = countmap(last.(vaxes[(td.agegrp .== age40_59) .& (td.status .!= dead)]))
-    col_age80_up = countmap(last.(vaxes[(td.agegrp .== age80_up) .& (td.status .!= dead)]))
+    col_age0_19  = countmap(last.(vaxes[(td.agegrp .== :age0_19) .& (td.status .!= :dead)]))
+    col_age20_39 = countmap(last.(vaxes[(td.agegrp .== :age20_39) .& (td.status .!= :dead)]))
+    col_age40_59 = countmap(last.(vaxes[(td.agegrp .== :age40_59) .& (td.status .!= :dead)]))
+    col_age60_79 = countmap(last.(vaxes[(td.agegrp .== :age40_59) .& (td.status .!= :dead)]))
+    col_age80_up = countmap(last.(vaxes[(td.agegrp .== :age80_up) .& (td.status .!= :dead)]))
     col_total    = countmap(last.(vaxes))
     
     for k in (:none, :Moderna, :Pfizer, :JnJ)
@@ -127,11 +127,11 @@ function stat_repeat(popdat, locale)
     stat_count = Table(item=Symbol[], total=Int[], age0_19=Int[], age20_39=Int[], age40_59=Int[], age60_79=Int[], age80_up=Int[])
 
     col_total    = sort(countmap(length.(variants)))
-    col_age0_19  = sort(countmap(length.(variants[thisdat.agegrp .== age0_19])))
-    col_age20_39 = sort(countmap(length.(variants[thisdat.agegrp .== age20_39])))
-    col_age40_59 = sort(countmap(length.(variants[thisdat.agegrp .== age40_59])))
-    col_age60_79 = sort(countmap(length.(variants[thisdat.agegrp .== age40_59])))
-    col_age80_up = sort(countmap(length.(variants[thisdat.agegrp .== age80_up])))
+    col_age0_19  = sort(countmap(length.(variants[thisdat.agegrp .== :age0_19])))
+    col_age20_39 = sort(countmap(length.(variants[thisdat.agegrp .== :age20_39])))
+    col_age40_59 = sort(countmap(length.(variants[thisdat.agegrp .== :age40_59])))
+    col_age60_79 = sort(countmap(length.(variants[thisdat.agegrp .== :age40_59])))
+    col_age80_up = sort(countmap(length.(variants[thisdat.agegrp .== :age80_up])))
 
     for k in 0:10
         push!(stat_count, 

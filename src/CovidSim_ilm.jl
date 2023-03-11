@@ -1,16 +1,16 @@
 # TODO
+    # look for referencing of globals, especially in loops
     # extend Term to include comparison operations: ==, <=, <, >=, >, in, and not
     # provide a function that filters using Term
     # get rid of old seeding approach
     # create generic condition setting function instead of using literals in spread!
     # add age_dist as optional parameter in geodata
-    # rename progression to be progression
     # add still_infected to summary of statuses
     # should we use statuses of reinfected, breakout? equiv to infectious; need to be filtered
         # whenever we filter for infectious; could help history series
     # do a clean report with vaccines, variants,and social distancing
     # redo vxsched filtervec 
-    # per agegrp plots
+    # per agegrp plots: use term to do flexible filters
     # more info
         # get fatality rate by age and co-morbidity CDC, Italian NIH
         # by agegroup, hospitalization %, ICU admission %, fatality %
@@ -85,39 +85,42 @@ const DURATIONLIM = 25
 const DURATIONS = 1:DURATIONLIM   # rows
 
 #######################################################################
-# enum values for Condition, Status and agegrp to use in population table
+# Symbol values for Condition, Status and agegrp to use in population table
 #    and related constants
+#
+# See data_mapping.jl for functions to map to integer values
 #######################################################################
 
-@enum Condition begin
-    uninfected=0 
-    nil=5 
-    mild   # 6
-    sick   # 7
-    severe # 8
-end
 
-@enum Status begin
-    unexposed=1 
-    infectious 
-    recovered 
-    dead
-end
-
-@enum Agegrp begin
-    age0_19=1 
-    age20_39 
-    age40_59 
-    age60_79 
-    age80_up
-end
+#symbols for condition
+    :uninfected     # 0
+    :nil            # 1
+    :mild           # 2
+    :sick           # 3
+    :severe         # 4
 
 
-const STATUSES = collect(instances(Status))
-const INFECTIOUS_CASES = [nil, mild, sick, severe]
-const TRANSITION_CASES = [recovered, nil, mild, sick, severe, dead]
-const AGEGRPS = instances(Agegrp) # tuple of enums
-const AGEGRPVEC = collect(Symbol.(AGEGRPS)) # vector of symbols
+# symbols for Status
+    :unexposed      # 1
+    :infectious     # 2
+    :recovered      # 3
+    :dead           # 4
+
+
+# symbols for Agegrps
+    :age0_19        # 1
+    :age20_39       # 2
+    :age40_59       # 3
+    :age60_79       # 4
+    :age80_up       # 5
+
+
+# const STATUSES = collect(instances(Status))
+const STATUSES = [:unexposed, :infectious, :recovered, :dead]
+const INFECTIOUS_CASES = [:nil, :mild, :sick, :severe]
+const TRANSITION_CASES = [:recovered, :nil, :mild, :sick, :severe, :dead]
+const AGEGRPS = [:age0_19, :age20_39 , :age40_59, :age60_79, :age80_up]
+const AGEGRPVEC = AGEGRPS
 const AGENAMES = vcat(AGEGRPVEC, :total)
 
 
@@ -324,28 +327,10 @@ export
 
 # constants for indices to population matrix
 export    
-    # enum values for Status and Condition
-    Status,         
-    unexposed,
-    infectious,
-    recovered,
-    dead,
-    uninfected,
-    Condition,
-    nil,
-    mild,
-    sick,
-    severe,
+    # values for Status, Condition and AGEGRP
     STATUSES,
     INFECTIOUS_CASES,
     TRANSITION_CASES,
-    # enum and enum values for age groups
-    Agegrp,
-    age0_19,
-    age20_39,
-    age40_59, 
-    age60_79, 
-    age80_up, 
     AGEGRPS
 
 

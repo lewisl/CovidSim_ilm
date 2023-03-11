@@ -378,6 +378,8 @@ omicron_ba1:
         JnJ:        0.5
         Pfizer:     0.8
         Moderna:    0.9
+
+
 # variant name (new section)
 omicron_ba2:
   # spread section
@@ -423,6 +425,8 @@ omicron_ba2:
         JnJ:        0.5
         Pfizer:     0.8
         Moderna:    0.9
+
+        
 # variant name (new section)
 omicron_ba4_5:
   # spread section
