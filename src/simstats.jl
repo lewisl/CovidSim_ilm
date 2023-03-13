@@ -18,6 +18,7 @@ function stat_cond(series, locale)
     stat1 = Table(item=Symbol[], total=Int[], age0_19=Int[], age20_39=Int[], age40_59=Int[], age60_79=Int[], age80_up=Int[])
     calc_cols = [:total, :age0_19, :age20_39, :age40_59, :age60_79, :age80_up]
 
+    # TODO use list of ages rather than hardcoding
     stat1 = push!(stat1, (item=:pop,
                     total    = getproperty(cumhist, :unexposed_total)[1] + getproperty(cumhist, :infectious_total)[1],
                     age0_19  = getproperty(cumhist, :unexposed_age0_19)[1] + getproperty(cumhist, :infectious_age0_19)[1],
@@ -168,7 +169,7 @@ function vax_summary(model, locale)
 
     # construct the data series: rows are vax sequence
     daily_vaxes = Table(zeros(Int, n, numcols))
-    maxtimes = maximum(length.(locdat.sickday)) - 1  # maximum no. of times anyone has gotten infected
+    maxtimes = maximum(length.(locdat.sickday))  # maximum no. of times anyone has gotten infected
     for i in 2:maxtimes+1
         for age in AGEGRPS  # accumulate all days on which anyone got sick the 1st, 2nd, 3rd... time
             daygotsick = countmap(get.(locdat.sickday[locdat.agegrp .== age],i,0))
@@ -194,7 +195,7 @@ function detailed_vax_series(model, locale)
 
     # construct the data series
     daily_vaxes = Table(zeros(Int, n, numcols))
-    maxtimes = maximum(length.(locdat.sickday)) - 1  # maximum no. of times anyone has gotten infected
+    maxtimes = maximum(length.(locdat.sickday))  # maximum no. of times anyone has gotten infected
     for i in 2:maxtimes+1
         for age in AGEGRPS  # accumulate all days on which anyone got sick the 1st, 2nd, 3rd... time
             daygotsick = countmap(get.(locdat.sickday[locdat.agegrp .== age],i,0))
@@ -218,7 +219,7 @@ function daily_cases_series!(model, locale)
 
     # construct the data series
     daily_cases = Table(zeros(Int, n, numcols))
-    maxtimes = maximum(length.(locdat.sickday)) - 1  # maximum no. of times anyone has gotten infected
+    maxtimes = maximum(length.(locdat.sickday))  # maximum no. of times anyone has gotten infected
     for i in 2:maxtimes+1
         for age in AGEGRPS  # accumulate all days on which anyone got sick the 1st, 2nd, 3rd... time
             daygotsick = countmap(get.(locdat.sickday[locdat.agegrp .== age],i,0))

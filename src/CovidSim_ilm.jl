@@ -1,13 +1,16 @@
 # TODO
-    # look for referencing of globals, especially in loops
     # extend Term to include comparison operations: ==, <=, <, >=, >, in, and not
     # provide a function that filters using Term
     # get rid of old seeding approach
-    # create generic condition setting function instead of using literals in spread!
+    # implement "rings" to set boundaries on contacts and create spreader events and high-risk communities
+        #=
+            this changes spread logic a lot
+        =#
     # add age_dist as optional parameter in geodata
-    # add still_infected to summary of statuses
+    # add still_infected to summary of statuses  (?)
     # should we use statuses of reinfected, breakout? equiv to infectious; need to be filtered
         # whenever we filter for infectious; could help history series
+        # we could create some track_traits just for tracking purposes:  cleaner
     # do a clean report with vaccines, variants,and social distancing
     # redo vxsched filtervec 
     # per agegrp plots: use term to do flexible filters
@@ -20,15 +23,14 @@
     # fix all the travel functions to latest APIs
     # should quarantine be special or is it extreme social distancing--with no contacts?
         #= 
-        tricky because we only using contacts for outgoing contacts by spreaders.
-        we would need to reject contacts by the recipient ALSO--not that hard
-        this would help with viral load modeling
-        =#
-    # implement "rings" to set boundaries on contacts and create spreader events and high-risk communities
-        #=
-        this changes spread logic a lot
+            tricky because we only using contacts for outgoing contacts by spreaders.
+            we would need to reject contacts by the recipient ALSO--not that hard
+            this would help with viral load modeling
         =#
     # should sendrisk also depend on condition?  OPTIONALLY, but not for COVID
+        #=
+            probably worth building in and "zero-ing" it out for Covid
+        =#
     
 
 
@@ -88,16 +90,16 @@ const DURATIONS = 1:DURATIONLIM   # rows
 # Symbol values for Condition, Status and agegrp to use in population table
 #    and related constants
 #
-# See data_mapping.jl for functions to map to integer values
+# See data_mapping.jl for functions that map symbols to integer values
 #######################################################################
 
 
 #symbols for condition
-    :uninfected     # 0
-    :nil            # 1
-    :mild           # 2
-    :sick           # 3
-    :severe         # 4
+    :uninfected     # maps to 0
+    :nil            # ... 1
+    :mild           # ... 2
+    :sick           # ... 3
+    :severe         # ... 4
 
 
 # symbols for Status
@@ -332,6 +334,13 @@ export
     INFECTIOUS_CASES,
     TRANSITION_CASES,
     AGEGRPS
+
+# functions for serialization
+export
+    series_to_csv,
+    popdat_to_csv,
+    modeldef_to_yaml,
+    yaml_to_model
 
 
 end # module CovidSim

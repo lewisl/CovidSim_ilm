@@ -52,8 +52,8 @@ Changes attribute columns in the population table. Runs social distancing cases.
 
         # will this touched contact get infected?
         if touched
-            recovday = c_recovday[contact][end]
-            spr_variant = c_variant[spr][end]
+            recovday = isempty(c_recovday[contact]) ? 0 : c_recovday[contact][end]
+            spr_variant = isempty(c_variant[spr])  ? 0 : c_variant[spr][end]
     
             recovfactor = if c_status[contact] == :recovered
                                 contact_variant = c_variant[contact][end]
@@ -71,15 +71,14 @@ Changes attribute columns in the population table. Runs social distancing cases.
                             vaxeffect(thisday, infectset, vaxset, vaxstatus, spr_variant, vaxrcvd, vaxday; mode=:spread)
                         end
     
-            spr_duration = c_duration[spr]
+            spr_duration = c_duration[spr]  # number of days spreader has been infected
             contact_agegrp = c_agegrp[contact]
     
             risk = infectrisk(infectset, spr_variant, spr_duration, contact_agegrp, recovfactor, vaxfactor)
 
-            # change state in population table if infected
             if isinfected(risk)
                 make_sick!(c_cond, c_status, c_duration, c_variant, c_sickday,  # cols to update
-                           contact, thisday, :nil, spr_variant)                 # person, date, cond, variant
+                           contact, thisday, :nil, spr_variant)                 # person, date, condition, variant
             end
         end
 
@@ -102,7 +101,7 @@ end
     @inbounds locdat.duration[target] = duration
 end
 
-# make_sick! by column
+# make_sick! by column for a single person
 @inline function make_sick!(c_cond, c_status, c_duration, c_variant, c_sickday, target, thisday, cond, variant)
     push!(c_variant[target], variant)  # first of possibly several infections...  c_variant[spr][end]
     push!(c_sickday[target], thisday)
@@ -110,7 +109,6 @@ end
     c_cond[target] = cond
     c_status[target] = :infectious
 end
-
 
 # complex make sick
 function make_sick!(dat; cnt, ages, tocond, tovariant, toduration=1) 
@@ -149,6 +147,7 @@ method uses the default contactfactors for the current spreader.
     @inbounds @fastmath scale = density_factor * indoor_factor * contactfactors[mapcondition(cond), mapagegrp(agegrp)]
     @fastmath round(Int,rand(Gamma(gammashape, scale)))
 end
+
 
 """
     how_many_contacts(density_factor, gammashape, agegrp, cond, acase::SpreadCase)::Int
@@ -189,15 +188,15 @@ Returns true if the spreader infected the contact.
     return @fastmath rand(Binomial(1, risk)) == 1
 end
 
+
 #############################################################################
 #
-#  effect of immunity from recovery and vaccination
+#  effect of immunity from prior recovery and vaccination
 #
 #############################################################################
 
 # decay functions for immunity for decline from 1.0 to lower positive limit of function
 # multiply times max immunity if less than 1.0        
-
 
 
 """
@@ -458,8 +457,3 @@ function cancel_sd_case!(locdat, sdcases, name, include_ages, age_idx_loc)
     end    
 
 end
-
-
-
-
-
