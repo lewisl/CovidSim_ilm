@@ -1,3 +1,8 @@
+######################################################################
+#  vax.jl: data structures, setup, and implementation for vaccination
+######################################################################
+
+
 # TODO
 #   add a way to filter who gets vaccinated in the vaxschedule (or a case or in the call to vaccinate?)
 
@@ -6,7 +11,7 @@
 # data structures for vaccination
 ###################################################
 
-@Base.kwdef struct Vaccineparams  # mutable  ??
+@Base.kwdef struct Vaccineparams  
     reqdshots::Int
     delay2ndshot::Union{Int, Nothing}   # days until 2nd shot (probability less important)
     delaybooster::Union{Int, Nothing}
@@ -183,6 +188,9 @@ end
 
 """
 Give people shots!
+
+Determine the number of doses for each vaccine available to administer today.
+Call doshots! to select recipients for each dose.
 """
 @inline function vaccinate!(vaxschedset, vaxset, whichvaxscheds,
                     c_status,
@@ -271,7 +279,9 @@ end
 end
 
 
-
+"""
+Determine who gets a shot today and administer it; update population data.
+"""
 @inline function doshots!(c_vaxrcvd, c_vaxday, c_vaxstatus,         # arrays to update
                   vaxprops, vaxesincluded, reqdshots, pct2ndshot, pctboost, mix, delay2ndshot, delaybooster,  # vaccine characteristics
                   vaxable_idx, doses_today, c_agegrp, filtervec, today)                               # people and simulation today

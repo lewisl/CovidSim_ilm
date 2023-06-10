@@ -55,7 +55,7 @@ function _run_r0_sim(r0pop, progressionset, trvec, infectset, vaxset,
         c_status      = r0pop.status
         c_agegrp      = r0pop.agegrp
         c_duration    = r0pop.duration
-        c_sdcase    = r0pop.sdcase
+        c_sdcase      = r0pop.sdcase
         c_sickday     = r0pop.sickday
         c_variant     = r0pop.variant
         c_vaxstatus   = r0pop.vaxstatus
@@ -73,10 +73,10 @@ function _run_r0_sim(r0pop, progressionset, trvec, infectset, vaxset,
     for age in AGEGRPS
         age_idx = findall(r0pop.agegrp .== age) 
 
-        for j in 1:cnt_by_agedist[Int(age)]
+        for j in 1:cnt_by_agedist[mapagegrp(age)]
             target = age_idx[j]
-            c_status[target] = infectious
-            c_cond[target] = nil
+            c_status[target] = :infectious
+            c_cond[target] = :nil
             c_duration[target] = 1
             push!(c_variant[target], variant)
             push!(c_sickday[target], 1)
@@ -84,17 +84,18 @@ function _run_r0_sim(r0pop, progressionset, trvec, infectset, vaxset,
     end
 
     # set infect_idx based on seeding: never update so we measure only 1st gen. spreaders
-    gen1_spreaders = findall(r0pop.status .== infectious)
+    gen1_spreaders = findall(r0pop.status .== :infectious)
     gen1_infect_idx = copy(gen1_spreaders) # use for gen1 after progressing each day
     gen1_spreader_cnt = length(gen1_spreaders)
     r0_infected = 0
+    indoor_seq = ones(Float64, DURATIONLIM)   # value of 1.0 has no effect
 
     for simday = 1:DURATIONLIM        # day loop
-        all_infect_idx = findall(r0pop.status .== infectious)
+        all_infect_idx = findall(r0pop.status .== :infectious)
 
         for spr in gen1_infect_idx  # only spreaders from the gen1 infected pool
             cnt_newly_infected = spread!(spr, simday, [], socialparams,   
-                            infectset, vaxset, density_factor, poprange,    
+                            infectset, vaxset, density_factor, indoor_seq, poprange,    
                             c_cond,
                             c_status,
                             c_agegrp,
@@ -107,6 +108,7 @@ function _run_r0_sim(r0pop, progressionset, trvec, infectset, vaxset,
                             c_vaxrcvd,
                             c_vaxday
                             )
+
             r0_infected += cnt_newly_infected
         end
 
@@ -127,7 +129,7 @@ function _run_r0_sim(r0pop, progressionset, trvec, infectset, vaxset,
         end
 
         # of the gen1 infected, who is still infected? (some will have progressioned to recovered or dead)
-        gen1_infect_idx = filter(x -> r0pop.status[x] == infectious, gen1_infect_idx)
+        gen1_infect_idx = filter(x -> r0pop.status[x] == :infectious, gen1_infect_idx)
     end
 
     r0 =  r0_infected / gen1_spreader_cnt  

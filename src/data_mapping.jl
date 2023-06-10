@@ -2,7 +2,7 @@
 # Data mapping: generally for enums to ordinal integers
 #       or ordinal integers to enums
 #
-# If/elseif is the fastest way to do this; 
+# If/elseif is the fastest way to do this with only a handful of items; 
 #    use a struct as the mapper would be a close second: 10% slower
 #    Dictionaries.jl would be close third: 15% slower   ("Dictionary" is the constructor)
 #    both of the latter are easier to maintain and document the assignment
@@ -52,141 +52,52 @@ end
     end
 end
 
+# found in the module definition file CovidSim_ilm.jl
+# const TOUCHES = [:unexposed, :recovered, :nil, :mild, :sick, :severe]
+# const STATUSES = [:unexposed, :infectious, :recovered, :dead]
+# const INFECTIOUS_CASES = [:nil, :mild, :sick, :severe]
+# const TRANSITION_CASES = [:recovered, :nil, :mild, :sick, :severe, :dead]
+# const AGEGRPS = [:age0_19, :age20_39, :age40_59, :age60_79, :age80_up]
 
-@inline function mapcondition(x::Symbol)::Int64 # from symbol to int
-
-    if x === :uninfected
-        0
-    elseif x === :nil
-        1
-    elseif x === :mild
-        2
-    elseif x === :sick
-        3
-    elseif x === :severe
-        4
-    end
+@inline function mapcondition(x::Symbol)  # symbol to int
+    findit(x, INFECTIOUS_CASES)   # enclosure is const so performance is good
 end
 
+@inline function mapcondition(x::Int)   # int to symbol
+    findit(x, INFECTIOUS_CASES)
+end
 
-# not using this:  close second for performance
-# struct conditions
-#     nil::Int64
-#     mild::Int64
-#     sick::Int64
-#     severe::Int64
-# end
-# 
-# const mapconds = conditions(1,2,3,4)
+@inline function mapagegrp(x::Symbol)
+    findit(x,  AGEGRPS)
+end
 
-# @inline function mapcondition_str(x::Symbol, mapconds=mapconds)::Int64
-#     getfield(mapconds,x)
-# end
+@inline function mapstatus(x::Symbol)
+    findit(x, STATUSES)
+end
 
-@inline function mapcondition(x::Int)::Symbol # from int to symbol
-        if x == 0
-            :uninfected
-        elseif x == 1
-            :nil
-        elseif x == 2
-            :mild
-        elseif x == 3
-            :sick
-        elseif x == 4 
-            :severe
+@inline function map_progression(x::Symbol)
+    findit(x, TRANSITION_CASES)
+end
+
+@inline function map_progression(x::Int)
+    findit(x, TRANSITION_CASES)
+end
+
+@inline function maptouch(x::Symbol)
+    findit(x, TOUCHES)
+end
+
+@inline function findit(item::Symbol, vec::Vector{Symbol})  # symbol to int
+    for i in eachindex(vec)  # linear search with very few items
+        if item == vec[i]
+            return i
         end
+    end
+    return 0
 end
 
-
-
-@inline function mapagegrp(x::Symbol)::Int64
-
-    if x === :age0_19
-        1
-    elseif x === :age20_39
-        2
-    elseif x === :age40_59
-        3
-    elseif x === :age60_79
-        4
-    elseif x === :age80_up
-        5
-    end
-end
-
-
-
-
-
-@inline function mapstatus(x::Symbol)::Int64 # from symbol to int
-    if x === :unexposed
-        1
-    elseif x === :infectious
-        2
-    elseif x === :recovered
-        3
-    elseif x === :dead
-        4
-    end
-end
-
-
-
-@inline function maptouch(x::Symbol)::Int64 # from symbol to rows of touch parameters
-    if x === :unexposed
-        1
-    elseif x === :recovered
-        2
-    elseif x === :nil
-        3
-    elseif x === :mild
-        4
-    elseif x === :sick
-        5
-    elseif x === :severe
-        6
-    else
-        @assert false "invalid index to touchfactors $x"
-    end
-end
-
-
-@inline function map_progression(x::Symbol)::Int64 # from enum to elements of progression vector
-    if x === :recovered
-        1
-    elseif x === :nil
-        2
-    elseif x === :mild
-        3
-    elseif x === :sick
-        4
-    elseif x === :severe
-        5
-    elseif x === :dead
-        6
-    else
-        @assert false "invalid index for progression vector $x"
-    end
-end
-
-
-
-@inline function map_progression(x::Integer)::Symbol # from integer column to symbol elements of progression vector
-    if x == 1 
-        :recovered
-    elseif x == 2
-        :nil
-    elseif x == 3
-        :mild
-    elseif x == 4
-        :sick
-    elseif x == 5
-        :severe
-    elseif x == 6
-        :dead
-    else
-        @assert false "invalid index for progression vector $x"
-    end
+@inline function findit(item::Int, vec::Vector{Symbol})   # int to symbol
+    return vec[item]
 end
 
 
@@ -246,3 +157,18 @@ end
 function repeat_join(l1::Union{Symbol, String}, l2::Vector)
     repeat_join([l1], l2)
 end
+
+
+# not using this:  close second for performance
+# struct conditions
+#     nil::Int64
+#     mild::Int64
+#     sick::Int64
+#     severe::Int64
+# end
+# 
+# const mapconds = conditions(1,2,3,4)
+
+# @inline function mapcondition_str(x::Symbol, mapconds=mapconds)::Int64
+#     getfield(mapconds,x)
+# end

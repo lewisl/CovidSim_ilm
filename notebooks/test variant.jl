@@ -8,18 +8,10 @@
 #       format_version: '1.3'
 #       jupytext_version: 1.13.8
 #   kernelspec:
-#     display_name: julia 1.8 threads auto env v1.8 1.8.0
+#     display_name: Julia 1.9.0
 #     language: julia
-#     name: julia-1.8-threads-auto-env-v1.8-1.8
+#     name: julia-1.9
 # ---
-
-# %%
-using Pkg
-# Pkg.activate("/Users/lewis/.julia/environments/v1.8")
-
-# %%
-# Run this when actively modifying the code in the package
-Pkg.develop(path=joinpath(homedir(),"Dropbox/Covid Modeling/Covid-ILM"))
 
 # %%
 using CovidSim_ilm
@@ -50,18 +42,19 @@ cd(joinpath(homedir(),"Dropbox/Covid Modeling/Covid-ILM/src"))
 # %% tags=[]
 ndays = 180
 locale = 38015
-model180 = buildsim(ndays, locale;  
+model180 = buildsim(
+    ndays, locale;  
     day1 = Date("2020-01-01", "yyyy-mm-dd"),
     dovax = true,
     paramdir = "../sample_parameters",
-    geofilename = "../data/geo2data.csv", 
+    geofilename = "geo2data.csv", 
     socialfilename = "socialparams.yml",
     vaccinefilename = "vaccines.yml",
     scheddir = "vaccine_100k",
     variantfilename = "variants.yml",
 );
 
-# %% [markdown]
+# %% [markdown] tags=[]
 # # Run the small model
 
 # %% [markdown]
@@ -72,9 +65,6 @@ seed20_39_day1 = makesickseedfunc(; cond=:nil, variant=:base, duration=1, filter
                             cnt=3, forlocale=0, triggerdate=1, forstartofday=true);
 seed40_59_day1 = makesickseedfunc(; cond=:nil, variant=:base, duration=1, filter=[Term(:agegrp, :age40_59), Term(:status, :unexposed)], 
                             cnt=3, forlocale=0, triggerdate=1, forstartofday=true);           
-
-# %%
-model180.social.indoor_uplift
 
 # %% [markdown]
 # ### Run and Compile
@@ -97,8 +87,8 @@ cumplot(series, locale, [:unexposed, :infectious, :recovered, :dead])
 # ### R0 Simulation
 
 # %%
-r0 = cs.r0_sim(200_000, AGE_DIST, model180.progressionset, model180.trvec, model180.infectset, 
-                model180.vaxset, model180.social, :base, 1.0, 3)
+r0 = cs.r0_sim(200_000, model180.progressionset, model180.trvec, model180.infectset, 
+                model180.vaxset, model180.social, false, :base, 1.0, 3)
 
 # %%
 keys(model180)

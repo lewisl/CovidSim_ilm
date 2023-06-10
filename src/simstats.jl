@@ -184,8 +184,6 @@ function vax_summary(model, locale)
 
 end
 
-
-
 function detailed_vax_series(model, locale)
     cumhist = model.series[locale].cum
     newhist = model.series[locale].new
@@ -234,5 +232,3 @@ function daily_cases_series!(model, locale)
 
     daily_cases_series[:, numcols] = sum(daily_cases_series, dims=2)  # sum the columns across each row
 end
-
-

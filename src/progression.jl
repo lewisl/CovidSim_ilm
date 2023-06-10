@@ -1,6 +1,6 @@
 ####################################################
 # progression.jl for ilm model
-#     change condition or status of folks who have gotten sick in the simulation:
+#     how folks who have gotten sick progress through stages of the disease in the simulation:
 #           progression
 #     travel
 ####################################################
@@ -33,12 +33,13 @@ vaxrcvd, vaxday, deadday.
 
     today = DAY_CTR[:day]
 
+    progression_cols = (c_duration, c_deadday, c_status, c_cond, c_recovday)
 
     # extract traits for this person p where p is the row index in locdat
     @inbounds begin
-        p_duration = c_duration[p]
-        p_cond = c_cond[p]
-        p_status = c_status[p]
+        p_duration = c_duration[p]  # no. of days p has been infected
+        p_cond = c_cond[p]          # p's condition
+        p_status = c_status[p]      # p's status, etc.
         p_agegrp = c_agegrp[p]  
         p_vaxstatus = c_vaxstatus[p]
         p_recovday = c_recovday[p][end]
@@ -48,10 +49,13 @@ vaxrcvd, vaxday, deadday.
     prtree = progressionset[p_variant].tree   
 
     # if person's agegrp and duration match a progression stage, get the progression array for rows=from and cols=to
-    pr_arr = get( getfield(prtree, Symbol(p_agegrp)), p_duration, [])
+    pr_arr = get( 
+                getfield(prtree, Symbol(p_agegrp)),  # tree for an agegrp
+                p_duration,                          # duration of disease: day on which condition may progress
+                [])                                  # if selection criteria not met:  empty
 
-    if !isempty(pr_arr)  # let's progress person p 
-        probvec[:] = pr_arr[mapcondition(p_cond), :] # probabilities of recovery, nil, mild, sick, severe, dead given current condition
+    if !isempty(pr_arr)  # person p may progress to another condition of the disease, recover, or die
+        probvec[:] = pr_arr[mapcondition(p_cond), :] # probabilities of recovery, nil, mild, sick, severe, dead given p's current condition
 
         # effect on severity and progressioning based on recovery from a previous infection
         recoveff =  @inbounds if p_status == :recovered
@@ -60,13 +64,13 @@ vaxrcvd, vaxday, deadday.
                         1.0
                     end
 
-        # effect on severity and progressioning based on being vaccinated
         vaxeff = @inbounds if p_vaxstatus === :none
                         1.0
                     else
                         p_vaxrcvd = c_vaxrcvd[p][end]
                         p_vaxday = c_vaxday[p][end]
                         p_variant = c_variant[p][end]
+                        # effect on severity and progressioning based on being vaccinated
                         vaxeffect(today, infectset, vaxset, p_vaxstatus, p_variant, p_vaxrcvd, p_vaxday, mode=:progression)
                     end
 
@@ -76,14 +80,9 @@ vaxrcvd, vaxday, deadday.
             redistribute_probability!(probvec, risk, p_duration) 
         end
 
-        doprogression!(p, probvec, # perform progression logic and update population table->must pass columns, not scalars  
-                        c_duration,
-                        c_deadday,
-                        c_status,
-                        c_cond,
-                        c_recovday
-                    )
-    else # no progression
+        doprogression!(progression_cols, p, probvec)
+
+    else # no progression today!
         c_duration[p] += 1  # one more day in current condition
     end
     
@@ -100,6 +99,7 @@ end
 """
 Redistribute the probabilty of progressing through conditions based on
 vaccination, recovery from prior infection and the variant of the patient.
+Modifies in place the probvec: probalities of progressing to each state
 """
 @inline function redistribute_probability!(probvec, riskfactor, duration)
     @inbounds begin
@@ -127,20 +127,28 @@ vaccination, recovery from prior infection and the variant of the patient.
 end
 
 
+# progression_cols = (c_duration, c_deadday, c_status, c_cond, c_recovday)
 """
-    doprogression!(locdat, p, p_cond, trvec::Union{Vector{Float64}, Nothing})
+    doprogression!(progression_cols, p, probvec)
 
 Progress an infected person to a new condition or status if called
 with a progression vector (trvec) or increment
 the number of days the person has been sick.
 """
-function doprogression!(p, probvec,         
-                c_duration,
-                c_deadday,
-                c_status,
-                c_cond,
-                c_recovday
-            )
+function doprogression!(progression_cols, p, probvec)
+    doprogression!(progression_cols[1], progression_cols[2], progression_cols[3], progression_cols[4], progression_cols[5],
+        p, probvec)
+end
+
+
+# documents how progression_cols map to specific columns and implements progression
+function doprogression!(c_duration,
+                        c_deadday,
+                        c_status,
+                        c_cond,
+                        c_recovday,
+                        p, probvec
+                    )
 
         choice = categorical_sim(probvec) # which outcome based on probability...?
 
@@ -169,7 +177,6 @@ function doprogression!(p, probvec,
         end    
     # end
 end
-
 
 
 # TODO   This is ancient code and WILL NOT WORK in current version of simulaton code

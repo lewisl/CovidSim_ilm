@@ -2,7 +2,25 @@
 # setup and initialization functions: ILM Model
 ######################################################################################
 
+"""
+Setup a model
+Provides a definition of a model that can be saved and also allows re-running the simulation.
 
+Pre-allocates all data storage for a simulation:
+    day1: first calendar day
+    ndays: number of days to run simulation
+    geodata: data for each locale
+    socialparams: parameters that affect transmission across people
+    infectset: characteristics of each variant of the virus
+    progressionset: parameters that affect how disease changes over time in an infected person
+    variantlist: list of variants
+    trvec: pre-allocated vector to hold on-the-fly calculated probabilities or progression to new disease condition
+    vaxset: available vaccines and parameters for each vaccine
+    vaxschedset: schedule for dispensing vaccines (net of vaccine resistant people)
+    dat: a row for each person in a locale that tracks statistics for each person during the simulation
+    series: "historical" statistics for outcomes at the end of each day(rows) of the simulation by new (change) and cumulative
+    seriescolnames: column names for each statistic collected
+"""
 function setup(ndays::Int64, locales;  
     # must provide following inputs
     day1,
@@ -14,16 +32,14 @@ function setup(ndays::Int64, locales;
     scheddir,
     variantfilename)
 
-    # geodata
-        geodata = buildgeodata(geofilename)
+    geodata = buildgeodata(geofilename, paramdir)
 
-    # social parameters
-        socialparams = build_socialparams(socialfilename, paramdir)
+    socialparams = build_socialparams(socialfilename, paramdir)
 
     # variants, spread parameters, progression arrays
-        infectset, progressionset, trvec, variantlist = build_infect_params(variantfilename, paramdir)
+    infectset, progressionset, trvec, variantlist = build_infect_params(variantfilename, paramdir)
 
-    # vaccines  TODO this is not the right approach: test if we have vax inputs instead
+    # vaccines  TODO this is not the right approach: test if we have vax inputs instead. Maybe?
     if dovax
         vaxset, vaxlist = build_vaxset(vaccinefilename, paramdir)
         vaxschedset = build_vaxschedset(scheddir, paramdir)
@@ -36,16 +52,19 @@ function setup(ndays::Int64, locales;
     dat = build_data(locales, geodata, ndays)
 
     # history series columns and history series
-        colgroups = [:statuscols=>STATUSES, :condcols=>push!(Symbol.(INFECTIOUS_CASES), :totinfected), 
-                    :vaxcols=>push!(Symbol.(vaxlist), :totvaccinated), :variantcols=>variantlist]
+    colgroups = [:statuscols=>STATUSES, :condcols=>push!(Symbol.(INFECTIOUS_CASES), :totinfected), 
+                :vaxcols=>push!(Symbol.(vaxlist), :totvaccinated), :variantcols=>variantlist]
 
-        seriescolnames = make_col_names_dict(colgroups)
-        series = build_series_table(locales, ndays, day1, seriescolnames)
+    seriescolnames = make_col_names_dict(colgroups)
+    series = build_series_table(locales, ndays, day1, seriescolnames)
+
+    # days that get indoor_uplift per locale for all days of the simulation
+    indoor_seq = build_indoor_seq(locales, ndays, geodata, series, socialparams.indoor_uplift)
 
     model = (ndays=ndays, day1=day1, locales=locales, dat=dat, series=series, geo=geodata, 
             progressionset=progressionset, vaxset=vaxset, vaxschedset=vaxschedset, infectset=infectset, 
             social=socialparams, trvec=trvec, variantlist=variantlist, vaxlist = vaxlist, 
-            seriescolnames=seriescolnames)  
+            indoor_seq=indoor_seq, seriescolnames=seriescolnames)  
 
     return model
 end
@@ -64,19 +83,14 @@ function setup(yaml_model)
     ndays = ym["ndays"]
     locales = ym["locales"]
 
-    #geodata
-        geodata = buildgeodata(CSV.read(IOBuffer(ym["geofile"]), Table))
+    geodata = buildgeodata(CSV.read(IOBuffer(ym["geofile"]), Table))
 
-    # simulation data matrix
-        dat = build_data(locales, geodata, ndays)
+    dat = build_data(locales, geodata, ndays)
 
-        
-    # social parameters
-        socialparams = build_socialparams(YAML.load(ym["socialfile"], dicttype=OrderedDict{Symbol, Any}))
+    socialparams = build_socialparams(YAML.load(ym["socialfile"], dicttype=OrderedDict{Symbol, Any}))
 
     # variants, spread parameters, progression arrays
-        infectset, progressionset, trvec, variantlist = build_infect_params(YAML.load(ym["variantfile"], dicttype=Dict{Symbol, Any}))
-
+    infectset, progressionset, trvec, variantlist = build_infect_params(YAML.load(ym["variantfile"], dicttype=Dict{Symbol, Any}))
 
     # vaccines  TODO this is not the right approach: test if we have vax inputs instead
     if dovax
@@ -88,12 +102,15 @@ function setup(yaml_model)
         vaxschedset = Dict()  # nothing
     end
 
-    # history series
     series = build_series_table(ym["locales"], ym["ndays"], day1, seriescolnames) 
 
-    model = (ndays=ndays, day1=day1, locales=locales, dat=dat, series=series, geo=geodata, 
-            progressionset=progressionset, vaxset=vaxset, vaxschedset=vaxschedset, infectset=infectset, 
-            social=socialparams, trvec=trvec)  
+    # days that get indoor_uplift per locale for all days of the simulation
+    indoor_seq = build_indoor_seq(locales, geodata, caldays, socialparams.indoor_uplift)
+
+    model = (ndays=ndays, day1=day1, locales=locales, dat=dat, series=series, geo=geodata,
+        progressionset=progressionset, vaxset=vaxset, vaxschedset=vaxschedset, infectset=infectset,
+        social=socialparams, trvec=trvec, variantlist=variantlist, vaxlist=vaxlist,
+        indoor_seq=indoor_seq, seriescolnames=seriescolnames)
 
     return model
 end
@@ -114,11 +131,9 @@ Calls pop_data for each locale.
 """
 function build_data(locales, geodata, n_days)
 
-    # pop = [geodata[geodata[:, "fips"] .== loc, "pop"][1] for loc in locales]
-
     popdat = Dict(loc => pop_data(geodata.pop[geodata.fips .== loc][1]) for loc in locales)
 
-    # precalculate agegrp indices
+    # precalculate agegrp indices = indices to rows for people in each age group
     agegrp_idx = Dict(loc => precalc_agegrp_filt(popdat[loc]).idx for loc in locales)
     
     return (popdat=popdat, agegrp_idx=agegrp_idx)
@@ -148,7 +163,7 @@ function pop_data(pop; age_dist=AGE_DIST)
 
         # @show parts
 
-        # must use comprehension to initialize vector of vector NOT fill--fill creates identical vectors
+        # must use comprehension to initialize vector of vector NOT fill--fill creates vectors at same address
         dat = Table(
             status = fill(:unexposed, pop),                                          # Symbol status
             # agegrp = reduce(vcat,[fill(age, parts[Int(age)]) for age in AGEGRPS]),  # Symbol agegrp
@@ -156,7 +171,7 @@ function pop_data(pop; age_dist=AGE_DIST)
             cond = fill(:uninfected, pop),                                           # Symbol Condition
             duration = zeros(Int, pop),                                             # Int
             variant = [Symbol[] for _ in 1:pop],                                    # Vector{Symbol}
-            sickday = [Int[] for _ in 1:pop],                                         # Vector{Vector{Int}}
+            sickday = [Int[] for _ in 1:pop],       # empty int vector for each person                                  # Vector{Vector{Int}}
             recovday = [Int[] for _ in 1:pop],                                        # Vector{Vector{Int}}
             deadday = zeros(Int, pop),                                              # Int
             ring = zeros(Int, pop),                                                 # Int (not used as yet)
@@ -174,7 +189,7 @@ end
 
 
 """
-Pre-allocate and initialize table to hold history of the simulation.
+Pre-allocate and initialize table to hold history of the simulation, using TypedTables.
 Returns a Dict of TypedTable with 2 keys:
 - key cum is cumulative data for the entire locale. Or you may think of cum as the current value of a statistic.
 - key new is the net change of a statistic for the entire locale. Note that this includes both additions and substractions. In other words, this
@@ -187,60 +202,68 @@ For each table the structure is:
 This table is updated at the end of each day of the simulation.
 """
 function build_series_table(locales, n_days, day1, seriescolnames)
-    calday = range(day1, step=Day(1), length=n_days)
+    caldays = range(day1, step=Day(1), length=n_days)
 
     # cols = [col for group in seriescolnames for item in group for col in item]
     cols = [col for group in values(seriescolnames) for item in values(group) for col in values(item)]
     colvals = [zeros(Int,n_days) for _ in 1:length(cols)]
-    series = Dict(loc => (cum = Table(; calday=calday, zip(cols,[zeros(Int,n_days) for _ in 1:length(cols)])...), 
-                          new = Table(; calday=calday, zip(cols,[zeros(Int,n_days) for _ in 1:length(cols)])...))
+    series = Dict(loc => (cum = Table(; caldays=caldays, zip(cols,[zeros(Int,n_days) for _ in 1:length(cols)])...), 
+                          new = Table(; caldays=caldays, zip(cols,[zeros(Int,n_days) for _ in 1:length(cols)])...))
              for loc in locales)
 
     return series
 end
 
+# calculate which days get indoor_uplift for the entire simulation run instead of in a hot loop
+function build_indoor_seq(locales, ndays, geodata, series, indoor_lift)
+    indoor_seq = Dict(loc => ones(Float64, ndays) for loc in locales)
+    # indoor_st = geodf.indoor_st[geodf.fips.==loc][1]
+    # indoor_end = geodf.indoor_end[geodf.fips.==loc][1]
+    for loc in locales
+        caldays = series[loc].cum.caldays  # TODO: dumb because it's always the same, but difficul to unwrap
 
-function build_indoor_seq!(indoor_seq, calday, indoor_lift, indoor_start_str, indoor_end_str)
-    indoor_end = Date(indoor_end_str)
-        year_end = year(indoor_end)
-    indoor_start = Date(indoor_start_str)
-        year_start = year(indoor_start)
+        indoor_end = Date(geodata.indoor_end[geodata.fips.==loc][1])
+            year_end = year(indoor_end)
+        indoor_start = Date(geodata.indoor_st[geodata.fips.==loc][1])
+            year_start = year(indoor_start)
 
-    if year_end == year_start  # start and end within a calendar year
+        if year_end == year_start  # start and end within a calendar year
 
-        for i in eachindex(indoor_seq)
-            testdate = Date(year_end, month(calday[i]), day(calday[i]))  # use relative year
-            if (testdate >= indoor_start) & (testdate <= indoor_end) 
-                indoor_seq[i] += indoor_lift
+            for i in eachindex(indoor_seq)
+                testdate = Date(year_end, month(caldays[i]), day(caldays[i]))  # use relative year
+                if (testdate >= indoor_start) & (testdate <= indoor_end) 
+                    indoor_seq[loc][i] += indoor_lift
+                end
             end
+
+        elseif year_end > year_start  # start in first year, end in following year
+
+            current_year = year(first(caldays))
+            set_year = year_start
+
+            for i in eachindex(indoor_seq[loc])
+                if year(caldays[i]) > current_year
+                    set_year = set_year == year_start ? year_end : year_start # toggle set_year
+                    current_year = year(calday[i])     # advance current_year
+                end
+
+                if (month(caldays[i]) == 2) & (day(caldays[i]) == 29)
+                    continue  # the simulation year may be a leap year but the pseudo year is not
+                end
+
+                testdate = Date(set_year, month(caldays[i]), day(caldays[i]))
+                if (testdate >= indoor_start) & (testdate <= indoor_end) 
+                    indoor_seq[loc][i] *= indoor_lift
+                end
+            end
+
+        else
+
+            throw(DomainError((indoor_start_str, indoor_end_str), "Date for indoor_end must be > indoor_start"))
+
         end
-
-    elseif year_end > year_start  # start in first year, end in following year
-
-        current_year = year(first(calday))
-        set_year = year_start
-
-        for i in eachindex(indoor_seq)
-            if year(calday[i]) > current_year
-                set_year = set_year == year_start ? year_end : year_start # toggle set_year
-                current_year = year(calday[i])     # advance current_year
-            end
-
-            if (month(calday[i]) == 2) & (day(calday[i]) == 29)
-                continue  # the simulation year may be a leap year but the pseudo year is not
-            end
-
-            testdate = Date(set_year, month(calday[i]), day(calday[i]))
-            if (testdate >= indoor_start) & (testdate <= indoor_end) 
-                indoor_seq[i] *= indoor_lift
-            end
-        end
-
-    else
-
-        throw(DomainError((indoor_start_str, indoor_end_str), "Date for indoor_end must be > indoor_start"))
-
     end
+    return indoor_seq
 end
 
 
@@ -261,8 +284,8 @@ function gen_col_names_dict(items1, items2)
 end
 
 
-function buildgeodata(filename::String)
-    tmp = Table(CSV.File(filename))
+function buildgeodata(filename::String, paramdir)
+    tmp = Table(CSV.File(joinpath(paramdir, filename)))
     buildgeodata(tmp)
 end
 
@@ -435,30 +458,6 @@ end
 #####################################################################################
 
 noop(args...; kwargs...) = nothing
-
-
-function make_an_enum!(name, strarr; pr=false)
-    eval(:(@enum $(Symbol(name)) $(Symbol.(strarr)...)))  
-    if pr
-        
-        display("text/markdown",  """**Created this enum** \n
-        """)
-        eval(Symbol(name)) 
-        
-    end
-end
-
-function make_an_enum!(name, strarr, start; pr=false)  # method with start value
-    eval(:(@enum $(Symbol(name)) ($(Symbol(strarr[1])) = $(start)) $(Symbol.(strarr[2:end])...)  ))   
-
-    if pr
-        
-        display("text/markdown",  """**Created this enum** \n
-        """)
-        eval(Symbol(name)) 
-        
-    end
-end
 
 function makemaptup(keys, values)
     NamedTuple{keys}(values)

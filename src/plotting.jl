@@ -19,22 +19,22 @@ function cumplot(series, locale, plotcols=[:unexposed, :infectious, :recovered, 
     # the data is the 2d array cumseries
     n = length(cumhist)
     days = days == "all" ? (1:n) : days
-    caldays = cumhist.calday[days] # simulation days as actual calendar dates
+    caldays = cumhist.caldays[days] # simulation days as actual calendar dates
     cumseries = hcat(columns(getproperties(cumhist,Tuple(Symbol(plcol,"_","total") for plcol in plotcols)))...)
 
     # labels and annotations
     labels = [titlecase(string(col)) for col in plotcols]
     labels = reshape([labels...], 1, length(labels))
-    people = if !isempty(geo)
+    pop = if !isempty(geo)
                 geo.pop[geo.fips .== locale]
              else # this will off by a tiny bit because of rounding
                 getproperty(cumhist, :unexposed_total)[1] + getproperty(cumhist, :infectious_total)[1]
              end   
     # cityname = !isempty(geo) ? geo[geo[:,fips] .== locale, city][1] : ""
-    died =  getproperty(cumhist, :dead_total)[end]   
-    unexp = getproperty(cumhist, :unexposed_total)[end]
-    infected = people - unexp    
-    recovered = infected - died  
+    num_died =  getproperty(cumhist, :dead_total)[end]   
+    num_unexp = getproperty(cumhist, :unexposed_total)[end]
+    num_infected = pop - num_unexp    
+    num_recovered = num_infected - num_died  
     co_pal = length(plotcols) == 2 ? [theme_palette(thm)[2], theme_palette(thm)[4]] : theme_palette(thm)
  
     xtickrange = caldays[10]:Day(180):caldays[length(caldays)-10]
@@ -45,7 +45,7 @@ function cumplot(series, locale, plotcols=[:unexposed, :infectious, :recovered, 
             size = (700,500),
             label = labels, 
             lw=2.3,
-            title = "Covid for $people people for $n days\nActive Cases for Each Day",
+            title = "Covid for $pop people for $n days\nActive Cases for Each Day",
             xlabel = "Simulation Days",
             xticks = (xtickrange, xtickfmt),
             # xticks = caldays[10]:Day(180):caldays[length(caldays)-10],
@@ -58,7 +58,7 @@ function cumplot(series, locale, plotcols=[:unexposed, :infectious, :recovered, 
             foreground_color_legend=nothing
         )
     annotate!(caldays[1] + Day(6), 0.51 * ylims()[2],              # half_yscale,
-            text("Died: $died\nInfected: $infected\nRecovered: $recovered\nUnexposed: $unexp", 
+            text("Died: $num_died\nInfected: $num_infected\nRecovered: $num_recovered\nUnexposed: $num_unexp", 
                 11, :left))
 end
 
@@ -76,12 +76,12 @@ function newplot(series, locale, plotcols=[:infectious]; days="all", geo=[], thm
     # the data and labels
     n = length(newhist)
     days = days == "all" ? (1:n) : days
-    caldays = newhist.calday[days]
+    caldays = newhist.caldays[days]
     newseries = hcat(columns(getproperties(newhist,Tuple(Symbol(plcol,"_","total") for plcol in plotcols)))...)
 
     labels = [titlecase(string(col)) for col in plotcols]
     labels = reshape([labels...], 1, length(labels))
-    people = if !isempty(geo)
+    pop = if !isempty(geo)
         geo.pop[geo.fips .== locale]
      else # this will off by a tiny bit because of rounding
         getproperty(cumhist, :unexposed_total)[1] + getproperty(cumhist, :infectious_total)[1]
@@ -98,7 +98,7 @@ function newplot(series, locale, plotcols=[:infectious]; days="all", geo=[], thm
                 label = labels, 
                 lw=1.5,
                 # bar_width=1,
-                title = "Daily Change for $people people over $n days",
+                title = "Daily Change for $pop people over $n days",
                 xlabel = "Simulation Days",
                 xticks = (xtickrange, xtickfmt),
                 # xticks = caldays[10]:Day(180):caldays[length(caldays)-10],
@@ -137,7 +137,7 @@ function daily_cases_plot(series, popdat, locale, plotcols=[:total]; days="all",
     n = length(newhist)
     days = days == "all" ? (1:n) : days
     numcols = length(AGEGRPS) + 1
-    caldays = newhist.calday[days]
+    caldays = newhist.caldays[days]
 
     # construct the data series
     maxtimes = maximum(length.(locdat.sickday)) - 1  # maximum no. of times anyone has gotten infected
@@ -188,15 +188,15 @@ function daily_cases_plot(series, popdat, locale, plotcols=[:total]; days="all",
     # annotations and labels
     labels = reshape([labels...], 1, length(labels))
     labels = reshape(["Cases", "Recoveries", "Deaths"], 1, 3)
-    people = if !isempty(geo)
+    pop = if !isempty(geo)
                     geo.pop[geo.fips .== locale]
                 else # this will off by a tiny bit because of rounding
                     getproperty(cumhist, :unexposed_total)[1] + getproperty(cumhist, :infectious_total)[1]
                 end   
-    died =  getproperty(cumhist, :dead_total)[end]   
-    unexp = getproperty(cumhist, :unexposed_total)[end]
-    infected = people - unexp    
-    recovered = infected - died  
+    num_died =  getproperty(cumhist, :dead_total)[end]   
+    num_unexp = getproperty(cumhist, :unexposed_total)[end]
+    num_infected = pop - num_unexp    
+    num_recovered = num_infected - num_died  
 
     xtickrange = caldays[10]:Day(180):caldays[length(caldays)-10]
     xtickfmt = Dates.format.(xtickrange, "yyyy-mm-dd")
@@ -225,10 +225,10 @@ function daily_cases_plot(series, popdat, locale, plotcols=[:total]; days="all",
         )
 
         annotate!(caldays[1] + Day(6), 0.51 * ylims()[2],    # half_yscale,
-            text("Died: $died\n
-                  Infected: $infected\n
-                  Recovered: $recovered\n
-                  Unexposed: $unexp",   # all one string--no commas
+            text("Died: $num_died\n
+                  Infected: $num_infected\n
+                  Recovered: $num_recovered\n
+                  Unexposed: $num_unexp",   # all one string--no commas
                   11, :left)) # fontsize, alignment
            
 end

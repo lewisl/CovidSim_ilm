@@ -1,8 +1,11 @@
 
-#############################################################
+######################################################################
 # dec_tree.jl
 # decision tree for progression
-#############################################################
+#
+# Set up decision matrix based on input file
+# Provide utilities for checking validity of progression probabilities
+######################################################################
 
 
 
@@ -73,18 +76,14 @@ function display_tree(tree)
                 println("        fromcond: ", fromcond, " =>")
                 print("            probs: => ")
                 println(condtree[:probs])
-                #
+                
                 print("            outcomes: => ")
                 println(condtree[:outcomes])
-                #
-                # println("            branches: =>")
-                # for branch in keys(condtree["branches"])
-                #     println("                ", condtree["branches"][branch])   
-                # end
             end  # for fromcond
         end  # for duration
     end   # for agegrp     
 end
+
 
 function display_tree_array(tree)
     for agegrp in keys(tree)
@@ -123,15 +122,11 @@ function sanitycheck(dectree::Agetree)
         println("\nfor agegroup ", age); flush(stdout)
         seqs = getseqs(getfield(dectree, Symbol(age)))
         probs, allpr, restable = verifyprobs(seqs)
-        # for p in pairs(probs)
-        #     println("        ",p); 
-        # end; println(); # flush(stdout); 
-        # flag = isapprox(allpr, 1.0) ? "OK " : "BAD"
-        # print("    $flag "); print("Prob total: ", allpr); println(); flush(stdout)
         display(restable)
         println("Recovered + Dead probability =  ", restable.dead[6] + restable.recovered[6])
     end
 end
+
 
 """
 Use for Dict representation of trees. Find all sequences of conditions by progression date and current condition through to new conditions
@@ -145,11 +140,9 @@ function getseqs(dt_this_age::Dict; maxsearches = 100)
     todo = [] # array of node sequences 
     done = [] # ditto
 
-    # println(dt_this_age)
-
     # gather the outcomes at the first breakday for the starting conditions
     # no progression has happened yet: these are initial conditions: the first sequence(s) to be extended
-    for fromcond in mapcondition(nil)  # everyone starts at nhil
+    for fromcond in mapcondition(nil)  # everyone starts at nil
         for i in 1:size(dt_this_age[k1],2)  # no. of columns
             outcome = map_progression(i)
             prob = dt_this_age[k1][fromcond, i]
@@ -221,15 +214,19 @@ end
 # A transtion tree is provided for the :base variant and optionally other variants.
 # If a variant doesn't provide its own progression tree, it can adjust the :base tree.
 # The tree is stored in dict progressionset[:base], which is a struct ProgressionParams in 
-# the field tree.  The tree is a struct Agetree.
+# the field tree.  
+# The tree is a struct Agetree.
+# Table rows must sum to 1.0.
 # At progressionset[:base].tree you find...
 #=
 age0_19 =               # field of struct Agetree.  The value of this field is a Dict{Int, Matrix{Float64}}
     {5 =>      
-            [0.0, 0.391304347826087, 0.4891304347826087, 0.11956521739130435, 0.0, 0.0
-             0.0, 0.0, 0.0, 0.0, 0.0, 0.0
-             0.0, 0.0, 0.0, 0.0, 0.0, 0.0
-             0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+            [0.0, 0.39, 0.49, 0.12, 0.0, 0.0    # from :nil
+             0.0, 0.0, 0.0, 0.0, 0.0, 0.0       # from :mild
+             0.0, 0.0, 0.0, 0.0, 0.0, 0.0       # from :sick
+             0.0, 0.0, 0.0, 0.0, 0.0, 0.0]      # from :severe
+# to->   recover nil  mild sick severe dead
+
     9 =>
             [0.9, 0.0, 0.0, 0.1, 0.0, 0.0
             [0.0, 0.0, 1.0, 0.0, 0.0, 0.0
@@ -360,355 +357,6 @@ age80_up =
              0.682, 0.0, 0.0, 0.0, 0.0, 0.318
              0.676, 0.0, 0.0, 0.0, 0.0, 0.324]
     }
-=#
-
-
-
-# what an older version tree built as a Dict looks like using from->to array for progression
-#=
-agegrp: age0_19 =>
-    duration: 25
-
-      [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-      [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-      [0.976, 0.0, 0.0, 0.0, 0.0, 0.024]
-      [0.91, 0.0, 0.0, 0.0, 0.0, 0.09]
-    duration: 19
-
-      [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-      [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-      [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-      [0.891, 0.0, 0.0, 0.0, 0.106, 0.003]
-    duration: 9
-
-      [0.9, 0.0, 0.0, 0.1, 0.0, 0.0]
-      [0.0, 0.0, 1.0, 0.0, 0.0, 0.0]
-      [0.0, 0.0, 0.0, 0.95, 0.05, 0.0]
-      [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-    duration: 14
-
-      [1.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-      [1.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-      [0.85, 0.0, 0.0, 0.12, 0.03, 0.0]
-      [0.692, 0.0, 0.0, 0.0, 0.302, 0.006]
-    duration: 5
-
-      [0.0, 0.4, 0.5, 0.1, 0.0, 0.0]
-      [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-      [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-      [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-agegrp: age40_59 =>
-    duration: 25
-
-      [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-      [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-      [0.958, 0.0, 0.0, 0.0, 0.0, 0.042]
-      [0.958, 0.0, 0.0, 0.0, 0.0, 0.042]
-    duration: 19
-
-      [1.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-      [1.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-      [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-      [0.856, 0.0, 0.0, 0.0, 0.126, 0.018]
-    duration: 9
-
-      [0.9, 0.0, 0.0, 0.1, 0.0, 0.0]
-      [0.85, 0.0, 0.05, 0.1, 0.0, 0.0]
-      [0.0, 0.0, 0.0, 0.9, 0.1, 0.0]
-      [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-    duration: 14
-
-      [1.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-      [0.9, 0.0, 0.0, 0.1, 0.0, 0.0]
-      [0.85, 0.0, 0.0, 0.14, 0.01, 0.0]
-      [0.776, 0.0, 0.0, 0.0, 0.206, 0.018]
-    duration: 5
-
-      [0.0, 0.2, 0.7, 0.1, 0.0, 0.0]
-      [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-      [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-      [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-agegrp: age20_39 =>
-    duration: 25
-
-      [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-      [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-      [0.964, 0.0, 0.0, 0.0, 0.0, 0.036]
-      [0.964, 0.0, 0.0, 0.0, 0.0, 0.036]
-    duration: 19
-
-      [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-      [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-      [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-      [0.922, 0.0, 0.0, 0.0, 0.072, 0.006]
-    duration: 9
-
-      [0.9, 0.0, 0.0, 0.1, 0.0, 0.0]
-      [0.85, 0.0, 0.0, 0.15, 0.0, 0.0]
-      [0.0, 0.0, 0.0, 0.9, 0.1, 0.0]
-      [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-    duration: 14
-
-      [1.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-      [1.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-      [0.83, 0.0, 0.0, 0.1, 0.07, 0.0]
-      [0.474, 0.0, 0.0, 0.0, 0.514, 0.012]
-    duration: 5
-
-      [0.0, 0.2, 0.7, 0.1, 0.0, 0.0]
-      [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-      [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-      [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-agegrp: age60_79 =>
-    duration: 25
-
-      [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-      [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-      [0.76, 0.0, 0.0, 0.0, 0.0, 0.24]
-      [0.688, 0.0, 0.0, 0.0, 0.0, 0.312]
-    duration: 19
-
-      [1.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-      [1.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-      [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-      [0.81, 0.0, 0.0, 0.0, 0.13, 0.06]
-    duration: 9
-
-      [0.62, 0.0, 0.0, 0.38, 0.0, 0.0]
-      [0.5, 0.0, 0.25, 0.25, 0.0, 0.0]
-      [0.0, 0.0, 0.0, 0.78, 0.22, 0.0]
-      [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-    duration: 14
-
-      [0.8, 0.1, 0.1, 0.0, 0.0, 0.0]
-      [0.8, 0.0, 0.15, 0.05, 0.0, 0.0]
-      [0.8, 0.0, 0.0, 0.1, 0.1, 0.0]
-      [0.165, 0.0, 0.0, 0.0, 0.715, 0.12]
-    duration: 5
-
-      [0.0, 0.15, 0.6, 0.25, 0.0, 0.0]
-      [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-      [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-      [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-agegrp: age80_up =>
-    duration: 25
-
-      [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-      [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-      [0.682, 0.0, 0.0, 0.0, 0.0, 0.318]
-      [0.676, 0.0, 0.0, 0.0, 0.0, 0.324]
-    duration: 19
-
-      [1.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-      [1.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-      [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-      [0.49, 0.0, 0.0, 0.0, 0.24, 0.27]
-    duration: 9
-
-      [0.5, 0.0, 0.0, 0.5, 0.0, 0.0]
-      [0.0, 0.0, 0.4, 0.6, 0.0, 0.0]
-      [0.0, 0.0, 0.0, 0.6, 0.4, 0.0]
-      [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-    duration: 14
-
-      [0.7, 0.0, 0.3, 0.0, 0.0, 0.0]
-      [0.7, 0.0, 0.0, 0.3, 0.0, 0.0]
-      [0.7, 0.0, 0.0, 0.1, 0.2, 0.0]
-      [0.12, 0.0, 0.0, 0.0, 0.67, 0.21]
-    duration: 5
-
-      [0.0, 0.1, 0.5, 0.4, 0.0, 0.0]
-      [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-      [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-      [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-
-=#
-
-
-
-
-#  what a tree looks like for 5 agegrps
-#= 
-agegrp: age0_19 =>                                      #"agegrp:" is not in the dict  agegrp value is an enum agegrp
-    duration: 5 =>                                       #"duration:" is not in the dict
-        fromcond: nil =>                                #"fromcond:" is not in the dict fromcond value is an enum condition
-            probs: => [0.4, 0.5, 0.1]
-            outcomes: => Condition[nil, mild, sick]
-    duration: 25 =>
-        fromcond: severe =>
-            probs: => [0.91, 0.09]
-            outcomes: => Status[recovered, dead]
-        fromcond: sick =>
-            probs: => [0.976, 0.024]
-            outcomes: => Status[recovered, dead]
-    duration: 9 =>
-        fromcond: mild =>
-            probs: => [1.0]
-            outcomes: => Condition[mild]
-        fromcond: nil =>
-            probs: => [0.9, 0.1]
-            outcomes: => Enum{Int32}[recovered, sick]   # this array contains enums from condition and status
-        fromcond: sick =>
-            probs: => [0.95, 0.05]
-            outcomes: => Condition[sick, severe]
-    duration: 14 =>
-        fromcond: severe =>
-            probs: => [0.692, 0.302, 0.006]
-            outcomes: => Enum{Int32}[recovered, severe, dead]
-        fromcond: mild =>
-            probs: => [1.0]
-            outcomes: => Status[recovered]
-        fromcond: sick =>
-            probs: => [0.85, 0.12, 0.03]
-            outcomes: => Enum{Int32}[recovered, sick, severe]
-    duration: 19 =>
-        fromcond: severe =>
-            probs: => [0.891, 0.106, 0.003]
-            outcomes: => Enum{Int32}[recovered, severe, dead]
-agegrp: age60_79 =>
-    duration: 5 =>
-        fromcond: nil =>
-            probs: => [0.15, 0.6, 0.25]
-            outcomes: => condition[nil, mild, sick]
-    duration: 25 =>
-        fromcond: severe =>
-            probs: => [0.688, 0.312]
-            outcomes: => Status[recovered, dead]
-        fromcond: sick =>
-            probs: => [0.76, 0.24]
-            outcomes: => Status[recovered, dead]
-    duration: 9 =>
-        fromcond: mild =>
-            probs: => [1.0]
-            outcomes: => Condition[mild]
-        fromcond: nil =>
-            probs: => [0.62, 0.38]
-            outcomes: => Enum{Int32}[recovered, sick]
-        fromcond: sick =>
-            probs: => [0.78, 0.22]
-            outcomes: => Condition[sick, severe]
-    duration: 14 =>
-        fromcond: severe =>
-            probs: => [0.165, 0.715, 0.12]
-            outcomes: => Enum{Int32}[recovered, severe, dead]
-        fromcond: mild =>
-            probs: => [1.0]
-            outcomes: => Status[recovered]
-        fromcond: sick =>
-            probs: => [0.8, 0.1, 0.1]
-            outcomes: => Enum{Int32}[recovered, sick, severe]
-    duration: 19 =>
-        fromcond: severe =>
-            probs: => [0.81, 0.13, 0.06]
-            outcomes: => Enum{Int32}[recovered, severe, dead]
-agegrp: age80_up =>
-    duration: 5 =>
-        fromcond: nil =>
-            probs: => [0.1, 0.5, 0.4]
-            outcomes: => Condition[nil, mild, sick]
-    duration: 25 =>
-        fromcond: severe =>
-            probs: => [0.676, 0.324]
-            outcomes: => Status[recovered, dead]
-        fromcond: sick =>
-            probs: => [0.682, 0.318]
-            outcomes: => Status[recovered, dead]
-    duration: 9 =>
-        fromcond: mild =>
-            probs: => [0.4, 0.6]
-            outcomes: => Condition[mild, sick]
-        fromcond: nil =>
-            probs: => [0.5, 0.5]
-            outcomes: => Enum{Int32}[recovered, sick]
-        fromcond: sick =>
-            probs: => [0.6, 0.4]
-            outcomes: => Condition[sick, severe]
-    duration: 14 =>
-        fromcond: severe =>
-            probs: => [0.12, 0.67, 0.21]
-            outcomes: => Enum{Int32}[recovered, severe, dead]
-        fromcond: mild =>
-            probs: => [0.7, 0.3]
-            outcomes: => Enum{Int32}[recovered, sick]
-        fromcond: sick =>
-            probs: => [0.7, 0.1, 0.2]
-            outcomes: => Enum{Int32}[recovered, sick, severe]
-    duration: 19 =>
-        fromcond: severe =>
-            probs: => [0.49, 0.24, 0.27]
-            outcomes: => Enum{Int32}[recovered, severe, dead]
-agegrp: age20_39 =>
-    duration: 5 =>
-        fromcond: nil =>
-            probs: => [0.2, 0.7, 0.1]
-            outcomes: => Condition[nil, mild, sick]
-    duration: 25 =>
-        fromcond: severe =>
-            probs: => [0.964, 0.036]
-            outcomes: => Status[recovered, dead]
-        fromcond: sick =>
-            probs: => [0.964, 0.036]
-            outcomes: => Status[recovered, dead]
-    duration: 9 =>
-        fromcond: mild =>
-            probs: => [1.0]
-            outcomes: => Condition[mild]
-        fromcond: nil =>
-            probs: => [0.85, 0.15]
-            outcomes: => Enum{Int32}[recovered, sick]
-        fromcond: sick =>
-            probs: => [0.9, 0.1]
-            outcomes: => Condition[sick, severe]
-    duration: 14 =>
-        fromcond: severe =>
-            probs: => [0.474, 0.514, 0.012]
-            outcomes: => Enum{Int32}[recovered, severe, dead]
-        fromcond: mild =>
-            probs: => [1.0]
-            outcomes: => Status[recovered]
-        fromcond: sick =>
-            probs: => [0.83, 0.1, 0.07]
-            outcomes: => Enum{Int32}[recovered, sick, severe]
-    duration: 19 =>
-        fromcond: severe =>
-            probs: => [0.922, 0.072, 0.006]
-            outcomes: => Enum{Int32}[recovered, severe, dead]
-agegrp: age40_59 =>
-    duration: 5 =>
-        fromcond: nil =>
-            probs: => [0.2, 0.7, 0.1]
-            outcomes: => Condition[nil, mild, sick]
-    duration: 25 =>
-        fromcond: severe =>
-            probs: => [0.958, 0.042]
-            outcomes: => Status[recovered, dead]
-        fromcond: sick =>
-            probs: => [0.958, 0.042]
-            outcomes: => Status[recovered, dead]
-    duration: 9 =>
-        fromcond: mild =>
-            probs: => [1.0]
-            outcomes: => Condition[mild]
-        fromcond: nil =>
-            probs: => [0.9, 0.1]
-            outcomes: => Enum{Int32}[recovered, sick]
-        fromcond: sick =>
-            probs: => [0.9, 0.1]
-            outcomes: => Condition[sick, severe]
-    duration: 14 =>
-        fromcond: severe =>
-            probs: => [0.776, 0.206, 0.018]
-            outcomes: => Enum{Int32}[recovered, severe, dead]
-        fromcond: mild =>
-            probs: => [0.9, 0.1]
-            outcomes: => Enum{Int32}[recovered, sick]
-        fromcond: sick =>
-            probs: => [0.85, 0.14, 0.01]
-            outcomes: => Enum{Int32}[recovered, sick, severe]
-    duration: 19 =>
-        fromcond: severe =>
-            probs: => [0.856, 0.126, 0.018]
-            outcomes: => Enum{Int32}[recovered, severe, dead]
 =#
 
 

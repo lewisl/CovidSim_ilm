@@ -1,4 +1,5 @@
 # TODO
+    # R0 is broken by shifting spread to one person at a time and update-in-place
     # extend Term to include comparison operations: ==, <=, <, >=, >, in, and not
     # provide a function that filters using Term
     # get rid of old seeding approach
@@ -83,8 +84,7 @@ hash(x::Integer) = uint(x)  # speed up dicts that use integers as keys--especial
 
 # control constants
 const AGE_DIST = [0.251, 0.271, 0.255, 0.184, 0.039]
-const DURATIONLIM = 25
-const DURATIONS = 1:DURATIONLIM   # rows
+const DURATIONLIM = 25   # maximum length of illness for anyone
 
 #######################################################################
 # Symbol values for Condition, Status and agegrp to use in population table
@@ -117,13 +117,13 @@ const DURATIONS = 1:DURATIONLIM   # rows
     :age80_up       # 5
 
 
-# const STATUSES = collect(instances(Status))
+# These are VERY IMPORTANT constant vectors used in data_mapping.jl
+const TOUCHES = [:unexposed, :recovered, :nil, :mild, :sick, :severe]
 const STATUSES = [:unexposed, :infectious, :recovered, :dead]
 const INFECTIOUS_CASES = [:nil, :mild, :sick, :severe]
 const TRANSITION_CASES = [:recovered, :nil, :mild, :sick, :severe, :dead]
 const AGEGRPS = [:age0_19, :age20_39 , :age40_59, :age60_79, :age80_up]
-const AGEGRPVEC = AGEGRPS
-const AGENAMES = vcat(AGEGRPVEC, :total)
+const AGENAMES = vcat(AGEGRPS, :total)
 
 
 #################################################################################
@@ -324,7 +324,6 @@ export
 # control constants
 export                  
     AGE_DIST,
-    DURATIONS,
     DURATIONLIM
 
 # constants for indices to population matrix
@@ -333,7 +332,8 @@ export
     STATUSES,
     INFECTIOUS_CASES,
     TRANSITION_CASES,
-    AGEGRPS
+    AGEGRPS,
+    TOUCHES
 
 # functions for serialization
 export

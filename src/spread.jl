@@ -23,14 +23,17 @@ Changes attribute columns in the population table. Runs social distancing cases.
         c_vaxday
      )
 
+    # initialize return value
+    num_infected = 0
+     
     # retrieve params
     contactfactors = socialparams.contactfactors
     touchfactors   = socialparams.touchfactors
     gammashape     = socialparams.gammashape
     indoor_factor  = indoor_seq[thisday]
 
-    # targets = social_model(spr, poprange, contactfactors, touchfactors, sdcases, density_factor, indoor_factor, 
-    #                        gammashape, c_sdcase, c_agegrp, c_cond, c_status)
+    # columns to modify in make_sick function
+    sickcolumns = tuple(c_cond, c_status, c_duration, c_variant, c_sickday)
 
     # how many contacts does the infected person have?
     @inbounds contact_param = c_sdcase[spr] === :none ? contactfactors : sdcases[c_sdcase[spr]]
@@ -50,12 +53,13 @@ Changes attribute columns in the population table. Runs social distancing cases.
                         false
                     end
 
-        # will this touched contact get infected?
+        # will this contact get infected?
         if touched
             recovday = isempty(c_recovday[contact]) ? 0 : c_recovday[contact][end]
             spr_variant = isempty(c_variant[spr])  ? 0 : c_variant[spr][end]
     
-            recovfactor = if c_status[contact] == :recovered
+            # effect on transmission based on how long ago a previously infected contact got over the disease
+            recovfactor =   if c_status[contact] == :recovered
                                 contact_variant = c_variant[contact][end]
                                 recoveffect(thisday, recovday, contact_variant, spr_variant, infectset)
                             else 
@@ -63,6 +67,7 @@ Changes attribute columns in the population table. Runs social distancing cases.
                             end
     
             vaxstatus = c_vaxstatus[contact]
+            # effect on transmission based on which vaccine the contact received, how many times, and how long ago
             vaxfactor = if vaxstatus === :none
                             1.0 
                         else
@@ -74,16 +79,17 @@ Changes attribute columns in the population table. Runs social distancing cases.
             spr_duration = c_duration[spr]  # number of days spreader has been infected
             contact_agegrp = c_agegrp[contact]
     
+            # binomial probability of the contact getting infected from the contact with this spreader
             risk = infectrisk(infectset, spr_variant, spr_duration, contact_agegrp, recovfactor, vaxfactor)
 
             if isinfected(risk)
-                make_sick!(c_cond, c_status, c_duration, c_variant, c_sickday,  # cols to update
-                           contact, thisday, :nil, spr_variant)                 # person, date, condition, variant
+                make_sick!(sickcolumns, contact, thisday, :nil, spr_variant)
+                num_infected += 1
             end
         end
 
     end
-
+    return num_infected
 end       
 
 
@@ -101,13 +107,18 @@ end
     @inbounds locdat.duration[target] = duration
 end
 
-# make_sick! by column for a single person
+# make_sick! by column for a single person: documents what passing the sickcolumns tuple actually does
 @inline function make_sick!(c_cond, c_status, c_duration, c_variant, c_sickday, target, thisday, cond, variant)
     push!(c_variant[target], variant)  # first of possibly several infections...  c_variant[spr][end]
     push!(c_sickday[target], thisday)
     c_duration[target] = 1
     c_cond[target] = cond
     c_status[target] = :infectious
+end
+
+# sickcolumnsle = tuple(c_cond, c_status, c_duration, c_variant, c_sickday)
+@inline function make_sick!(sickcolumns, target, thisday, cond, variant)   # this whole thing appears to compile away so it's free
+    make_sick!(sickcolumns[1], sickcolumns[2], sickcolumns[3], sickcolumns[4], sickcolumns[5], target, thisday, cond, variant)
 end
 
 # complex make sick

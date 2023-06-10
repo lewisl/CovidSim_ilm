@@ -5,9 +5,9 @@
 
 
 function buildsim(ndays, locales;
-    day1 = Date("2020-01-01", "yyyy-mm-dd"),
-    dovax = false,
-    paramdir = "../sample_parameters",
+    day1 = Date("2020-01-01", "yyyy-mm-dd"),    # first calendar day of simulation
+    dovax = false,                              # vaccinations for people
+    paramdir = "../sample_parameters",          # a directory of required parameters
     geofilename = "../data/geo2data.csv", 
     socialfilename = "socialparams.yml",
     vaccinefilename = "vaccines.yml",
@@ -66,10 +66,11 @@ function runsim(model;
     socialparams = model.social
     vaxset = model.vaxset
     vaxlist = model.vaxlist
+    indoor_seq = model.indoor_seq
     seriescolnames = model.seriescolnames
+    vaxschedset = model.vaxschedset
 
     # initialize some factors
-    vaxschedset = model.vaxschedset
     for sched in values(vaxschedset) 
         for vax in values(sched.vaxesincluded) 
             vax.doses = vax.starting_doses   
@@ -84,9 +85,6 @@ function runsim(model;
 
     # restart the day counter to zero
     reset!(DAY_CTR, :day)  # return and reset key to 0 :day leftover from prior runs
-
-    
-
 
     # execution timers
     vaxtime = 0     # vaccinate
@@ -112,7 +110,8 @@ function runsim(model;
         cumhist = series[loc].cum
         age_idx_loc = agegrp_idx[loc]  # indices by agegrp
         density_factor = geodf.density_factor[geodf.fips .== loc][1]
-        calday = cumhist.calday
+        caldays = cumhist.caldays
+        indoor_seq = indoor_seq[loc]
 
         # Deref columns once per locale and not in the deeper loops. Pass needed columns to spread! and progression!
         c_cond       = locdat.cond
@@ -131,14 +130,8 @@ function runsim(model;
 
         # other per locale initialization
         poprange = 1:length(locdat)
-        indoor_seq = ones(Float64, ndays)
-        indoor_st = geodf.indoor_st[geodf.fips .== loc][1]
-        indoor_end = geodf.indoor_end[geodf.fips .== loc][1]
 
-        # evaluate which days get indoor_uplift for the entire simulation run instead of in a hot loop
-        build_indoor_seq!(indoor_seq, calday, socialparams.indoor_uplift, indoor_st, indoor_end)
-
-        # day loop
+        # day loop:  simulation time step is one day
         for i = 1:ndays  
             inc!(DAY_CTR, :day)  # increment the simulation day counter
             today = DAY_CTR[:day]
@@ -168,15 +161,16 @@ function runsim(model;
 
                 sprtime += @elapsed begin
                     # is this person ACTIVELY infectious
-                    spr_duration = c_duration[p]
+                    spr_duration = c_duration[p]  # duration determines if spreader is really able to spread the virus
                     spr_variant = c_variant[p][end]
-                    # duration determines if the spreader is really able to spread the virus
+                    
                     sendrisk = infectset[spr_variant].sendrisk[spr_duration]
                     
                     if sendrisk > 0.0     
+                        # transmission of the virus
                         spread!(p, today, sdcases,  socialparams, 
                                 infectset, vaxset, density_factor, indoor_seq, poprange, 
-                                    # columns of state table
+                                    # columns of simulation data table, rows are persons
                                     c_cond,
                                     c_status,
                                     c_agegrp,
@@ -192,8 +186,9 @@ function runsim(model;
                 end  # sprtime
 
                 trtime += @elapsed begin
+                    # progression of the disease for each infected person
                     progression!(p, infectset, progressionset, vaxset, dovax, trvec,   
-                                    # columns of state table
+                                    # columns of simulation data table, rows are persons
                                     c_cond,
                                     c_status,
                                     c_agegrp,
@@ -222,11 +217,11 @@ function runsim(model;
                 write(r0sim_output, " Current r(t): $current_r0 \n"); 
             end
 
-            histtime += @elapsed do_history!(locdat, newhist, cumhist, age_idx_loc, today, vaxlist, variantlist, seriescolnames)
+            histtime += @elapsed collect_history!(locdat, newhist, cumhist, age_idx_loc, today, vaxlist, variantlist, seriescolnames)
 
         end # day loop
 
-        # simulation for a locale is over: calculate total columns in the history series
+        # calculate history totals by agegroup, infected for all conditions, vaccinated for all vaccines
         histtime += @elapsed begin
             update_total_agegrps!(newhist, cumhist, seriescolnames) # sum agegrps to total for all series groups (by agegrp)
             update_totinfected_series!(newhist, cumhist, seriescolnames) 
@@ -256,7 +251,7 @@ end
 #  Update daily history series
 ################################################################################
 
-@inline function do_history!(locdat, newhist, cumhist, age_idx_loc, today, vaxlist, variantlist, seriescolnames)  
+@inline function collect_history!(locdat, newhist, cumhist, age_idx_loc, today, vaxlist, variantlist, seriescolnames)  
 
     statuscol = locdat.status
     condcol = locdat.cond
@@ -342,7 +337,7 @@ Sum all the series columns for all ages for all groups and items into a :total c
     @fastmath @inbounds for group in keys(scn)
         for item in keys(scn[group])
             totalcol = scn[group][item][:total]
-            sumcols = Tuple(scn[group][item][age] for age in AGEGRPVEC)
+            sumcols = Tuple(scn[group][item][age] for age in AGEGRPS)
             getproperty(newhist, totalcol)[:] .= .+(columns(getproperties(newhist, sumcols))...)  # a tuple of column names
             getproperty(cumhist, totalcol)[:] .= .+(columns(getproperties(cumhist, sumcols))...)
         end
