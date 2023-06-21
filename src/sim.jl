@@ -116,20 +116,6 @@ function runsim(model;
         indoor_seq = indoor_seq[loc]
 
         # Deref columns once per locale and not in the deeper loops. Pass needed columns to spread! and progression!
-        c_cond       = locdat.cond
-        c_status     = locdat.status
-        c_agegrp     = locdat.agegrp
-        c_duration   = locdat.duration
-        c_sdcase     = locdat.sdcase
-        c_variant    = locdat.variant
-        c_vaxstatus  = locdat.vaxstatus
-        c_sickday    = locdat.sickday
-        c_variant    = locdat.variant
-        c_recovday   = locdat.recovday
-        c_vaxrcvd    = locdat.vaxrcvd
-        c_vaxday     = locdat.vaxday
-        c_deadday    = locdat.deadday
-
         vax_cols = (status=locdat.status, agegrp=locdat.agegrp, vaxstatus=locdat.vaxstatus, recovday=locdat.recovday, vaxrcvd=locdat.vaxrcvd, vaxday=locdat.vaxday)
         spread_cols = (cond=locdat.cond, status=locdat.status, agegrp=locdat.agegrp, duration=locdat.duration, sdcase=locdat.sdcase, 
                        sickday=locdat.sickday, variant=locdat.variant, vaxstatus=locdat.vaxstatus, recovday=locdat.recovday, 
