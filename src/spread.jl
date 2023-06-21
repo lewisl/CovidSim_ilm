@@ -9,19 +9,7 @@ Infectious people spread the virus to susceptible people for a single locale on 
 Changes attribute columns in the population table. Runs social distancing cases.
 """
 @inline function spread!(spr::Int, thisday::Int, sdcases, socialparams, 
-     infectset, vaxset, density_factor, indoor_seq, poprange,    
-        c_cond,
-        c_status,
-        c_agegrp,
-        c_duration,
-        c_sdcase,
-        c_sickday,
-        c_variant,
-        c_vaxstatus,
-        c_recovday,
-        c_vaxrcvd,
-        c_vaxday
-     )
+     infectset, vaxset, density_factor, indoor_seq, poprange, spread_cols)
 
     # initialize return value
     num_infected = 0
@@ -33,51 +21,51 @@ Changes attribute columns in the population table. Runs social distancing cases.
     indoor_factor  = indoor_seq[thisday]
 
     # columns to modify in make_sick function
-    sickcolumns = tuple(c_cond, c_status, c_duration, c_variant, c_sickday)
+    sickcolumns = tuple(spread_cols.cond, spread_cols.status, spread_cols.duration, spread_cols.variant, spread_cols.sickday)
 
     # how many contacts does the infected person have?
-    @inbounds contact_param = c_sdcase[spr] === :none ? contactfactors : sdcases[c_sdcase[spr]]
+    @inbounds contact_param = c_sdcase[spr] === :none ? contactfactors : sdcases[spread_cols.sdcase[spr]]
     numcontacts = @inbounds @fastmath how_many_contacts(density_factor, indoor_factor, gammashape, 
-                                                        c_agegrp[spr], c_cond[spr], contact_param) 
+                                                        spread_cols.agegrp[spr], spread_cols.cond[spr], contact_param) 
     
     contacts = rand(poprange, numcontacts)
     for contact in contacts
         
-        contact_status = c_status[contact]
+        contact_status = spread_cols.status[contact]
 
         # does this contact experience a meaningful touch by the spreader?
         touched =   if (contact_status == :unexposed) | (contact_status == :recovered)  # only conditions that can get infected   
-                        touch_param = c_sdcase[contact] === :none ? touchfactors : sdcases[c_sdcase[contact]].tfcase
-                        istouched(c_agegrp[contact], contact_status, indoor_factor, touch_param)   # returns true or false
+                        touch_param = spread_cols.sdcase[contact] === :none ? touchfactors : sdcases[spread_cols.sdcase[contact]].tfcase
+                        istouched(spread_cols.agegrp[contact], contact_status, indoor_factor, touch_param)   # returns true or false
                     else
                         false
                     end
 
         # will this contact get infected?
         if touched
-            recovday = isempty(c_recovday[contact]) ? 0 : c_recovday[contact][end]
-            spr_variant = isempty(c_variant[spr])  ? 0 : c_variant[spr][end]
+            recovday = isempty(spread_cols.recovday[contact]) ? 0 : spreadcols.recovday[contact][end]
+            spr_variant = isempty(spread_cols.variant[spr])  ? 0 : spread_cols.variant[spr][end]
     
             # effect on transmission based on how long ago a previously infected contact got over the disease
-            recovfactor =   if c_status[contact] == :recovered
-                                contact_variant = c_variant[contact][end]
+            recovfactor =   if spread_cols.status[contact] == :recovered
+                                contact_variant = spread_cols.variant[contact][end]
                                 recoveffect(thisday, recovday, contact_variant, spr_variant, infectset)
                             else 
                                 1.0
                             end
     
-            vaxstatus = c_vaxstatus[contact]
+            vaxstatus = spread_cols.vaxstatus[contact]
             # effect on transmission based on which vaccine the contact received, how many times, and how long ago
             vaxfactor = if vaxstatus === :none
                             1.0 
                         else
-                            vaxrcvd = c_vaxrcvd[contact][end]
-                            vaxday = c_vaxday[contact][end]
+                            vaxrcvd = spread_cols.vaxrcvd[contact][end]
+                            vaxday = spread_cols.vaxday[contact][end]
                             vaxeffect(thisday, infectset, vaxset, vaxstatus, spr_variant, vaxrcvd, vaxday; mode=:spread)
                         end
     
-            spr_duration = c_duration[spr]  # number of days spreader has been infected
-            contact_agegrp = c_agegrp[contact]
+            spr_duration = spread_cols.duration[spr]  # number of days spreader has been infected
+            contact_agegrp = spread_cols.agegrp[contact]
     
             # binomial probability of the contact getting infected from the contact with this spreader
             risk = infectrisk(infectset, spr_variant, spr_duration, contact_agegrp, recovfactor, vaxfactor)

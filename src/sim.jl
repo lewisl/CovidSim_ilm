@@ -130,6 +130,13 @@ function runsim(model;
         c_vaxday     = locdat.vaxday
         c_deadday    = locdat.deadday
 
+        vax_cols = (status=c_status, agegrp=c_agegrp, vaxstatus=c_vaxstatus, recovday=c_recovday, vaxrcvd=c_vaxrcvd, vaxday=c_vaxday)
+        spread_cols = (cond=c_cond, status=c_status, agegrp=c_agegrp, duration=c_duration, sdcase=c_sdcase, sickday=c_sickday,
+                       variant=c_variant, vaxstatus=c_vaxstatus, recovday=c_recovday, vaxrcvd=c_vaxrcvd, vaxday=c_vaxday)
+        prog_cols = (cond=c_cond, status=c_status, agegrp=c_agegrp, duration=c_duration, sdcase=c_sdcase, variant=c_variant,
+                     vaxstatus=c_vaxstatus, recovday=c_recovday, vaxrcvd=c_vaxrcvd, vaxday=c_vaxday, deadday=c_deadday)
+
+
         # other per locale initialization
         poprange = 1:length(locdat)
 
@@ -171,38 +178,13 @@ function runsim(model;
                     if sendrisk > 0.0     
                         # transmission of the virus
                         spread!(p, today, sdcases,  socialparams, 
-                                infectset, vaxset, density_factor, indoor_seq, poprange, 
-                                    # columns of simulation data table, rows are persons
-                                    c_cond,
-                                    c_status,
-                                    c_agegrp,
-                                    c_duration,
-                                    c_sdcase,
-                                    c_sickday,
-                                    c_variant,
-                                    c_vaxstatus,
-                                    c_recovday,
-                                    c_vaxrcvd,
-                                    c_vaxday)        
+                                infectset, vaxset, density_factor, indoor_seq, poprange, spread_cols)       
                     end
                 end  # sprtime
 
                 trtime += @elapsed begin
                     # progression of the disease for each infected person
-                    progression!(p, infectset, progressionset, vaxset, dovax, trvec,   
-                                    # columns of simulation data table, rows are persons
-                                    c_cond,
-                                    c_status,
-                                    c_agegrp,
-                                    c_duration,
-                                    c_sdcase,
-                                    c_variant,
-                                    c_vaxstatus,
-                                    c_recovday,
-                                    c_vaxrcvd,
-                                    c_vaxday,
-                                    c_deadday
-                                    ) 
+                    progression!(p, infectset, progressionset, vaxset, dovax, trvec, prog_cols)
                     end
             end # people loop         
             
