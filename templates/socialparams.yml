@@ -1,0 +1,47 @@
+#
+# gammashape: shape parameter of gamma distribution used to calculate contacts
+#     - Float64, typically in [0.6, 1.5]
+gammashape: 1.0
+#
+#
+# indoor_uplift
+#     how much impact does being indoors more during colder months have on:
+#        - an infected person having more contacts?
+#        - a contact being a more significant touch? (longer/closer interaction)
+#        - used with indoor_st and indoor_end dates in geodata
+#        - reasonable values are between 1.0 (no effect) and 1.4
+#
+indoor_uplift: 1.1
+# contactfactors: gamma distribution size parameter 
+#     - determines number of contacts per day for each spreader
+#     - converted to Matrix{Float64} 4 x 5 (conditions converted to rows, agegrps to columns)
+#
+contactfactors:                                        
+  age0_19:                                            
+    {nil: 1.1, mild: 1.1, sick: 0.7, severe: 0.5}       
+  age20_39:
+    {nil: 2.1, mild: 2.0, sick: 1.0, severe: 0.6}
+  age40_59:
+    {nil: 2.1, mild: 2.0, sick: 1.0, severe: 0.6}
+  age60_79:
+    {nil: 1.7, mild: 1.6, sick: 0.7, severe: 0.5}
+  age80_up:
+    {nil: 1.0, mild: 0.9, sick: 0.6, severe: 0.5}
+#
+# touchfactors: probability input to binomial distribution 
+#     - determines if target is "touched"
+#     - must be between 0.0 and 1.0
+#     - converted to Matrix{Float64} 6x5 when loaded
+#     - 6 statuses as rows by 5 agegrps as columns
+#
+touchfactors:
+  age0_19:                                                    
+    {unexposed: 0.55, recovered: 0.55, nil: 0.55, mild: 0.55, sick: 0.28, severe: 0.18}
+  age20_39:
+    {unexposed: 0.63, recovered: 0.63, nil: 0.63, mild: 0.62, sick: 0.35, severe: 0.18}
+  age40_59:
+    {unexposed: 0.61, recovered: 0.61, nil: 0.61, mild: 0.58, sick: 0.30, severe: 0.18}
+  age60_79:
+    {unexposed: 0.41, recovered: 0.41, nil: 0.41, mild: 0.41, sick: 0.18, severe: 0.18}
+  age80_up:
+    {unexposed: 0.35, recovered: 0.35, nil: 0.35, mild: 0.28, sick: 0.18, severe: 0.18}

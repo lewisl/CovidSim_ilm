@@ -1,0 +1,23 @@
+---
+condition:       # convert to enum
+  - uninfected
+  - nil
+  - mild
+  - sick
+  - severe
+status:          # convert to enum
+  - unexposed
+  - infectious 
+  - recovered 
+  - dead
+  - reinfected  #  ???
+  - breakout    #  ???
+agegrp:          # convert to enum
+  - age0_19
+  - age20_39
+  - age40_59
+  - age60_79
+  - age80_up
+age_dist: [0.251, 0.271, 0.255, 0.184, 0.039]
+durations: 
+  maxduration: 25

@@ -8,11 +8,13 @@ function buildsim(ndays, locales;
     day1 = Date("2020-01-01", "yyyy-mm-dd"),    # first calendar day of simulation
     dovax = false,                              # vaccinations for people
     paramdir = "../sample_parameters",          # a directory of required parameters
-    geofilename = "../data/geo2data.csv", 
+    geofilename = "geo2data.csv", 
     socialfilename = "socialparams.yml",
     vaccinefilename = "vaccines.yml",
     scheddir="vaccine_schedule",
     variantfilename = "variants.yml")
+
+    println("is this working?")
 
     locales = locales isa Int ? [locales] : locales
 
@@ -27,7 +29,7 @@ function buildsim(ndays, locales;
         variantfilename=variantfilename,
         )
 
-        #=
+        #=  Here is what the model tuple looks like...
         model = (ndays=ndays, day1=day1, locales=locales, dat=dat, series=series, geo=geodata, 
                 progressionset=progressionset, vaxset=vaxset, vaxschedset=vaxschedset, infectset=infectset, 
                 social=socialparams, trvec=trvec, vaxlist=vaxlist, variantlist=variantlist, 
@@ -59,7 +61,7 @@ function runsim(model;
     trvec = model.trvec # preallocated small vector
     popdat = deepcopy(model.dat.popdat)   # Copy the population data so model can be reused!!!
     agegrp_idx = model.dat.agegrp_idx   # first key is locale
-    series = deepcopy(model.series)  # dict of locales => namedtuple(.cum, .new), TypedTable of history columns
+    series = deepcopy(model.series)  # dict of locales => namedtuple(.cum, .new), LazyTable of history columns
     geodf = model.geo
     infectset = model.infectset
     variantlist = model.variantlist
@@ -421,6 +423,8 @@ function optfindall(p, X, maxlen=1)
     resize!(out, ind)
     return out
 end
+
+
 
 
 #######################################################################################

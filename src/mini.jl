@@ -1,4 +1,4 @@
-using TypedTables
+using LazyTables
 using PrettyPrint
 using DataStructures
 using Random
@@ -41,7 +41,7 @@ const AGEGRPS = instances(agegrp)
         
 """
 Pre-allocate and initialize population data for one locale in the simulation.
-Returns a TypedTable which is a tuple of arrays:
+Returns a LazyTable which is a tuple of arrays:
 - each column is a trait of people
 - rows are days of the simulatoin
 """
@@ -50,7 +50,7 @@ function pop_data1(pop; age_dist=AGE_DIST)
         parts = apportion(pop, age_dist)
 
         # must use comprehension to initialize vector of vector NOT fill--fill creates identical vectors
-        dat = Table(
+        dat = LazyTable(
             status = fill(unexposed, pop),                                          # enum status
             agegrp = reduce(vcat,[fill(age, parts[Int(age)]) for age in AGEGRPS]),  # enum agegrp
             cond = fill(uninfected, pop),                                           # enum Condition

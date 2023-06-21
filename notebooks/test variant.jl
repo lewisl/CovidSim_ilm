@@ -8,7 +8,7 @@
 #       format_version: '1.3'
 #       jupytext_version: 1.13.8
 #   kernelspec:
-#     display_name: Julia 1.9.0
+#     display_name: Julia 1.9.1
 #     language: julia
 #     name: julia-1.9
 # ---
@@ -17,11 +17,13 @@
 using CovidSim_ilm
 
 # %%
+
+# %%
 cs = CovidSim_ilm
 
 # %%
 using StatsBase
-using TypedTables
+using LazyTables
 using BenchmarkTools
 using Distributions
 using YAML

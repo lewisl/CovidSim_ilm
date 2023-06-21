@@ -1,5 +1,7 @@
 # TODO
     # R0 is broken by shifting spread to one person at a time and update-in-place
+    # rewrite test and trace to fit new population matrix
+    # test social distancing
     # extend Term to include comparison operations: ==, <=, <, >=, >, in, and not
     # provide a function that filters using Term
     # get rid of old seeding approach
@@ -19,7 +21,6 @@
         # get fatality rate by age and co-morbidity CDC, Italian NIH
         # by agegroup, hospitalization %, ICU admission %, fatality %
         # UW virology, expansion of deaths by state on log chart
-    # rewrite test and trace to fit new population matrix
     # rewrite quarantine to fit new population matrix--think through social distancing
     # fix all the travel functions to latest APIs
     # should quarantine be special or is it extreme social distancing--with no contacts?
@@ -56,6 +57,7 @@ using PlotThemes
 using Dates
 using YAML
 using TypedTables
+using LazyTables
 using Interpolations
 
 
@@ -84,7 +86,8 @@ hash(x::Integer) = uint(x)  # speed up dicts that use integers as keys--especial
 
 # control constants
 const AGE_DIST = [0.251, 0.271, 0.255, 0.184, 0.039]
-const DURATIONLIM = 25   # maximum length of illness for anyone
+const DURATIONLIM = 25   # maximum length of illness in days for anyone
+const DURATIONS = 1:DURATIONLIM
 
 #######################################################################
 # Symbol values for Condition, Status and agegrp to use in population table
@@ -222,6 +225,7 @@ include("plotting.jl")
 include("simstats.jl")
 include("cases.jl")
 include("test_and_trace.jl")
+include("disease_modeling.jl")
 include("progression.jl")
 include("spread.jl")
 include("r0_simulation.jl")

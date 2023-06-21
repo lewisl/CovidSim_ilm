@@ -2,7 +2,6 @@
 # progression.jl for ilm model
 #     how folks who have gotten sick progress through stages of the disease in the simulation:
 #           progression
-#     travel
 ####################################################
 
     
@@ -70,7 +69,7 @@ vaxrcvd, vaxday, deadday.
                         p_vaxrcvd = c_vaxrcvd[p][end]
                         p_vaxday = c_vaxday[p][end]
                         p_variant = c_variant[p][end]
-                        # effect on severity and progressioning based on being vaccinated
+                        # effect on severity and progressing based on being vaccinated
                         vaxeffect(today, infectset, vaxset, p_vaxstatus, p_variant, p_vaxrcvd, p_vaxday, mode=:progression)
                     end
 
@@ -92,7 +91,7 @@ end
 
 function riskfactor(recoveff, vaxeff)
     combinedfactor = min(recoveff, vaxeff)
-    riskfactor = squashfunc(combinedfactor)  
+    riskfactor = clamp(combinedfactor, 0.0, 0.97)  
 end
 
 
@@ -176,84 +175,4 @@ function doprogression!(c_duration,
             end
         end    
     # end
-end
-
-
-# TODO   This is ancient code and WILL NOT WORK in current version of simulaton code
-
-"""
-For a locale, randomly choose the number of people from each agegroup with
-condition of {unexposed, infectious, recovered} who travel to each
-other locale. Add to the travelq.
-"""
-function travelout!(fromloc, locales, rules=[])    # TODO THIS WON'T WORK ANY MORE!
-    # 10.5 microseconds for 5 locales
-    # choose distribution of people traveling by age and condition:
-        # unexposed, infectious, recovered -> ignore duration for now
-    # TODO: more frequent travel to and from Major and Large cities
-    # TODO: should the caller do the loop across locales?   YES
-    travdests = collect(locales)
-    deleteat!(travdests,findfirst(isequal(fromloc), travdests))
-    bins = lim = length(travdests) + 1
-    for agegrp in AGEGRPS
-        for cond in [unexposed, infectious, recovered]
-            name = string(cond)
-            for duration in DURATIONS
-                numfolks = sum(grab(cond, agegrp, duration, fromloc)) # the from locale, all DURATIONS
-                travcnt = floor(Int, gamma_prob(travprobs[agegrp]) * numfolks)  # interpret as fraction of people who will travel
-                x = rand(travdests, travcnt)  # randomize across destinations
-                bydest = bucket(x, vals=1:length(travdests))
-                for dest in 1:length(bydest)
-                    isempty(bydest) && continue
-                    cnt = bydest[dest]
-                    iszero(cnt) && continue
-                    enqueue!(travelq, travitem(cnt, fromloc, dest, agegrp, duration, name))
-                end
-            end
-        end
-    end
-end
-
-
-"""
-Assuming a daily cycle, at the beginning of the day
-process the queue of travelers from the end of the previous day.
-Remove groups of travelers by agegrp, duration, and condition
-from where they departed.  Add them to their destination.
-"""
-function travelin!(dat=popdat)   # TODO THIS DOESN'T WORK ANYMORE
-    while !isempty(travelq)
-        g = dequeue!(travelq)
-        cond = eval(Symbol(g.cond))
-        minus!(g.cnt, cond, g.agegrp, g.duration, g.from, dat=dat)
-        plus!(g.cnt, cond, g.agegrp, g.duration, g.to, dat=dat)
-    end
-end
-
-
-"""
-Return boolean filter of people currently in quarantine less
-daily leakage, if applicable.
-"""
-function current_quar(locdat, leakage = .05)
-    @assert 0.0 <= leakage <= 1.0 "leakage value must be between 0.0 and 1.0 inclusive"
-
-    iq_filt = copy(locdat.quar)
-    cnt = round(Int, sum(locdat.quar) * leakage)
-    
-    iq_filt[sample(findall(locdat.quar), cnt, replace=false)] .= false
-    
-    return iq_filt
-end
-
-
-function in_quarantine(locdat, p, leakage = 0.05)::Bool
-    @assert 0.0 <= leakage <= 1.0 "leakage value must be between 0.0 and 1.0 inclusive"
-    if leakage == 1.0
-        return false  # everyone leaks quarantine is always false
-    elseif leakage == 0.0
-        return locdat.quar[p] # no one leaks--depends on the person's status
-    else
-        rand() < leakage ? false : locdat.quar[p]
-    end
 end

@@ -15,7 +15,7 @@ function stat_cond(series, locale)
     cumhist = series[locale].cum
     newhist = series[locale].new
 
-    stat1 = Table(item=Symbol[], total=Int[], age0_19=Int[], age20_39=Int[], age40_59=Int[], age60_79=Int[], age80_up=Int[])
+    stat1 = LazyTable(item=Symbol[], total=Int[], age0_19=Int[], age20_39=Int[], age40_59=Int[], age60_79=Int[], age80_up=Int[])
     calc_cols = [:total, :age0_19, :age20_39, :age40_59, :age60_79, :age80_up]
 
     # TODO use list of ages rather than hardcoding
@@ -76,7 +76,7 @@ function stat_cond(series, locale)
 
 
     # add pct of population columns
-    statpct = Table(item = stat1.item, total = stat1.total, total_pct = stat1.total ./ stat1.total[1],   # 
+    statpct = LazyTable(item = stat1.item, total = stat1.total, total_pct = stat1.total ./ stat1.total[1],   # 
             age0_19 = stat1.age0_19, age0_19_pct = stat1.age0_19 ./ stat1.age0_19[1], 
             age20_39=stat1.age20_39, age20_39_pct = stat1.age20_39 ./ stat1.age20_39[1],
             age40_59 = stat1.age40_59, age40_59_pct = stat1.age40_59 ./ stat1.age40_59[1], 
@@ -92,7 +92,7 @@ function stat_vax(popdat, locale)
     td = @Select(vaxrcvd, agegrp, status)(popdat[locale]) # view with 2 columns on popdat
     vaxes = td.vaxrcvd
 
-    stat_vax = Table(item=Symbol[], total=Int[], age0_19=Int[], age20_39=Int[], age40_59=Int[], age60_79=Int[], age80_up=Int[])
+    stat_vax = LazyTable(item=Symbol[], total=Int[], age0_19=Int[], age20_39=Int[], age40_59=Int[], age60_79=Int[], age80_up=Int[])
     calc_cols = [:total, :age0_19, :age20_39, :age40_59, :age60_79, :age80_up]
     
     col_age0_19  = countmap(last.(vaxes[(td.agegrp .== :age0_19) .& (td.status .!= :dead)]))
@@ -125,7 +125,7 @@ function stat_repeat(popdat, locale)
     thisdat = @Select(variant, agegrp)(popdat[locale]) # view with 2 columns on popdat
     variants = thisdat.variant
 
-    stat_count = Table(item=Symbol[], total=Int[], age0_19=Int[], age20_39=Int[], age40_59=Int[], age60_79=Int[], age80_up=Int[])
+    stat_count = LazyTable(item=Symbol[], total=Int[], age0_19=Int[], age20_39=Int[], age40_59=Int[], age60_79=Int[], age80_up=Int[])
 
     col_total    = sort(countmap(length.(variants)))
     col_age0_19  = sort(countmap(length.(variants[thisdat.agegrp .== :age0_19])))
@@ -168,7 +168,7 @@ function vax_summary(model, locale)
     n = length(newhist)
 
     # construct the data series: rows are vax sequence
-    daily_vaxes = Table(zeros(Int, n, numcols))
+    daily_vaxes = LazyTable(zeros(Int, n, numcols))
     maxtimes = maximum(length.(locdat.sickday))  # maximum no. of times anyone has gotten infected
     for i in 2:maxtimes+1
         for age in AGEGRPS  # accumulate all days on which anyone got sick the 1st, 2nd, 3rd... time
@@ -192,7 +192,7 @@ function detailed_vax_series(model, locale)
     n = length(newhist)
 
     # construct the data series
-    daily_vaxes = Table(zeros(Int, n, numcols))
+    daily_vaxes = LazyTable(zeros(Int, n, numcols))
     maxtimes = maximum(length.(locdat.sickday))  # maximum no. of times anyone has gotten infected
     for i in 2:maxtimes+1
         for age in AGEGRPS  # accumulate all days on which anyone got sick the 1st, 2nd, 3rd... time
@@ -216,7 +216,7 @@ function daily_cases_series!(model, locale)
     n = length(newhist)
 
     # construct the data series
-    daily_cases = Table(zeros(Int, n, numcols))
+    daily_cases = LazyTable(zeros(Int, n, numcols))
     maxtimes = maximum(length.(locdat.sickday))  # maximum no. of times anyone has gotten infected
     for i in 2:maxtimes+1
         for age in AGEGRPS  # accumulate all days on which anyone got sick the 1st, 2nd, 3rd... time

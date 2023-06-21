@@ -192,7 +192,7 @@ end
 
 function verifyprobs(seqs)
     ret = Dict(dead=>0.0, recovered=>0.0)
-    restable = Table(duration=[5,9,14,19,25], from=[nil, nil, nil, nil, nil], recovered=[0.0,0.0,0.0,0.0,0.0], dead=[0.0,0.0,0.0,0.0,0.0])
+    restable = LazyTable(duration=[5,9,14,19,25], from=[nil, nil, nil, nil, nil], recovered=[0.0,0.0,0.0,0.0,0.0], dead=[0.0,0.0,0.0,0.0,0.0])
     allpr = 0.0
 
     for seq in seqs

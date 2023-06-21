@@ -32,6 +32,9 @@ function setup(ndays::Int64, locales;
     scheddir,
     variantfilename)
 
+
+    # println(paramdir)
+
     geodata = buildgeodata(geofilename, paramdir)
 
     socialparams = build_socialparams(socialfilename, paramdir)
@@ -161,36 +164,33 @@ function pop_data(pop; age_dist=AGE_DIST)
     
         parts = apportion(pop, age_dist)
 
-        # @show parts
-
         # must use comprehension to initialize vector of vector NOT fill--fill creates vectors at same address
-        dat = Table(
-            status = fill(:unexposed, pop),                                          # Symbol status
-            # agegrp = reduce(vcat,[fill(age, parts[Int(age)]) for age in AGEGRPS]),  # Symbol agegrp
-            agegrp = reduce(vcat,[fill(age, parts[i]) for (i,age) in enumerate(AGEGRPS)]),  # Symbol agegrp
-            cond = fill(:uninfected, pop),                                           # Symbol Condition
-            duration = zeros(Int, pop),                                             # Int
-            variant = [Symbol[] for _ in 1:pop],                                    # Vector{Symbol}
-            sickday = [Int[] for _ in 1:pop],       # empty int vector for each person                                  # Vector{Vector{Int}}
-            recovday = [Int[] for _ in 1:pop],                                        # Vector{Vector{Int}}
-            deadday = zeros(Int, pop),                                              # Int
-            ring = zeros(Int, pop),                                                 # Int (not used as yet)
-            sdcase = fill(:none, pop),                                              # Symbol
-            vaxstatus = fill(:none, pop),          # :none, :first, :full, :booster  maybe others later...
-            vaxrcvd = [[:none] for _ in 1:pop],    # Vector{Symbol} of vaccine symbols  :Pfizer, :Moderna, :JnJ
-            vaxday = [Int[] for _ in 1:pop],                                          # Vector{Int}
-            tested = falses(pop),                                                   # Bool
-            testday = zeros(Int, pop),                                              # Vector{Int}
-            quar = falses(pop),                                                     # Bool
-            quarday = zeros(Int, pop))                                              # Int
+        dat = LazyTable(
+            status = fill(:unexposed, pop),                                         
+            agegrp = reduce(vcat,[fill(age, parts[i]) for (i,age) in enumerate(AGEGRPS)]), 
+            cond = fill(:uninfected, pop),                                           
+            duration = zeros(Int, pop),                                             
+            variant = [Symbol[] for _ in 1:pop],                                   
+            sickday = [Int[] for _ in 1:pop],                                                                   
+            recovday = [Int[] for _ in 1:pop],                                 
+            deadday = zeros(Int, pop),                                             
+            ring = zeros(Int, pop),                                                
+            sdcase = fill(:none, pop),                                          
+            vaxstatus = fill(:none, pop),               # :none, :first, :full, :booster  maybe others later...
+            vaxrcvd = [[:none] for _ in 1:pop],         # Vector{Symbol} of vaccine symbols  :Pfizer, :Moderna, :JnJ
+            vaxday = [Int[] for _ in 1:pop],            
+            tested = falses(pop),                                                   
+            testday = zeros(Int, pop),                                              
+            quar = falses(pop),                                                     
+            quarday = zeros(Int, pop))                                             
 
     return dat       
 end
 
 
 """
-Pre-allocate and initialize table to hold history of the simulation, using TypedTables.
-Returns a Dict of TypedTable with 2 keys:
+Pre-allocate and initialize table to hold history of the simulation, using LazyTables.
+Returns a Dict of LazyTable with 2 keys:
 - key cum is cumulative data for the entire locale. Or you may think of cum as the current value of a statistic.
 - key new is the net change of a statistic for the entire locale. Note that this includes both additions and substractions. In other words, this
 cannot be used as "new daily infections," for example.
@@ -207,8 +207,8 @@ function build_series_table(locales, n_days, day1, seriescolnames)
     # cols = [col for group in seriescolnames for item in group for col in item]
     cols = [col for group in values(seriescolnames) for item in values(group) for col in values(item)]
     colvals = [zeros(Int,n_days) for _ in 1:length(cols)]
-    series = Dict(loc => (cum = Table(; caldays=caldays, zip(cols,[zeros(Int,n_days) for _ in 1:length(cols)])...), 
-                          new = Table(; caldays=caldays, zip(cols,[zeros(Int,n_days) for _ in 1:length(cols)])...))
+    series = Dict(loc => (cum = LazyTable(; caldays=caldays, zip(cols,[zeros(Int,n_days) for _ in 1:length(cols)])...), 
+                          new = LazyTable(; caldays=caldays, zip(cols,[zeros(Int,n_days) for _ in 1:length(cols)])...))
              for loc in locales)
 
     return series
@@ -285,12 +285,17 @@ end
 
 
 function buildgeodata(filename::String, paramdir)
-    tmp = Table(CSV.File(joinpath(paramdir, filename)))
+
+    println(paramdir)
+    println(filename)
+
+
+    tmp = LazyTable(CSV.File(joinpath(paramdir, filename)))
     buildgeodata(tmp)
 end
 
-function buildgeodata(geotable::T) where T <: Table
-    Table(geotable, 
+function buildgeodata(geotable::T) where T <: LazyTable
+    LazyTable(geotable, 
         density_factor = shifter(geotable.density,0.9,1.25), 
         anchor         = quickdate(geotable.anchor),
         indoor_st      = quickdate(geotable.indoor_st),
@@ -465,8 +470,17 @@ end
 
 
 #####################################################################################
-# dodgy math helper functions
+# simple math helper functions
+#   
 #####################################################################################
+"""
+shifter makes linear changes in value ranges, preserving relative values
+"""
+@inline function shifter(x::AbstractArray, newmin, newmax)
+    oldmin = minimum(x)
+    oldmax = maximum(x)
+    shifter(x, oldmin, oldmax, newmin, newmax)
+end
 
 @inline @fastmath function shifter(x::Array, oldmin, oldmax, newmin, newmax)
     newmin .+ (newmax - newmin) / (oldmax - oldmin) .* (x .- oldmin)
@@ -476,11 +490,6 @@ end
     newmin + (newmax - newmin) / (oldmax - oldmin) * (x - oldmin)
 end
 
-@inline function shifter(x::AbstractArray, newmin, newmax)
-    oldmin = minimum(x)
-    oldmax = maximum(x)
-    shifter(x, oldmin, oldmax, newmin, newmax)
-end
 
 
 @inline function shifter(x::AbstractArray, newval, mode::Symbol)

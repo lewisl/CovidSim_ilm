@@ -1,0 +1,28 @@
+# for 3 youngest age groups
+
+vaxesincluded:
+  Pfizer:
+    mix:            0.43    # 0.55
+    starting_doses: 300000    # 70000 for all
+    pct2ndshot:     0.8
+    pctboost:       0.3
+    alternate:      [Moderna, JnJ]  # one of none, any, other shot
+  Moderna:
+    mix:            0.34     # 0.30
+    starting_doses: 240000      # 60000 for all
+    pct2ndshot:     0.8
+    pctboost:       0.3
+    alternate:      [Pfizer, JnJ]
+  JnJ:
+    mix:            0.23     # 0.15
+    starting_doses: 160000      # 20000 for all
+    pct2ndshot:     0.0
+    pctboost:       0.2
+    alternate:      [Pfizer, Moderna]
+
+dayrange:       [350, 700]
+targetpct:      0.65    
+filtervec:     [age0_19, age20_39, age40_59]
+shotmode:       all              # values in :first, :second, :all, :booster
+pattern:        [0.0, .02, .05, .10, .15, .19, .21, .16, .08, .03, .01, 0.0]
+spreadfunc:

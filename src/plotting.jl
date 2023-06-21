@@ -111,7 +111,7 @@ function newplot(series, locale, plotcols=[:infectious]; days="all", geo=[], thm
 end
 
 
-function selpos!(tab::Table)
+function selpos!(tab::LazyTable)
     for c in columns(tab)
         for i in eachindex(c)
             c[i] = c[i] > 0.0 ? c[i] : 0.0
