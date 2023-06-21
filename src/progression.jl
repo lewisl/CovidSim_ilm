@@ -48,14 +48,14 @@ vaxrcvd, vaxday, deadday.
                     else
                         1.0
                     end
-
+                    
+        # effect on severity and progressing based on being vaccinated
         vaxeff = @inbounds if p_vaxstatus === :none
                         1.0
                     else
                         p_vaxrcvd = prog_cols.vaxrcvd[p][end]
                         p_vaxday = prog_cols.vaxday[p][end]
                         p_variant = prog_cols.variant[p][end]
-                        # effect on severity and progressing based on being vaccinated
                         vaxeffect(today, infectset, vaxset, p_vaxstatus, p_variant, p_vaxrcvd, p_vaxday, mode=:progression)
                     end
 
