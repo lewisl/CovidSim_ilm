@@ -130,6 +130,14 @@ function runsim(model;
         c_vaxday     = locdat.vaxday
         c_deadday    = locdat.deadday
 
+        vax_cols = (status=locdat.status, agegrp=locdat.agegrp, vaxstatus=locdat.vaxstatus, recovday=locdat.recovday, vaxrcvd=locdat.vaxrcvd, vaxday=locdat.vaxday)
+        spread_cols = (cond=locdat.cond, status=locdat.status, agegrp=locdat.agegrp, duration=locdat.duration, sdcase=locdat.sdcase, 
+                       sickday=locdat.sickday, variant=locdat.variant, vaxstatus=locdat.vaxstatus, recovday=locdat.recovday, 
+                       vaxrcvd=locdat.vaxrcvd, vaxday=locdat.vaxday)
+        prog_cols = (cond=locdat.cond, status=locdat.status, agegrp=locdat.agegrp, duration=locdat.duration, sdcase=locdat.sdcase, variant=locdat.variant,
+                     vaxstatus=locdat.vaxstatus, recovday=locdat.recovday, vaxrcvd=locdat.vaxrcvd, vaxday=locdat.vaxday, deadday=locdat.deadday)
+
+
         # other per locale initialization
         poprange = 1:length(locdat)
 
@@ -163,46 +171,21 @@ function runsim(model;
 
                 sprtime += @elapsed begin
                     # is this person ACTIVELY infectious
-                    spr_duration = c_duration[p]  # duration determines if spreader is really able to spread the virus
-                    spr_variant = c_variant[p][end]
+                    spr_duration = spread_cols.duration[p]  # duration determines if spreader is really able to spread the virus
+                    spr_variant = spread_cols.variant[p][end]
                     
                     sendrisk = infectset[spr_variant].sendrisk[spr_duration]
                     
                     if sendrisk > 0.0     
                         # transmission of the virus
                         spread!(p, today, sdcases,  socialparams, 
-                                infectset, vaxset, density_factor, indoor_seq, poprange, 
-                                    # columns of simulation data table, rows are persons
-                                    c_cond,
-                                    c_status,
-                                    c_agegrp,
-                                    c_duration,
-                                    c_sdcase,
-                                    c_sickday,
-                                    c_variant,
-                                    c_vaxstatus,
-                                    c_recovday,
-                                    c_vaxrcvd,
-                                    c_vaxday)        
+                                infectset, vaxset, density_factor, indoor_seq, poprange, spread_cols)       
                     end
                 end  # sprtime
 
                 trtime += @elapsed begin
                     # progression of the disease for each infected person
-                    progression!(p, infectset, progressionset, vaxset, dovax, trvec,   
-                                    # columns of simulation data table, rows are persons
-                                    c_cond,
-                                    c_status,
-                                    c_agegrp,
-                                    c_duration,
-                                    c_sdcase,
-                                    c_variant,
-                                    c_vaxstatus,
-                                    c_recovday,
-                                    c_vaxrcvd,
-                                    c_vaxday,
-                                    c_deadday
-                                    ) 
+                    progression!(p, infectset, progressionset, vaxset, dovax, trvec, prog_cols)
                     end
             end # people loop         
             
