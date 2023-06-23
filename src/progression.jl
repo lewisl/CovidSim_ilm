@@ -6,9 +6,9 @@
 
     
 """
-    progression!(p, infectset, progressionset, vaxset, dovax, riskshift!, probvec, <columns of locdat>)
+    progression!(p, infectset, progressionset, vaxset, dovax, riskshift!, probvec, locdat)
 
-People who have become infectious progress through conditions from
+People who have become infected progress through conditions from
 nil (asymptomatic) to mild to sick to severe, depending on their
 agegroup, days of being exposed, and some probability. Finally,  
 they move to recovered or dead.
@@ -16,24 +16,25 @@ they move to recovered or dead.
 Required columns of locdat are cond, status, agegrp, duration, sdcase, variant, vaxstatus, recovday,
 vaxrcvd, vaxday, deadday.
 """
-@inline function progression!(p, infectset, progressionset, vaxset, dovax, probvec, prog_cols)
+@inline function progression!(locdat, p, infectset, progressionset, vaxset, dovax, probvec)
 
     today = DAY_CTR[:day]
 
+    @inbounds person = locdat[p]
+
     # extract traits for a single person p where p is the row index in locdat
-    @inbounds begin
-        p_duration = prog_cols.duration[p]  # no. of days p has been infected
-        p_cond = prog_cols.cond[p]          # p's condition
-        p_status = prog_cols.status[p]      # p's status, etc.
-        p_agegrp = prog_cols.agegrp[p]  
-        p_vaxstatus = prog_cols.vaxstatus[p]
-        p_recovday = prog_cols.recovday[p][end]
-        p_variant = prog_cols.variant[p][end]
-    end
+    p_duration = person.duration  # no. of days p has been infected
+    p_cond = person.cond         # p's condition
+    p_status = person.status     # p's status, etc.
+    p_agegrp = person.agegrp  
+    p_vaxstatus = person.vaxstatus
+    @inbounds p_recovday = person.recovday[end]
+    @inbounds p_variant = person.variant[end]
 
     prtree = progressionset[p_variant].tree   
 
-    # if person's agegrp and duration match a progression stage, get the progression array for rows=from and cols=to
+    # if person's agegrp and duration match a progression stage, 
+    #     get the progression array for rows=from condition and cols=to condition/status
     pr_arr = get( 
                 getfield(prtree, Symbol(p_agegrp)),  # tree for an agegrp
                 p_duration,                          # duration of disease: day on which condition may progress
@@ -53,22 +54,23 @@ vaxrcvd, vaxday, deadday.
         vaxeff = @inbounds if p_vaxstatus === :none
                         1.0
                     else
-                        p_vaxrcvd = prog_cols.vaxrcvd[p][end]
-                        p_vaxday = prog_cols.vaxday[p][end]
-                        p_variant = prog_cols.variant[p][end]
-                        vaxeffect(today, infectset, vaxset, p_vaxstatus, p_variant, p_vaxrcvd, p_vaxday, mode=:progression)
+                        @inbounds p_vaxrcvd = person.vaxrcvd[end]
+                        @inbounds p_vaxday = person.vaxday[end]
+                        @inbounds p_variant = person.variant[end]
+                        vaxeffect(today, infectset, vaxset, p_vaxstatus, p_variant, p_vaxrcvd, 
+                                  p_vaxday, mode=:progression)
                     end
 
         risk = riskfactor(recoveff, vaxeff)
         
-        if dovax
+        if dovax     # vaccination changes probability, thus timing, of progressing to different stages of disease
             redistribute_probability!(probvec, risk, p_duration) 
         end
 
-        doprogression!(prog_cols, p, probvec)
+        doprogression!(person, probvec)
 
     else # no progression today!
-        c_duration[p] += 1  # one more day in current condition
+        person.duration += 1  # one more day in current condition
     end
     
     return    
@@ -88,7 +90,6 @@ Modifies in place the probvec: probalities of progressing to each state
 """
 @inline function redistribute_probability!(probvec, riskfactor, duration)
     @inbounds begin
-
         excessprob = 0.0
         for toprob in (:sick, :severe, :dead)  
             idx = map_progression(toprob) # in file data_mapping.jl: map Symbol of condition or status to integer index in the probability vector
@@ -119,31 +120,22 @@ Progress an infected person to a new condition or status if called
 with a progression vector (trvec) or increment
 the number of days the person has been sick.
 """
-function doprogression!(prog_cols, p, probvec)
+function doprogression!(person, probvec)
 
-    choice = categorical_sim(probvec) # which outcome based on probability...?
+    outcome = categorical_sim(probvec) # which outcome based on probability...?
 
-    # debugging
-    @assert choice != 0 "choice of to condition resulted in 0. Must be 1 through 6"
-
-    tocond = map_progression(choice) # 1->recover, 2->nil, 3->mild, 4->sick, 5->severe, 6->dead  see data_mapping.jl
+    tocond = map_progression(outcome) # 1->recover, 2->nil, 3->mild, 4->sick, 5->severe, 6->dead  see data_mapping.jl
 
     if tocond == :dead  
-        @inbounds begin
-        prog_cols.deadday[p] = DAY_CTR[:day]
-        prog_cols.status[p] = :dead  # change the status
-        c_cond[p] = :uninfected # change the condition
-        end
+        person.deadday = DAY_CTR[:day]
+        person.status = :dead  # change the status
+        person.cond = :uninfected # change the condition   TODO: could we leave this as it was to summarize how people died
     elseif tocond == :recovered
-        @inbounds begin
-        push!(prog_cols.recovday[p], DAY_CTR[:day])
-        prog_cols.status[p] = :recovered
-        progression_cols.cond[p] = :uninfected   # TODO decide if this makes sense--using this to maintain a history of past infection
-        end
-    else  # tocond to another infectious condition 
-        @inbounds begin
-        prog_cols.cond[p] = tocond   # change the condition = degree of sickness
-        prog_cols.duration[p] += 1    # advance number of days person has been sick
-        end
+        push!(person.recovday, DAY_CTR[:day])
+        person.status = :recovered
+        person.cond = :uninfected   # TODO decide if this makes sense--using this to maintain a history of past infection
+    else  # tocond is another disease condition 
+        person.cond = tocond   # change the condition = degree of sickness
+        person.duration += 1    # advance number of days person has been sick
     end    
 end

@@ -8,8 +8,10 @@
 Infectious people spread the virus to susceptible people for a single locale on thisday. 
 Changes attribute columns in the population table. Runs social distancing cases.
 """
-@inline function spread!(spr::Int, thisday::Int, sdcases, socialparams, 
-     infectset, vaxset, density_factor, indoor_seq, poprange, spread_cols)
+@inline function spread!(locdat, spr::Int, thisday::Int, sdcases, socialparams, 
+     infectset, vaxset, density_factor, indoor_seq, poprange)
+
+    spreader = locdat[spr]  # row of traits of the spreader person
 
     # initialize return value
     num_infected = 0
@@ -20,58 +22,54 @@ Changes attribute columns in the population table. Runs social distancing cases.
     gammashape     = socialparams.gammashape
     indoor_factor  = indoor_seq[thisday]
 
-    # columns to modify in make_sick function
-    sickcolumns = tuple(spread_cols.cond, spread_cols.status, spread_cols.duration, spread_cols.variant, spread_cols.sickday)
-
     # how many contacts does the infected person have?
-    @inbounds contact_param = c_sdcase[spr] === :none ? contactfactors : sdcases[spread_cols.sdcase[spr]]
+    @inbounds contact_param = spreader.sdcase === :none ? contactfactors : sdcases[spreader.sdcase]
     numcontacts = @inbounds @fastmath how_many_contacts(density_factor, indoor_factor, gammashape, 
-                                                        spread_cols.agegrp[spr], spread_cols.cond[spr], contact_param) 
+                                                        spreader.agegrp, spreader.cond, contact_param) 
     
     contacts = rand(poprange, numcontacts)
-    for contact in contacts
+    for c in contacts
+
+        contact = locdat[c] # row of traits of the contact person
         
-        contact_status = spread_cols.status[contact]
+        contact_status = contact.status
 
         # does this contact experience a meaningful touch by the spreader?
         touched =   if (contact_status == :unexposed) | (contact_status == :recovered)  # only conditions that can get infected   
-                        touch_param = spread_cols.sdcase[contact] === :none ? touchfactors : sdcases[spread_cols.sdcase[contact]].tfcase
-                        istouched(spread_cols.agegrp[contact], contact_status, indoor_factor, touch_param)   # returns true or false
+                        touch_param = contact.sdcase === :none ? touchfactors : sdcases[contact.sdcase].tfcase
+                        istouched(contact.agegrp, contact_status, indoor_factor, touch_param)   # returns true or false
                     else
                         false
                     end
 
         # will this contact get infected?
         if touched
-            recovday = isempty(spread_cols.recovday[contact]) ? 0 : spreadcols.recovday[contact][end]
-            spr_variant = isempty(spread_cols.variant[spr])  ? 0 : spread_cols.variant[spr][end]
+            recovday = isempty(contact.recovday) ? 0 : contact.recovday[end]
+            spr_variant = isempty(spreader.variant)  ? 0 : spreader.variant[end]
     
             # effect on transmission based on how long ago a previously infected contact got over the disease
-            recovfactor =   if spread_cols.status[contact] == :recovered
-                                contact_variant = spread_cols.variant[contact][end]
+            recovfactor =   if contact.status === :recovered
+                                contact_variant = contact.variant[end]
                                 recoveffect(thisday, recovday, contact_variant, spr_variant, infectset)
                             else 
                                 1.0
                             end
     
-            vaxstatus = spread_cols.vaxstatus[contact]
+            vaxstatus = contact.vaxstatus
             # effect on transmission based on which vaccine the contact received, how many times, and how long ago
             vaxfactor = if vaxstatus === :none
                             1.0 
                         else
-                            vaxrcvd = spread_cols.vaxrcvd[contact][end]
-                            vaxday = spread_cols.vaxday[contact][end]
+                            vaxrcvd = contact.vaxrcvd[end]
+                            vaxday = contact.vaxday[end]
                             vaxeffect(thisday, infectset, vaxset, vaxstatus, spr_variant, vaxrcvd, vaxday; mode=:spread)
                         end
-    
-            spr_duration = spread_cols.duration[spr]  # number of days spreader has been infected
-            contact_agegrp = spread_cols.agegrp[contact]
-    
+        
             # binomial probability of the contact getting infected from the contact with this spreader
-            risk = infectrisk(infectset, spr_variant, spr_duration, contact_agegrp, recovfactor, vaxfactor)
+            risk = infectrisk(infectset, spr_variant, spreader.duration, contact.agegrp, recovfactor, vaxfactor)
 
             if isinfected(risk)
-                make_sick!(sickcolumns, contact, thisday, :nil, spr_variant)
+                make_sick!(contact, thisday, :nil, spr_variant)
                 num_infected += 1
             end
         end
@@ -85,29 +83,15 @@ end
 # basic functions for the default definition of spread
 ###################################################################
 
-
 # simple make_sick! for a single person. Assumes that caller doesn't invoke structure of population data
-@inline function make_sick!(locdat, target::Int; cond, variant, duration)
-    @inbounds locdat.condition[target] = cond
-    @inbounds locdat.status[target] = :infectious
-    @inbounds push!(c_sickday[target], DAY_CTR[:day])
-    @inbounds push!(locdat.variant[target], variant)
-    @inbounds locdat.duration[target] = duration
+@inline function make_sick!(contact, thisday, cond, variant)  
+    push!(contact.variant, variant)  # first of possibly several infections...  
+    push!(contact.sickday, thisday)
+    contact.duration = 1
+    contact.cond = cond
+    contact.status = :infectious
 end
 
-# make_sick! by column for a single person: documents what passing the sickcolumns tuple actually does
-@inline function make_sick!(c_cond, c_status, c_duration, c_variant, c_sickday, target, thisday, cond, variant)
-    push!(c_variant[target], variant)  # first of possibly several infections...  c_variant[spr][end]
-    push!(c_sickday[target], thisday)
-    c_duration[target] = 1
-    c_cond[target] = cond
-    c_status[target] = :infectious
-end
-
-# sickcolumnsle = tuple(c_cond, c_status, c_duration, c_variant, c_sickday)
-@inline function make_sick!(sickcolumns, target, thisday, cond, variant)   # this whole thing appears to compile away so it's free
-    make_sick!(sickcolumns[1], sickcolumns[2], sickcolumns[3], sickcolumns[4], sickcolumns[5], target, thisday, cond, variant)
-end
 
 # complex make sick
 function make_sick!(dat; cnt, ages, tocond, tovariant, toduration=1) 
@@ -188,8 +172,6 @@ Returns true if the spreader infected the contact.
 end
 
 
-
-
 @inline @fastmath function infectrisk(infectset, spr_variant, spr_duration, 
     targ_agegrp, recovfactor::Float64, vaxfactor::Float64)
 
@@ -204,7 +186,6 @@ end
 end
 
 
-
 #######################################################################
 # social distancing cases
 #      struct SpreadCase holds parameters for the case
@@ -215,8 +196,6 @@ end
 # mod_90 = sd_gen(start=90,cf=(.2,1.5), tf=(.18,.6),comply=.85)
 # str_45 = sd_gen(start=45, comply=.90, cf=(.2,1.0), tf=(.18,.3))
 # str_55 = sd_gen(start=55, comply=.95, cf=(.2,1.0), tf=(.18,.3))
-
-
 
 
 function sd_gen(;startday::Int, comply::Float64, cf::Tuple{Float64, Float64},

@@ -1,6 +1,0 @@
-# COVID-19 Pandemic Simulation
-
-| Curve-Fitting Forecast                                       | Differential Eq. Simulation                                  | Physical Simulation                                          |
-| ------------------------------------------------------------ | ------------------------------------------------------------ | ------------------------------------------------------------ |
-| - Attempt to forecast cases, deaths, severity of cases<br />- Use other countries to fit curve<br />- Or use prior periods to fit near-term future<br />- Predict needs for beds, ventilators, ICU capacity<br />**Problems**<br />- Under-reported data leads to inaccurate forecasts | - Use a handful of factors to model changes in population conditions<br />- From **S**usceptible to **E**xposed to **I**nfected to **R**emoved<br />**Problems**<br />- Handful of factors must capture complex interactions<br />- Hard to represent effects of policy interventions or behavioral changes | - Represent people's behavior<br />- Include what is known or not about disease transmission, duration, and outcomes<br />**Problems**<br />- Lots of input assumptions ("knobs and dials")<br />- Doesn't correlate with reported data<br />- Not enough is known about CoronaVirus |
-

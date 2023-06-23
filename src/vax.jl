@@ -192,15 +192,8 @@ Give people shots!
 Determine the number of doses for each vaccine available to administer today.
 Call doshots! to select recipients for each dose.
 """
-@inline function vaccinate!(vaxschedset, vaxset, whichvaxscheds,
-                    c_status,
-                    c_agegrp,
-                    c_vaxstatus,
-                    c_recovday,
-                    c_vaxrcvd,
-                    c_vaxday
-                )
-
+@inline function vaccinate!(locdat, vaxschedset, vaxset, whichvaxscheds)
+    
     vaxscheds = setvaxscheds(whichvaxscheds, vaxschedset)  # return vector of symbols or nothing
 
     isnothing(vaxscheds) && return nothing  # exit the function 
@@ -241,8 +234,13 @@ Call doshots! to select recipients for each dose.
 
         doses_today = Dict(vi => floor(Int, spreadfunc(today) * starting_doses[vi]) for vi in vaxesincluded)   # pct times accessible population
 
-        vaxable_idx = findall((c_status .== unexposed) 
-                                .| ((c_status .== recovered) .& (last.(c_recovday) .< today - 14))
+        # find all candidates that could receive a shot
+        c_status = locdat.status
+        c_recovday = locdat.recovday
+        c_agegrp = locdat.agegrp
+
+        vaxable_idx = findall((c_status .=== :unexposed) 
+                                .| ((c_status .=== :recovered) .& (last.(c_recovday) .< (today - 14)))
                                 .& (in.(c_agegrp, [filtervec]))   # horrible syntax! (for included age groups)
                                 ) 
 
@@ -253,9 +251,9 @@ Call doshots! to select recipients for each dose.
                             =#
 
         
-        doshots!(c_vaxrcvd, c_vaxday, c_vaxstatus,  
+        doshots!(locdat,                      # c_vaxrcvd, c_vaxday, c_vaxstatus,  
                   vaxprops, vaxesincluded, reqdshots, pct2ndshot, pctboost, mix, delay2ndshot, delaybooster,   
-                  vaxable_idx, doses_today, c_agegrp, filtervec, today)
+                  vaxable_idx, doses_today, filtervec, today)  # agegrp
 
     end  # for schedname
 end
@@ -282,17 +280,22 @@ end
 """
 Determine who gets a shot today and administer it; update population data.
 """
-@inline function doshots!(c_vaxrcvd, c_vaxday, c_vaxstatus,         # arrays to update
+@inline function doshots!(locdat,                           # arrays to update
                   vaxprops, vaxesincluded, reqdshots, pct2ndshot, pctboost, mix, delay2ndshot, delaybooster,  # vaccine characteristics
-                  vaxable_idx, doses_today, c_agegrp, filtervec, today)                               # people and simulation today
+                  vaxable_idx, doses_today, filtervec, today)      # agegrp                         # people and simulation today
+
+    avail_doses = mapreduce(vi->doses_today[vi], +, keys(vaxprops))
+    avail_doses <= 0  && return
 
     @inbounds @fastmath for p in shuffle!(vaxable_idx)
 
         # break out if no more doses left of any vaccine 
-        avail_doses = mapreduce(vi->doses_today[vi], +, keys(vaxprops))
+        # avail_doses = mapreduce(vi->doses_today[vi], +, keys(vaxprops))
         avail_doses <= 0 && break  
+
+        person = locdat[p]
     
-        if c_vaxstatus[p] === :none  # maybe give the first shot
+        if person.vaxstatus === :none  # maybe give the first shot
 
             # which vaccine to give?
             vxnum = categorical_sim(mix)  # our first choice, if available
@@ -313,19 +316,20 @@ Determine who gets a shot today and administer it; update population data.
             if vaxchoice != :none   # we found doses to give
                 vaxprops[vaxchoice].doses -= 1   # reduce the supply
                 doses_today[vaxchoice] -= 1      # reduce today's allotment
+                avail_doses -= 1
 
                 # update person's traits
-                c_vaxrcvd[p] = [vaxchoice]
-                c_vaxday[p] = [today]       # because this is first shot
+                person.vaxrcvd = [vaxchoice]
+                person.vaxday = [today]       # because this is first shot
                 if reqdshots[vaxchoice] > 1
-                    c_vaxstatus[p] = :first
+                    person.vaxstatus = :first
                 else
-                    c_vaxstatus[p] = :full
+                    person.vaxstatus = :full
                 end
             end
                             # TODO add separate parameter for delaybooster
-        elseif (c_vaxstatus[p] === :first) 
-            vaxchoice = last(c_vaxrcvd[p]) # assume we try not to mix vaccines for multiple shots
+        elseif person.vaxstatus === :first
+            vaxchoice = last(person.vaxrcvd) # assume we try not to mix vaccines for multiple shots
 
             if vaxprops[vaxchoice].doses > 0  # we have this vaccine in our remaining daily allotment
                 # is it time for the next shot?
@@ -336,17 +340,18 @@ Determine who gets a shot today and administer it; update population data.
                     if dotwo
                         vaxprops[vaxchoice].doses -= 1    # reduce the supply
                         doses_today[vaxchoice] -= 1       # reduce today's allotment
+                        avail_doses -= 1
 
                         # update person's traits
-                        push!(c_vaxrcvd[p], vaxchoice)
-                        push!(c_vaxday[p], today)
-                        c_vaxstatus[p] = :full
+                        push!(person.vaxrcvd, vaxchoice)
+                        push!(person.vaxday, today)
+                        person.vaxstatus = :full
                     end  # if dotwo
                 end  # time for next shot
             end  # doses > 0
 
-        elseif (c_vaxstatus[p] === :booster) | (c_vaxstatus[p] === :full)
-            vaxchoice = last(c_vaxrcvd[p]) # assume we try not to mix vaccines for multiple shots
+        elseif (person.vaxstatus === :booster) | (person.vaxstatus === :full)
+            vaxchoice = last(person.vaxrcvd) # assume we try not to mix vaccines for multiple shots
 
             if vaxprops[vaxchoice].doses > 0  # we have this vaccine in our remaining daily allotment
                 # is it time for the next shot?
@@ -357,11 +362,12 @@ Determine who gets a shot today and administer it; update population data.
                     if domore
                         vaxprops[vaxchoice].doses -= 1    # reduce the supply
                         doses_today[vaxchoice] -= 1       # reduce today's allotment
+                        avail_doses -= 1
 
                         # update person's traits
-                        push!(c_vaxrcvd[p], vaxchoice)
-                        push!(c_vaxday[p], today)
-                        c_vaxstatus[p] = :booster     # assume everything over full is a booster...
+                        push!(person.vaxrcvd, vaxchoice)
+                        push!(person.vaxday, today)
+                        person.vaxstatus = :booster     # assume everything over full is a booster...
                     end  # if domore
                 end  # time for next shot
             end  # doses > 0

@@ -14,8 +14,6 @@ function buildsim(ndays, locales;
     scheddir="vaccine_schedule",
     variantfilename = "variants.yml")
 
-    println("is this working?")
-
     locales = locales isa Int ? [locales] : locales
 
     model = setup(ndays, locales; 
@@ -115,15 +113,6 @@ function runsim(model;
         caldays = cumhist.caldays
         indoor_seq = indoor_seq[loc]
 
-        # Deref columns once per locale and not in the deeper loops. Pass needed columns to spread! and progression!
-        vax_cols = (status=locdat.status, agegrp=locdat.agegrp, vaxstatus=locdat.vaxstatus, recovday=locdat.recovday, vaxrcvd=locdat.vaxrcvd, vaxday=locdat.vaxday)
-        spread_cols = (cond=locdat.cond, status=locdat.status, agegrp=locdat.agegrp, duration=locdat.duration, sdcase=locdat.sdcase, 
-                       sickday=locdat.sickday, variant=locdat.variant, vaxstatus=locdat.vaxstatus, recovday=locdat.recovday, 
-                       vaxrcvd=locdat.vaxrcvd, vaxday=locdat.vaxday)
-        prog_cols = (cond=locdat.cond, status=locdat.status, agegrp=locdat.agegrp, duration=locdat.duration, sdcase=locdat.sdcase, variant=locdat.variant,
-                     vaxstatus=locdat.vaxstatus, recovday=locdat.recovday, vaxrcvd=locdat.vaxrcvd, vaxday=locdat.vaxday, deadday=locdat.deadday)
-
-
         # other per locale initialization
         poprange = 1:length(locdat)
 
@@ -142,36 +131,31 @@ function runsim(model;
             
             # if dovax vaccinate (e.g., give shots)
             dovax && begin
-                    vaxtime += @elapsed vaccinate!(vaxschedset, vaxset, vaxscheds,
-                                        c_status,
-                                        c_agegrp,
-                                        c_vaxstatus,
-                                        c_recovday,
-                                        c_vaxrcvd,
-                                        c_vaxday
-                                    )
+                        vaxtime += @elapsed vaccinate!(locdat, vaxschedset, vaxset, vaxscheds)
                      end
 
             # person loop
             @inbounds for p in infect_idx    # p is an infected person who potentially spreads virus
 
+                person = locdat[p]
+
                 sprtime += @elapsed begin
                     # is this person ACTIVELY infectious
-                    spr_duration = spread_cols.duration[p]  # duration determines if spreader is really able to spread the virus
-                    spr_variant = spread_cols.variant[p][end]
+                    spr_duration = person.duration  # duration determines if spreader is really able to spread the virus
+                    spr_variant = person.variant[end]
                     
                     sendrisk = infectset[spr_variant].sendrisk[spr_duration]
                     
+                    # transmission of the virus
                     if sendrisk > 0.0     
-                        # transmission of the virus
-                        spread!(p, today, sdcases,  socialparams, 
-                                infectset, vaxset, density_factor, indoor_seq, poprange, spread_cols)       
+                        spread!(locdat, p, today, sdcases,  socialparams, 
+                                infectset, vaxset, density_factor, indoor_seq, poprange)       
                     end
                 end  # sprtime
-
+                
+                # progression of the disease for each infected person
                 trtime += @elapsed begin
-                    # progression of the disease for each infected person
-                    progression!(p, infectset, progressionset, vaxset, dovax, trvec, prog_cols)
+                        progression!(locdat, p, infectset, progressionset, vaxset, dovax, trvec)
                     end
             end # people loop         
             
@@ -217,7 +201,6 @@ function runsim(model;
 end
 
 
-
 ################################################################################
 #  Update daily history series
 ################################################################################
@@ -233,7 +216,6 @@ end
     @inbounds @fastmath for age in AGEGRPS
 
         age_idx = age_idx_loc[age]
-        # dat_age = sourcedat[age_idx]   
 
         # vectors of count of outcome by trait column for status, cond, vax, and variant
         status_today = zeros(Int, 4)

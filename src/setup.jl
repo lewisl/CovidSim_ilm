@@ -33,8 +33,6 @@ function setup(ndays::Int64, locales;
     variantfilename)
 
 
-    # println(paramdir)
-
     geodata = buildgeodata(geofilename, paramdir)
 
     socialparams = build_socialparams(socialfilename, paramdir)
@@ -244,7 +242,7 @@ function build_indoor_seq(locales, ndays, geodata, series, indoor_lift)
             for i in eachindex(indoor_seq[loc])
                 if year(caldays[i]) > current_year
                     set_year = set_year == year_start ? year_end : year_start # toggle set_year
-                    current_year = year(calday[i])     # advance current_year
+                    current_year = year(caldays[i])     # advance current_year
                 end
 
                 if (month(caldays[i]) == 2) & (day(caldays[i]) == 29)
@@ -285,11 +283,6 @@ end
 
 
 function buildgeodata(filename::String, paramdir)
-
-    println(paramdir)
-    println(filename)
-
-
     tmp = LazyTable(CSV.File(joinpath(paramdir, filename)))
     buildgeodata(tmp)
 end
