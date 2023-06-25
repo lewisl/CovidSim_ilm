@@ -234,15 +234,21 @@ Call doshots! to select recipients for each dose.
 
         doses_today = Dict(vi => floor(Int, spreadfunc(today) * starting_doses[vi]) for vi in vaxesincluded)   # pct times accessible population
 
-        # find all candidates that could receive a shot
+        # find all candidates that could receive a shot as indices to data table
         c_status = locdat.status
         c_recovday = locdat.recovday
         c_agegrp = locdat.agegrp
 
-        vaxable_idx = findall((c_status .=== :unexposed) 
-                                .| ((c_status .=== :recovered) .& (last.(c_recovday) .< (today - 14)))
-                                .& (in.(c_agegrp, [filtervec]))   # horrible syntax! (for included age groups)
-                                ) 
+        filt_unexp = [x .=== :unexposed for x in c_status]
+        # must use short-circuit && for and. === :recovered guarantees that element of c_recovday is not empty
+        filt_recov = [(c_status[i] .=== :recovered) && (last(c_recovday[i]) < (today - 14)) for i in eachindex(c_status)]
+        filt_agegrp = [in(x, [filtervec]) for x in c_agegrp]
+            
+        vaxable_idx = findall(filt_agegrp .& (filt_unexp .| filt_recov))
+        # vaxable_idx = findall((c_status .=== :unexposed) 
+        #                         .| ((c_status .=== :recovered) .& (last.(c_recovday) .< (today - 14)))
+        #                         .& (in.(c_agegrp, [filtervec]))   # horrible syntax! (for included age groups)
+        #                         ) 
 
                             #=
 
