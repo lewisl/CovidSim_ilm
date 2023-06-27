@@ -319,8 +319,10 @@ Sum all the series columns for all ages and total across ages for all vaccines i
     @fastmath @inbounds for age in AGENAMES  # for each age and "total"  # Tuple(scn[:vaxcols][vax][age] for vax in vaxlist)
         totalcol = scn[:vaxcols][:totvaccinated][age]
         sumcols = Tuple(scn[:vaxcols][vax][age] for vax in vaxlist) # tuple of all of the vax column names
-        getproperty(newhist, totalcol)[:] .= .+(columns(getproperties(newhist, sumcols))...)        # sum all of the vax columns
-        getproperty(cumhist, totalcol)[:] .= .+(columns(getproperties(cumhist, sumcols))...)
+        if !isempty(sumcols)  # can't sum columns that aren't there...
+            getproperty(newhist, totalcol)[:] .= .+(columns(getproperties(newhist, sumcols))...)        # sum all of the vax columns
+            getproperty(cumhist, totalcol)[:] .= .+(columns(getproperties(cumhist, sumcols))...)
+        end
     end
 end
 

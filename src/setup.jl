@@ -45,15 +45,17 @@ function setup(ndays::Int64, locales;
         vaxset, vaxlist = build_vaxset(vaccinefilename, paramdir)
         vaxschedset = build_vaxschedset(scheddir, paramdir)
     else
-        vaxset, vaxlist = Dict(), []  # nothing
+        vaxset, vaxlist = Dict(), Symbol[]  # even "empty" needs to be typed correctly--empty what?
         vaxschedset = Dict()  # nothing
     end
 
     # simulation data matrix
     dat = build_data(locales, geodata, ndays)
 
+    # @show vaxlist
+
     # history series columns and history series
-    colgroups = [:statuscols=>STATUSES, :condcols=>push!(Symbol.(INFECTIOUS_CASES), :totinfected), 
+    colgroups = [:statuscols=>Symbol.(STATUSES), :condcols=>push!(Symbol.(INFECTIOUS_CASES), :totinfected), 
                 :vaxcols=>push!(Symbol.(vaxlist), :totvaccinated), :variantcols=>variantlist]
 
     seriescolnames = make_col_names_dict(colgroups)
@@ -273,6 +275,7 @@ function make_col_names_dict(arr::Vector{Pair{Symbol, Vector{Symbol}}})     # Ve
     for group in arr
         ret[group[1]] = gen_col_names_dict(group[2], agenames)
     end
+
     return ret
 end
 

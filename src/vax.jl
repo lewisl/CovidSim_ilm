@@ -239,23 +239,12 @@ Call doshots! to select recipients for each dose.
         c_recovday = locdat.recovday
         c_agegrp = locdat.agegrp
 
-        filt_unexp = [x .=== :unexposed for x in c_status]
-        # must use short-circuit && for and. === :recovered guarantees that element of c_recovday is not empty
+        filt_unexp = [x .=== :unexposed for x in c_status]  # comprehension fastest compared to map, loop, or . syntax
+        # must use short-circuit && for and. === :recovered->guarantees that element of c_recovday is not empty
         filt_recov = [(c_status[i] .=== :recovered) && (last(c_recovday[i]) < (today - 14)) for i in eachindex(c_status)]
-        filt_agegrp = [in(x, [filtervec]) for x in c_agegrp]
+        filt_agegrp = [in(x, filtervec) for x in c_agegrp]
             
-        vaxable_idx = findall(filt_agegrp .& (filt_unexp .| filt_recov))
-        # vaxable_idx = findall((c_status .=== :unexposed) 
-        #                         .| ((c_status .=== :recovered) .& (last.(c_recovday) .< (today - 14)))
-        #                         .& (in.(c_agegrp, [filtervec]))   # horrible syntax! (for included age groups)
-        #                         ) 
-
-                            #=
-
-                            columns reqd: c_vaxday, c_vaxrcvd, c_vaxstatus, c_agegrp, c_status, c_recovday
-
-                            =#
-
+        vaxable_idx = findall(filt_agegrp .&& (filt_unexp .| filt_recov))  # must be in agegrp and either unexposed or recovered
         
         doshots!(locdat,                      # c_vaxrcvd, c_vaxday, c_vaxstatus,  
                   vaxprops, vaxesincluded, reqdshots, pct2ndshot, pctboost, mix, delay2ndshot, delaybooster,   
@@ -339,7 +328,7 @@ Determine who gets a shot today and administer it; update population data.
 
             if vaxprops[vaxchoice].doses > 0  # we have this vaccine in our remaining daily allotment
                 # is it time for the next shot?
-                prev_date = last(c_vaxday[p])
+                prev_date = last(person.vaxday)
                 if (today - prev_date) >= delay2ndshot[vaxchoice]
                     # will this person get another shot?  (based on pct2ndshot parameter input)
                     dotwo = Bool(binomial_one_sample(1, pct2ndshot[vaxchoice]))
@@ -361,7 +350,7 @@ Determine who gets a shot today and administer it; update population data.
 
             if vaxprops[vaxchoice].doses > 0  # we have this vaccine in our remaining daily allotment
                 # is it time for the next shot?
-                prev_date = last(c_vaxday[p])
+                prev_date = last(person.vaxday)
                 if (today - prev_date) >= delaybooster[vaxchoice]
                     # will this person get another shot?  (based on pct2ndshot parameter input)
                     domore = Bool(binomial_one_sample(1, pctboost[vaxchoice]))
