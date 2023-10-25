@@ -126,13 +126,13 @@ end
 
 
 """
-    makesickseedfunc( ; cond=:nil, variant=:base, duration=1, filter::Vector{Term}, cnt, forlocale=0, triggerdate, startofday)
+    maketraitseedfunc( ; cond=:nil, variant=:base, duration=1, filter::Vector{Term}, cnt, forlocale=0, triggerdate, startofday)
 
 Create a Seedset that contains the filter for whom to make sick, the traits to be set, and the cnt of people to be changed. 
 
 **And** call seed\\_case\\_gen for you to return the callback function that encloses this Seedset.
 """
-function makesickseedfunc( ; cond=:nil, variant=:base, duration=1, filter::Vector{Term}, cnt, forlocale=0, triggerdate, forstartofday)
+function maketraitseedfunc( ; cond=:nil, variant=:base, duration=1, filter::Vector{Term}, cnt, forlocale=0, triggerdate, forstartofday)
     ss = Seedset(filter=filter, cnt=cnt, 
             change=[Term(:status, :infectious), Term(:cond, cond), Term(:sickday, triggerdate), Term(:variant, variant), Term(:duration, duration)])
 
@@ -144,6 +144,8 @@ end
     makenotsickseedfunc( ; status, filter::Vector{Term}, cnt, forlocale=0, triggerdate, startofday)
 
 Create a Seedset that contains the filter for whom to change from sick to either recovered or dead, and the cnt of people to be changed. 
+
+This is just a shortcut for maketraitseedfunc with defaults to make people "well" again.
 
 **And** call seed\\_case\\_gen for you to return the callback function that encloses this Seedset.
 """
@@ -164,35 +166,10 @@ end
 ####################################################################
 
 """
-Generate seeding cases.
-
-1. Create a Seedset: a filter for who is being changed; the traits that are being changed; the number of people to be seeded.
-- use Seedset(filter::Vector{Term}, totrait::Vector{Term}, cnt::Int)
-- a Term is Term(trait::Symbol, val::Union{Enum, Symbol, Int})
-- even if you have only one filter or totrait, you must wrap it in a vector
-Example:
-```
-    ss = Seedset(filter=[Term(trait=:status, val=unexposed)],
-             change=[Term(trait=:cond, val=nil)],
-             cnt=5)
-
-```julia
-
-2. Generate the case callback function with function `seed\\_case\\_gen`.
-Example:
-```
-    c1 = seed_case_gen(1, ss)  # day 1 and the Seedset above.
-```julia
-
-3. run the simulation by including the case callback function in the runcases parameter.
-Example:
-```
-    runsim(popdat, series = runsim(model;
-                                dovax=false,
-                                runcases=[c1]
-                                );
-```julia
-
+Output a callback function that seeds the population (of a locale) with specific trait values. 
+Sets a filter for which people are to be seeded with traits.
+Sets the number of people to be seeded.
+The callback function does NOT create people in the population. It changes the traits of people already in the population.
 
 Returns a function that can be used in runcases input to run_a_sim.
 """

@@ -1,3 +1,6 @@
+# This doesn't seem to be used at all
+
+
 function r0_sim(pop=200_000, age_dist=AGE_DIST, dectree, infectparams, density_factor=1.0; scale=5)
     # create simulation population
     r0pop = pop_data(pop, age_dist)
@@ -8,8 +11,8 @@ function r0_sim(pop=200_000, age_dist=AGE_DIST, dectree, infectparams, density_f
     for i in agegrps
         idx = findfirst(x->x==i, r0pop.agegrp)
         for j = 1:cnt_by_agedist[i]
-            r0pop.status[idx] = infectious
-            r0pop.cond[idx] = nil
+            r0pop.status[idx] = :infectious
+            r0pop.cond[idx] = :nil
             r0pop.duration[idx] = 1
             idx += 1
         end

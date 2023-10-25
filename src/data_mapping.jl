@@ -52,12 +52,13 @@ end
     end
 end
 
-# found in the module definition file CovidSim_ilm.jl
-# const TOUCHES = [:unexposed, :recovered, :nil, :mild, :sick, :severe]
-# const STATUSES = [:unexposed, :infectious, :recovered, :dead]
-# const INFECTIOUS_CASES = [:nil, :mild, :sick, :severe]
-# const TRANSITION_CASES = [:recovered, :nil, :mild, :sick, :severe, :dead]
-# const AGEGRPS = [:age0_19, :age20_39, :age40_59, :age60_79, :age80_up]
+#= found in the module definition file CovidSim_ilm.jl
+    const TOUCHES = [:unexposed, :recovered, :nil, :mild, :sick, :severe]
+    const STATUSES = [:unexposed, :infectious, :recovered, :dead]
+    const INFECTIOUS_CASES = [:nil, :mild, :sick, :severe]
+    const TRANSITION_CASES = [:recovered, :nil, :mild, :sick, :severe, :dead]
+    const AGEGRPS = [:age0_19, :age20_39, :age40_59, :age60_79, :age80_up]
+=#
 
 @inline function mapcondition(x::Symbol)  # symbol to int
     findit(x, INFECTIOUS_CASES)   # enclosure is const so performance is good
@@ -69,6 +70,10 @@ end
 
 @inline function mapagegrp(x::Symbol)
     findit(x,  AGEGRPS)
+end
+
+@inline function mapagegrp(x::Int)
+    findit(x, AGEGRPS)
 end
 
 @inline function mapstatus(x::Symbol)
@@ -84,6 +89,10 @@ end
 end
 
 @inline function maptouch(x::Symbol)
+    findit(x, TOUCHES)
+end
+
+@inline function maptouch(x::Int)
     findit(x, TOUCHES)
 end
 
@@ -116,13 +125,6 @@ function tup2vec(maptup, vals)
     [getfield(maptup, x) for x in vals]
 end
 
-
-#= 
-lookup tables for enum values: 
-- don't need lookup for Int or Symbol: just use Symbol(nil) and Int(nil)-->these are faster than any lookup
-- for symbol use symcond[:nil] => nil::Condition = 5
-- for string use symcond[Symbol("nil")] => nil::Condition = 5
-=#
 
 """
     symboltoagegrp(x::Union{Symbol, String})

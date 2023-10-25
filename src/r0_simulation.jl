@@ -35,7 +35,7 @@ parameters. This simulates r(t).
 It will be called as part of the simulation run in function runsim so that it uses the
 context of the current simulation with its input parameters.
 """
-function r0_sim(locdat::Table, progressionset, trvec, infectset, vaxset, 
+function r0_sim(locdat, progressionset, trvec, infectset, vaxset, 
                 socialparams, dovax, variant=:base, density_factor=1.0, scale=3)
 
     # create the simulation population--> this is all we have to do in the front end function
@@ -94,38 +94,14 @@ function _run_r0_sim(r0pop, progressionset, trvec, infectset, vaxset,
         all_infect_idx = findall(r0pop.status .== :infectious)
 
         for spr in gen1_infect_idx  # only spreaders from the gen1 infected pool
-            cnt_newly_infected = spread!(spr, simday, [], socialparams,   
-                            infectset, vaxset, density_factor, indoor_seq, poprange,    
-                            c_cond,
-                            c_status,
-                            c_agegrp,
-                            c_duration,
-                            c_sdcase,
-                            c_sickday,
-                            c_variant,
-                            c_vaxstatus,
-                            c_recovday,
-                            c_vaxrcvd,
-                            c_vaxday
-                            )
+            cnt_newly_infected = spread!(r0pop, spr, simday, [], socialparams,   
+                            infectset, vaxset, density_factor, indoor_seq, poprange)
 
             r0_infected += cnt_newly_infected
         end
 
         for p in all_infect_idx  # progress all who are currently infected
-            progression!(p, infectset, progressionset, vaxset, dovax, noop, trvec,
-                c_cond,
-                c_status,
-                c_agegrp,
-                c_duration,
-                c_sdcase,
-                c_variant,
-                c_vaxstatus,
-                c_recovday,
-                c_vaxrcvd,
-                c_vaxday,
-                c_deadday
-                )
+            progression!(r0pop, p, infectset, progressionset, vaxset, dovax, trvec)
         end
 
         # of the gen1 infected, who is still infected? (some will have progressioned to recovered or dead)

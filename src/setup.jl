@@ -49,10 +49,8 @@ function setup(ndays::Int64, locales;
         vaxschedset = Dict()  # nothing
     end
 
-    # simulation data matrix
+    # simulation data matrix: rows = persons, columns = traits
     dat = build_data(locales, geodata, ndays)
-
-    # @show vaxlist
 
     # history series columns and history series
     colgroups = [:statuscols=>Symbol.(STATUSES), :condcols=>push!(Symbol.(INFECTIOUS_CASES), :totinfected), 
@@ -165,6 +163,7 @@ function pop_data(pop; age_dist=AGE_DIST)
         parts = apportion(pop, age_dist)
 
         # must use comprehension to initialize vector of vector NOT fill--fill creates vectors at same address
+        # LazyTable faster than Table; allows single rows to be modified
         dat = LazyTable(
             status = fill(:unexposed, pop),                                         
             agegrp = reduce(vcat,[fill(age, parts[i]) for (i,age) in enumerate(AGEGRPS)]), 
@@ -204,7 +203,6 @@ This table is updated at the end of each day of the simulation.
 function build_series_table(locales, n_days, day1, seriescolnames)
     caldays = range(day1, step=Day(1), length=n_days)
 
-    # cols = [col for group in seriescolnames for item in group for col in item]
     cols = [col for group in values(seriescolnames) for item in values(group) for col in values(item)]
     colvals = [zeros(Int,n_days) for _ in 1:length(cols)]
     series = Dict(loc => (cum = LazyTable(; caldays=caldays, zip(cols,[zeros(Int,n_days) for _ in 1:length(cols)])...), 
@@ -217,8 +215,7 @@ end
 # calculate which days get indoor_uplift for the entire simulation run instead of in a hot loop
 function build_indoor_seq(locales, ndays, geodata, series, indoor_lift)
     indoor_seq = Dict(loc => ones(Float64, ndays) for loc in locales)
-    # indoor_st = geodf.indoor_st[geodf.fips.==loc][1]
-    # indoor_end = geodf.indoor_end[geodf.fips.==loc][1]
+
     for loc in locales
         caldays = series[loc].cum.caldays  # TODO: dumb because it's always the same, but difficul to unwrap
 
@@ -311,33 +308,34 @@ different conditions of the virus and to recover or die at the end.
 """
 function build_infect_params(variantfilename, paramdir)
 
-    infectdict = YAML.load_file(joinpath(paramdir, variantfilename), dicttype=Dict{Symbol, Any})
+    variantdict = YAML.load_file(joinpath(paramdir, variantfilename), dicttype=Dict{Symbol, Any})
 
-    build_infect_params(infectdict)
+    build_infect_params(variantdict)
 end
 
 
-function build_infect_params(infectdict) 
+function build_infect_params(variantdict) 
 
-    (infectset, variantlist) = build_spread_params(infectdict)
-    (progressionset, trvec) = build_progression_params(infectdict)
+    (infectset, variantlist) = build_spread_params(variantdict)
+    (progressionset, trvec) = build_progression_params(variantdict)
 
     return infectset, progressionset, trvec, variantlist
 end
 
 
 """
-    function build_spread_params(infectdict)
+    function build_spread_params(variantdict)
 
 Build parameters for the spread of infection and the immunity conferred by recovering
 from infection for each variant.
 """
-function build_spread_params(infectdict::Dict)
+function build_spread_params(variantdict::Dict)
     infectset = LittleDict{Symbol, Infectparams}()
-    variantlist = collect(keys(infectdict))
+    variantlist = collect(keys(variantdict))
 
     for variant in variantlist
-        newdict = merge(infectdict[variant][:spread], infectdict[variant][:immunity])
+        # result of merge only includes child keys of :spread and :immunity
+        newdict = merge(variantdict[variant][:spread], variantdict[variant][:immunity])
         infectset[Symbol(variant)] = Infectparams(newdict)
     end
 
@@ -366,35 +364,35 @@ end
 
 
 """
-    function build_progression_params(infectdict)
+    function build_progression_params(variantdict)
 
 This method loads all progression params for all variants from one dict, which contains
 all variants.
 
 Returns (progressionset, trvec)
 """
-function build_progression_params(infectdict)
-    variantlist = collect(keys(infectdict)) # array of strings to array of symbols
+function build_progression_params(variantdict)
+    variantlist = collect(keys(variantdict)) # array of strings to array of symbols
     progressionset = Dict{Symbol, ProgressionParams}()
 
     @assert :base in variantlist "Variants parameter file must contain a variant called :base--not there!"
 
     # build the progressionset for :base-->needed to build for other variants
     variant = :base
-    @assert !isnothing(infectdict[variant][:progression][:tree]) "progression tree for variant must be provided in parameter file--not there!"
+    @assert !isnothing(variantdict[variant][:progression_tree]) "progression tree for variant must be provided in parameter file--not there!"
     progressionset[Symbol(variant)] = ProgressionParams(
-                                            tree=setup_dt(infectdict[variant][:progression][:tree]),
-                                            factors=ProgressionFactors(infectdict[variant][:progression][:factors])
+                                            tree=setup_dt(variantdict[variant][:progression_tree]),
+                                            factors=ProgressionFactors(variantdict[variant][:progression_factors])
                                             )
 
     for variant in variantlist
         variant === :base && continue
         progressionset[Symbol(variant)] = ProgressionParams(
-                tree=(  !isnothing(infectdict[variant][:progression][:tree])   ?   
-                            setup_dt(infectdict[variant][:progression][:tree]) :    # progression tree was provided for this variant
-                            setup_dt(deepcopy(progressionset[:base].tree), infectdict[variant][:progression][:factors][:riskadjust])  # build the tree by adjusting :base
+                tree=(  !isnothing(variantdict[variant][:progression_tree])   ?   
+                            setup_dt(variantdict[variant][:progression_tree]) :    # progression tree was provided for this variant
+                            setup_dt(deepcopy(progressionset[:base].tree), variantdict[variant][:progression_factors][:riskadjust])  # build the tree by adjusting :base
                      ),          
-                factors=ProgressionFactors(infectdict[variant][:progression][:factors]))
+                factors=ProgressionFactors(variantdict[variant][:progression_factors]))
     end
 
     # pre-allocate trvec used in hot loop: no. of columns in progression array
@@ -416,7 +414,6 @@ end
 
 
 function build_socialparams(social_inputs::T) where T <: AbstractDict  # build the data structures based on the inputs
-
 
     # check for all required params
         required_params = [:contactfactors, :touchfactors, :gammashape, :indoor_uplift]
@@ -485,7 +482,6 @@ end
 @inline @fastmath function shifter(x::Float64, oldmin, oldmax, newmin, newmax)
     newmin + (newmax - newmin) / (oldmax - oldmin) * (x - oldmin)
 end
-
 
 
 @inline function shifter(x::AbstractArray, newval, mode::Symbol)

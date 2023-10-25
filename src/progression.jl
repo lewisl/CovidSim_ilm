@@ -12,9 +12,6 @@ People who have become infected progress through conditions from
 nil (asymptomatic) to mild to sick to severe, depending on their
 agegroup, days of being exposed, and some probability. Finally,  
 they move to recovered or dead.
-
-Required columns of locdat are cond, status, agegrp, duration, sdcase, variant, vaxstatus, recovday,
-vaxrcvd, vaxday, deadday.
 """
 @inline function progression!(locdat, p, infectset, progressionset, vaxset, dovax, probvec)
 
@@ -28,38 +25,40 @@ vaxrcvd, vaxday, deadday.
     p_status = person.status     # p's status, etc.
     p_agegrp = person.agegrp  
     p_vaxstatus = person.vaxstatus
-    @inbounds p_recovday = person.recovday[end]
-    @inbounds p_variant = person.variant[end]
+    p_recovday = p_status === :recovered ? person.recovday[end] : 0
+    p_variant = person.variant[end]
 
-    prtree = progressionset[p_variant].tree   
+    probtree = progressionset[p_variant].tree   
 
     # if person's agegrp and duration match a progression stage, 
     #     get the progression array for rows=from condition and cols=to condition/status
-    pr_arr = get( 
-                getfield(prtree, Symbol(p_agegrp)),  # tree for an agegrp
-                p_duration,                          # duration of disease: day on which condition may progress
-                [])                                  # if selection criteria not met:  empty
+    pr_arr = get(getfield(probtree, Symbol(p_agegrp)),  # getfield returns dict for an agegrp
+                p_duration,                             # key of the agegrp dict: duration of disease at progression checkpoint
+                [])                                     # if criteria not met: default to empty
 
-    if !isempty(pr_arr)  # person p may progress to another condition of the disease, recover, or die
+    if isempty(pr_arr)  
+        person.duration += 1  # no progression today: one more day with current condition
+    else
+        # person p may progress to another condition of the disease, recover or die
         probvec[:] = pr_arr[mapcondition(p_cond), :] # probabilities of recovery, nil, mild, sick, severe, dead given p's current condition
 
-        # effect on severity and progressioning based on recovery from a previous infection
-        recoveff =  @inbounds if p_status == :recovered
+        # effect on severity and progressing based on recovery from a previous infection
+        recoveff =  if p_status == :recovered
                         recoveffect(today, p_recovday, p_variant, infectset)
                     else
                         1.0
                     end
                     
         # effect on severity and progressing based on being vaccinated
-        vaxeff = @inbounds if p_vaxstatus === :none
-                        1.0
-                    else
-                        @inbounds p_vaxrcvd = person.vaxrcvd[end]
-                        @inbounds p_vaxday = person.vaxday[end]
-                        @inbounds p_variant = person.variant[end]
-                        vaxeffect(today, infectset, vaxset, p_vaxstatus, p_variant, p_vaxrcvd, 
-                                  p_vaxday, mode=:progression)
-                    end
+        vaxeff = if p_vaxstatus === :none
+                     1.0
+                 else
+                     p_vaxrcvd = person.vaxrcvd[end]
+                     p_vaxday = person.vaxday[end]
+                     p_variant = person.variant[end]
+                     vaxeffect(today, infectset, vaxset, p_vaxstatus, p_variant, p_vaxrcvd, 
+                                p_vaxday, mode=:progression)
+                 end
 
         risk = riskfactor(recoveff, vaxeff)
         
@@ -67,13 +66,10 @@ vaxrcvd, vaxday, deadday.
             redistribute_probability!(probvec, risk, p_duration) 
         end
 
-        doprogression!(person, probvec)
-
-    else # no progression today!
-        person.duration += 1  # one more day in current condition
+        doprogression!(person, probvec)   
     end
     
-    return    
+    return nothing 
 end
 
 

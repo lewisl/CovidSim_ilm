@@ -1,4 +1,5 @@
 # TODO
+    # log simulation run messages, or print, or both
     # R0 is broken by shifting spread to one person at a time and update-in-place
     # rewrite test and trace to fit new population matrix
     # test social distancing
@@ -42,6 +43,7 @@ __precompile__(true)
 module CovidSim_ilm
 
 # required
+using Tables
 using DelimitedFiles
 using DataStructures
 using OrderedCollections
@@ -59,6 +61,7 @@ using YAML
 using TypedTables
 using LazyTables
 using Interpolations
+using NamedTupleTools
 
 
 ######################################################################
@@ -92,6 +95,8 @@ const DURATIONS = 1:DURATIONLIM
 #######################################################################
 # Symbol values for Condition, Status and agegrp to use in population table
 #    and related constants
+#
+# Symbols are more convenient than enums and faster than strings.
 #
 # See data_mapping.jl for functions that map symbols to integer values
 #######################################################################
@@ -144,7 +149,8 @@ Base.@kwdef struct Infectparams
 end
 
         """
-        Method for converting a dict loaded from YAML to this struct
+        Method for converting a dict loaded from YAML to this struct.
+        Derefing a small struct is much faster than derefing a dict.
         """
         function Infectparams(indict::Dict{Symbol, Any})
             Infectparams(
@@ -219,7 +225,7 @@ end
 
 # order matters for these includes!
 include("data_mapping.jl")
-include("dec_tree.jl")
+include("progression_probs.jl")
 include("setup.jl")
 include("plotting.jl")
 include("simstats.jl")
@@ -285,7 +291,7 @@ export
     Seedset,
     seed_case_gen_old,
     seed_case_gen,
-    makesickseedfunc,
+    maketraitseedfunc,
     makenotsickseedfunc,
     t_n_t_case_gen,
     case_setter,
@@ -343,7 +349,8 @@ export
 export
     series_to_csv,
     popdat_to_csv,
-    modeldef_to_yaml,
+    modelinputs_to_yaml,
+    model_to_yaml,
     yaml_to_model
 
 

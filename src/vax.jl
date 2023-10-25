@@ -37,7 +37,13 @@ end
                 infectfactor             = Dict(k => convert(Float64, v) for (k,v) in vd[:infectfactor])
                 )
         )
-
+#       TODO write a Base.show() for this struct
+#=
+# this is used to handle a call to `print`
+Base.show(io::IO, x::MyString) = print(io, x.s)
+# this is used to show values in the REPL and when using IJulia
+Base.show(io::IO, m::MIME"text/plain", x::MyString) = print(io, x.s)
+=#
 
 """
     struct Vaxinclude
@@ -186,6 +192,11 @@ function genvaxspreadfunc(dayrange, targetpct, pattern; shotmode=:all)
 end
 
 
+###########################################################
+# run vaccination
+###########################################################
+
+
 """
 Give people shots!
 
@@ -229,28 +240,26 @@ Call doshots! to select recipients for each dose.
 
         # vax parameters
         reqdshots = Dict(v => vaxset[v].reqdshots for v in vaxesincluded)
-        
         starting_doses = Dict(vi => vaxprops[vi].starting_doses for vi in vaxesincluded)  
-
         doses_today = Dict(vi => floor(Int, spreadfunc(today) * starting_doses[vi]) for vi in vaxesincluded)   # pct times accessible population
 
-        # find all candidates that could receive a shot as indices to data table
-        c_status = locdat.status
-        c_recovday = locdat.recovday
-        c_agegrp = locdat.agegrp
+        # who is eligible to receive a vaccine?
+            c_status = locdat.status
+            c_recovday = locdat.recovday
+            c_agegrp = locdat.agegrp
 
-        filt_unexp = [x .=== :unexposed for x in c_status]  # comprehension fastest compared to map, loop, or . syntax
-        # must use short-circuit && for and. === :recovered->guarantees that element of c_recovday is not empty
-        filt_recov = [(c_status[i] .=== :recovered) && (last(c_recovday[i]) < (today - 14)) for i in eachindex(c_status)]
-        filt_agegrp = [in(x, filtervec) for x in c_agegrp]
+            filt_unexp = [x === :unexposed for x in c_status]  # comprehension fastest compared to map, loop, or . syntax
+            # must use short-circuit && for and === :recovered->guarantees that element of c_recovday is not empty
+            filt_recov = [(c_status[i] === :recovered) && (last(c_recovday[i]) < (today - 14)) for i in eachindex(c_status)]
+            filt_agegrp = [in(x, filtervec) for x in c_agegrp]
             
-        vaxable_idx = findall(filt_agegrp .&& (filt_unexp .| filt_recov))  # must be in agegrp and either unexposed or recovered
+            vaxable_idx = findall(filt_agegrp .&& (filt_unexp .| filt_recov))  # must be in agegrps and either unexposed or recovered
         
-        doshots!(locdat,                      # c_vaxrcvd, c_vaxday, c_vaxstatus,  
+        doshots!(locdat,                        
                   vaxprops, vaxesincluded, reqdshots, pct2ndshot, pctboost, mix, delay2ndshot, delaybooster,   
-                  vaxable_idx, doses_today, filtervec, today)  # agegrp
+                  vaxable_idx, doses_today, filtervec, today) 
 
-    end  # for schedname
+    end  
 end
 
 

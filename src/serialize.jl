@@ -117,17 +117,186 @@ function popdat_to_csv(dat; pathstr="", idstr="", overwrite=false, usetimestamp=
     
 end
 
+#=
+A model is a named tuple of all of the data structures that are created and initialized before a
+simulation is run. You'll never use these types explicitly. The data structures are created by 
+function setup_model and functions it calls. Data for parameters are loaded from yaml files. The
+content of the parameter files are converted to appropriate Juia data structures.
 
-function modeldef_to_yaml(ndays::Int, locales::Vector{Int};  
+A model contains these elements of the type shown:
+    :ndays              => Int64
+    :day1               => Date
+    :locales            => Vector{Int64} 
+    :dat                => NamedTuple{(:popdat, :agegrp_idx)}
+        :popdat         => Dict{Int64, LazyTable} # the int is a locale identifier
+        :LazyTable      => contains columns:
+                           :status      => Symbol
+                           :agegrp      => Symbol
+                           :cond        => Symbol
+                           :duration    => Int64 
+                           :variant     => Vector{Symbol}
+                           :sickday     => Vector{Symbol}
+                           :recovday    => Vector{Int64}
+                           :deadday     => Vector{Int64} 
+                           :ring        => Int64
+                           :sdcase      => Int64 ???
+                           :vaxstatus   => Symbol 
+                           :vaxrcvd     => Vector{Symbol} 
+                           :vaxday      => Vector{Int64}
+                           :tested      => Bool
+                           :testday     => Int64
+                           :quar        => Bool
+                           :quarday     => Int64
+    :series, 
+    :geo, 
+    :progressionset, 
+    :vaxset, 
+    :vaxschedset, 
+    :infectset, 
+    :social, 
+    :trvec, 
+    :variantlist, 
+    :vaxlist, 
+    :indoor_seq, 
+    :seriescolnames
+=#
+
+
+function model_to_yaml(model; pathstr="", idstr="", overwrite=false, usetimestamp=true, basedir=:current )
+
+    # setup output
+    writepathstr, datestr = setpathstr(pathstr=pathstr, idstr=idstr, overwrite=overwrite,
+        usetimestamp=usetimestamp, basedir=basedir)
+
+    io = IOBuffer()
+
+    # write output
+    scalars = Dict("day1" => string(model.day1), "ndays" => model.ndays, "locales" => model.locales)
+
+    YAML.write(io, scalars)
+    write(io, "\n")
+
+    pad = "    "
+
+    parameter_structures = ["vaccinefile", "socialfile", "geofile", "vaxscheds", "variantfile"]
+
+    for section in parameter_structures
+        write(io, string(section, ": |\n"))
+        if section == "vaxscheds"
+            
+        elseif section == "geofile"
+            colnames = Tables.columnnames(model.geo)
+            num_names = length(colnames)
+            # write header row
+            for i in 1:(num_names-1)
+                write(io, string(pad, colnames[i], ','))
+            end
+            write(io, string(pad, colnames[num_names], '\n'))
+            # write rows
+            for row in model.geo
+                print(io, pad)  
+                for (i,v) in enumerate(values(row))
+                    print(io, v)
+                    if i < num_names
+                        write(io, ", ")
+                    else
+                        write(io, '\n')
+                    end
+                end
+            end
+
+
+        elseif section == "vaccinefile"
+            for (k, v) in model.vaxset
+                write(io, string(pad, k, ":\n"))
+                for name in fieldnames(Vaccineparams)
+                    if name === :infectfactor
+                        write(io, pad, pad)
+                        write(io, name, ":\n")
+                        for (k,v) in getfield(v, name)
+                            write(io, pad, pad, "  ")
+                            write(io, string(k, ": ", v, '\n'))
+                        end
+                    elseif name === :effectiveness
+                        write(io, pad, pad)
+                        write(io, name, ":\n")
+                        for (k, v) in getfield(v, name)
+                            write(io, pad, pad, "  ")
+                            write(io, string(k, ": ", '\n'))
+                            for (k2,v2) in v
+                                write(io, pad, pad, pad, "  ")
+                                write(io, string(k2, ": ", v2, '\n'))
+                            end
+                        end
+                    else
+                        write(io, pad)
+                        write(io, string(pad, name, ": ", getfield(v, name), '\n'))
+                    end
+                end
+            end
+            
+        elseif section == "socialfile"
+            for name in fieldnames(SocialParams)
+                write(io, pad)
+                write(io, name, ": ")
+                if (name === :contactfactors) | (name === :touchfactors)
+                    arr = getfield(model.social, name)
+                    mapfunc = name === :contactfactors ? mapcondition : maptouch
+                    write(io, '\n')
+                    for col in 1:size(arr, 2)  # columns = agegrps
+                        write(io, pad, "  ")
+                        write(io, string(mapagegrp(col), ": \n"))
+                        write(io, string(pad, "  ", "  ", '{'))
+                        for row in 1:size(arr, 1)   # rows = conditions
+                            write(io, string(mapfunc(row), ": ", arr[row,col]))
+                            write(io, ", ")
+                        end
+                        write(io, "}\n")
+                    end
+                else
+                    print(io,getfield(model.social, name))
+                    write(io, '\n')
+                end
+            end
+
+            
+
+        elseif section == "variantfile"
+            YAML.write(io, model.infectset)  
+
+        end
+
+        write(io, "\n\n")
+    end
+    flush(io)
+
+    #write IOBuffer to the modeldef file
+        seekstart(io)
+        fname = join(filter(!=(""), ("modeldef", idstr, datestr, ".yml")), "_", "")
+        filepathstr = joinpath(writepathstr, fname)
+
+        if (isfile(filepathstr)) & (!overwrite)
+            throw(ErrorException("FATAL: Argument overwrite set to false: can't overwrite existing file"))
+        end
+
+        write(filepathstr, io)
+
+        close(io)
+
+end
+
+function modelinputs_to_yaml(ndays::Int, locales::Vector{Int};  
+            # for inputs
             day1,
             dovax,
             paramdir = "../sample_parameters",
-            geofilename = "../data/geo2data.csv", 
+            geofilename = "geo2data.csv", 
             socialfilename = "socialparams.yml",
             scheddir="vaccine_schedule",
             vaccinefilename = "vaccines.yml",
             variantfilename = "variants.yml",
-            pathstr="", idstr="", overwrite=false, usetimestamp=true, basedir=:current
+            # for outputs
+            pathstr="", idstr="", overwrite=false, usetimestamp=true, basedir=:current  
         )
 
     writepathstr, datestr = setpathstr(pathstr=pathstr, idstr=idstr, overwrite=overwrite, 
@@ -160,8 +329,8 @@ function modeldef_to_yaml(ndays::Int, locales::Vector{Int};
                 end
                 continue   # nothing left to do-->skip rest of loop body and get next (key, pfname)
 
-            elseif key == "geofile"
-                filepath = pfname
+            # elseif key == "geofile"
+            #     filepath = pfname
             else
                 filepath = joinpath(paramdir, pfname)
             end

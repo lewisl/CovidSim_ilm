@@ -232,8 +232,8 @@ end
 
         # load the sdcase column of the population table
         # filter1 is everyone who is unexposed, recovered or sick: nil or mild
-        filter1 = findall(((locdat.status .== unexposed) .| (locdat.status .== recovered)) .| 
-                ((locdat.cond .== nil) .| (locdat.cond .== mild)))
+        filter1 = findall(((locdat.status .=== :unexposed) .| (locdat.status .=== :recovered)) .| 
+                ((locdat.cond .=== :nil) .| (locdat.cond .=== :mild)))
         if (comply == 1.0)   # include everyone in filter1 in this case
             complyfilter = filter1
         else

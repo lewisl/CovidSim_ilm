@@ -3,7 +3,9 @@
 #   simulation runner: ILM Model
 ####################################################################################
 
-
+"""
+Build the simulation model that contains all input parameters and result data.
+"""
 function buildsim(ndays, locales;
     day1 = Date("2020-01-01", "yyyy-mm-dd"),    # first calendar day of simulation
     dovax = false,                              # vaccinations for people
@@ -28,16 +30,29 @@ function buildsim(ndays, locales;
         )
 
         #=  Here is what the model tuple looks like...
-        model = (ndays=ndays, day1=day1, locales=locales, dat=dat, series=series, geo=geodata, 
-                progressionset=progressionset, vaxset=vaxset, vaxschedset=vaxschedset, infectset=infectset, 
-                social=socialparams, trvec=trvec, vaxlist=vaxlist, variantlist=variantlist, 
+        model = (ndays=ndays, 
+                day1=day1, 
+                locales=locales, 
+                dat=dat, 
+                series=series, 
+                geo=geodata, 
+                progressionset=progressionset, 
+                infectset=infectset, 
+                social=socialparams, 
+                trvec=trvec, 
+                vaxlist=vaxlist, 
+                vaxset=vaxset, 
+                vaxschedset=vaxschedset, 
+                variantlist=variantlist, 
                 seriescolnames=seriescolnames)  
         =#    
 
     return model
 end
 
-
+"""
+Build the simulation from a YAML file of a model.
+"""
 function buildsim(yaml_model)
     model = setup(yaml_model)
 end
@@ -56,24 +71,24 @@ function runsim(model;
     day1 = model.day1
     locales = model.locales
     progressionset = model.progressionset  # progression arrays
+    indoor_seq = model.indoor_seq
     trvec = model.trvec # preallocated small vector
     popdat = deepcopy(model.dat.popdat)   # Copy the population data so model can be reused!!!
     agegrp_idx = model.dat.agegrp_idx   # first key is locale
     series = deepcopy(model.series)  # dict of locales => namedtuple(.cum, .new), LazyTable of history columns
+    seriescolnames = model.seriescolnames
     geodf = model.geo
     infectset = model.infectset
     variantlist = model.variantlist
     socialparams = model.social
-    vaxset = model.vaxset
     vaxlist = model.vaxlist
-    indoor_seq = model.indoor_seq
-    seriescolnames = model.seriescolnames
+    vaxset = model.vaxset
     vaxschedset = model.vaxschedset
 
     # initialize some factors
     for sched in values(vaxschedset) 
         for vax in values(sched.vaxesincluded) 
-            vax.doses = vax.starting_doses   
+            vax.doses = vax.starting_doses     # TODO can we get rid of this or do we need to keep track of original dose amounts?
         end
     end
 
@@ -100,11 +115,11 @@ function runsim(model;
     ######################
     totalsimtime += @elapsed begin
 
-    for loc in locales     
+    for loc in locales     # for each locale in the simulation
 
         silent || println("Simulation starting for location $loc")
         
-        # first and only place to deref the locale (as loc)
+        # first and only place to deref the locale (as loc) to create locale specific data
         locdat = popdat[loc]  
         newhist = series[loc].new
         cumhist = series[loc].cum
@@ -207,6 +222,7 @@ end
 
 @inline function collect_history!(locdat, newhist, cumhist, age_idx_loc, today, vaxlist, variantlist, seriescolnames)  
 
+    # deref important columns
     statuscol = locdat.status
     condcol = locdat.cond
     vaxcol = locdat.vaxrcvd
