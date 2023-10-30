@@ -3,30 +3,21 @@
 #######################################################################################
 
 """
-    vaxeffect(today, infectset, vaxset, vaxstatus, spr_variant, vaxrcvd, vaxday; 
-                mode=:spread, csig=6.0, decay_lower=0.15)
+    vaxeffect_spread(today, infectset, vaxset, vaxstatus, spr_variant, vaxrcvd, vaxday; 
+                csig=6.0, decay_lower=0.15)
 
 Immunity from vaccination for a single person.  Argument mode can be :spread or :progression to use
 in either spread! or progression!, respectively.
 """
-@inline @fastmath function vaxeffect(today, infectset, vaxset, vaxstatus, spr_variant, vaxrcvd, vaxday;
-    mode=:spread, csig=6.0, decay_lower=0.15)
+@inline @fastmath function vaxeffect(today, infectset, infectfactor, p_vax, vaxstatus, spr_variant, vaxday;
+    csig=6.0, decay_lower=0.15)   # TODO decide where these inputs come from and what values to use
 
     # vaccine characteristics
     @inbounds begin
-        vs = vaxset[vaxrcvd]
-        halflife = vs.halflife
-        vaxeffect = vs.effectiveness[vaxstatus][spr_variant]
-        mineff = vs.day1_effect
-        full_effect_days = vs.full_effect_days
-
-        if mode == :spread
-            infectfactor = vaxset[vaxrcvd].infectfactor[spr_variant]
-        elseif mode == :progression
-            infectfactor = 1.0
-        else
-            throw(DomainError(mode, "Argument must be :spread or :progression"))
-        end
+        halflife = p_vax.halflife
+        vaxeffect = p_vax.effectiveness[vaxstatus][spr_variant]
+        mineff = p_vax.day1_effect
+        full_effect_days = p_vax.full_effect_days
     end
 
     # person's vaccine conditions
@@ -41,6 +32,7 @@ in either spread! or progression!, respectively.
 
     return factor
 end
+
 
 
 """

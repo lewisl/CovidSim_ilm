@@ -189,9 +189,10 @@ end
 
 """
 Pre-allocate and initialize table to hold history of the simulation, using LazyTables.
-Returns a Dict of LazyTable with 2 keys:
-- key cum is cumulative data for the entire locale. Or you may think of cum as the current value of a statistic.
-- key new is the net change of a statistic for the entire locale. Note that this includes both additions and substractions. In other words, this
+Returns a Dict of LazyTable with locale as key, which enables simulations of multiple locales.
+For each dict entry the value is a named tuple of 2 fields:
+    - cum is cumulative data for the entire locale. Or you may think of cum as the current value of a statistic.
+    - new is the net change of a statistic for the entire locale. Note that this includes both additions and substractions. In other words, this
 cannot be used as "new daily infections," for example.
 
 For each table the structure is:

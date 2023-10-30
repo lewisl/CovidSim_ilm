@@ -62,7 +62,7 @@ function runsim(model;
             runcases=[], 
             showr0 = false, 
             silent=true, 
-            dovax=false,
+            dovax=false,  # OK to set false even if valid vaccine data part of yaml_to_model
             vaxscheds=:none
             )
 
@@ -85,10 +85,16 @@ function runsim(model;
     vaxset = model.vaxset
     vaxschedset = model.vaxschedset
 
+    # override dovax=true if any vax parameters are empty
+    dovax && if (isempty(vaxlist) | isempty(vaxset) | isempty(vaxschedset))
+            dovax = false
+        end
+    
+
     # initialize some factors
-    for sched in values(vaxschedset) 
+    dovax && for sched in values(vaxschedset) 
         for vax in values(sched.vaxesincluded) 
-            vax.doses = vax.starting_doses     # TODO can we get rid of this or do we need to keep track of original dose amounts?
+            vax.doses = vax.starting_doses     
         end
     end
 
@@ -164,13 +170,13 @@ function runsim(model;
                     # transmission of the virus
                     if sendrisk > 0.0     
                         spread!(locdat, p, today, sdcases,  socialparams, 
-                                infectset, vaxset, density_factor, indoor_seq, poprange)       
+                                infectset, dovax, vaxset, density_factor, indoor_seq, poprange)       
                     end
                 end  # sprtime
                 
                 # progression of the disease for each infected person
                 trtime += @elapsed begin
-                        progression!(locdat, p, infectset, progressionset, vaxset, dovax, trvec)
+                        progression!(locdat, p, infectset, progressionset, dovax, vaxset, trvec)
                     end
             end # people loop         
             

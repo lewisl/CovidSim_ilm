@@ -1,0 +1,25 @@
+struct ConstrainedVector{T} <: AbstractVector{T}
+    data::Vector{T}
+end
+
+
+import Base.setindex!
+Base.size(v::ConstrainedVector) = size(v.data)
+Base.getindex(v::ConstrainedVector, i::Int) = getindex(v.data, i)
+Base.setindex!(v::ConstrainedVector, value, i::Int) = setindex!(v, value, i, true)
+
+function setindex!(v::ConstrainedVector, value, i::Int, check::Bool)
+    # allowed_values = Set([1, 2, 3, 5, 8, 13])  # Define your allowed values here
+    allowed_values = Set([:nil, :mild, :sick, :severe])
+    if value in allowed_values   # !check ||
+        setindex!(v.data, value, i)
+        return v
+    else
+        throw(ArgumentError("Value $value is not allowed"))
+    end
+end
+
+constrained_vector = ConstrainedVector([1, 2, 3])
+constrained_vector[1] = 5  # Works
+# constrained_vector[2] = 4  # Would throw an error
+

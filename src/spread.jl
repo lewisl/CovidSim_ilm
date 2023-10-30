@@ -9,7 +9,7 @@ Infectious people spread the virus to susceptible people for a single locale on 
 Changes attribute columns in the population table. Runs social distancing cases.
 """
 @inline function spread!(locdat, spr::Int, thisday::Int, sdcases, socialparams, 
-     infectset, vaxset, density_factor, indoor_seq, poprange)
+     infectset, dovax, vaxset, density_factor, indoor_seq, poprange)
 
     spreader = locdat[spr]  # row of traits of the spreader person
 
@@ -55,15 +55,20 @@ Changes attribute columns in the population table. Runs social distancing cases.
                                 1.0
                             end
     
-            vaxstatus = contact.vaxstatus
-            # effect on transmission based on which vaccine the contact received, how many times, and how long ago
-            vaxfactor = if vaxstatus === :none
-                            1.0 
-                        else
-                            vaxrcvd = contact.vaxrcvd[end]
-                            vaxday = contact.vaxday[end]
-                            vaxeffect(thisday, infectset, vaxset, vaxstatus, spr_variant, vaxrcvd, vaxday; mode=:spread)
-                        end
+            if dovax
+                vaxstatus = contact.vaxstatus
+                # effect on transmission based on which vaccine the contact received, how many times, and how long ago
+                vaxfactor = if vaxstatus === :none
+                                1.0 
+                            else
+                                vaxday = contact.vaxday[end]
+                                p_vax = vaxset[contact.vaxrcvd[end]]  # characteristics of vaccine received by the contact
+                                infectfactor = p_vax.infectfactor[spr_variant]
+                                vaxeffect(thisday, infectset, infectfactor, p_vax, vaxstatus, spr_variant, vaxday)
+                            end
+            else
+                vaxfactor = 1.0
+            end
         
             # binomial probability of the contact getting infected from the contact with this spreader
             risk = infectrisk(infectset, spr_variant, spreader.duration, contact.agegrp, recovfactor, vaxfactor)
@@ -100,7 +105,7 @@ function make_sick!(dat; cnt, ages, tocond, tovariant, toduration=1)
 
     filt_unexp = optfindall(==(unexposed), dat.status, 1) # must be unexposed
 
-    @inbounds for i in 1:size(ages, 1)  # by target age groups
+    @inbounds for i in eachindex(ages)  # by target age groups
 
         filt_age = dat.agegrp[filt_unexp] .== ages[i] # age of the unexposed
         rowrange = 1:cnt[i]

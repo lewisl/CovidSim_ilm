@@ -13,7 +13,7 @@ nil (asymptomatic) to mild to sick to severe, depending on their
 agegroup, days of being exposed, and some probability. Finally,  
 they move to recovered or dead.
 """
-@inline function progression!(locdat, p, infectset, progressionset, vaxset, dovax, probvec)
+@inline function progression!(locdat, p, infectset, progressionset, dovax, vaxset, probvec)
 
     today = DAY_CTR[:day]
 
@@ -50,19 +50,19 @@ they move to recovered or dead.
                     end
                     
         # effect on severity and progressing based on being vaccinated
-        vaxeff = if p_vaxstatus === :none
-                     1.0
-                 else
-                     p_vaxrcvd = person.vaxrcvd[end]
-                     p_vaxday = person.vaxday[end]
-                     p_variant = person.variant[end]
-                     vaxeffect(today, infectset, vaxset, p_vaxstatus, p_variant, p_vaxrcvd, 
-                                p_vaxday, mode=:progression)
-                 end
+        if dovax
+            vaxeff = if p_vaxstatus === :none
+                        1.0
+                    else
+                        p_vax = vaxset[person.vaxrcvd[end]] # characteristics of the vaccine this person received
+                        p_vaxday = person.vaxday[end]
+                        p_variant = person.variant[end]
+                        infectfactor = 1.0
+                        vaxeffect(today, infectset, infectfactor, p_vax, p_vaxstatus, p_variant, p_vaxday)
+                    end
 
-        risk = riskfactor(recoveff, vaxeff)
-        
-        if dovax     # vaccination changes probability, thus timing, of progressing to different stages of disease
+            # vaccination changes probability, thus timing, of progressing to different stages of disease
+            risk = riskfactor(recoveff, vaxeff)
             redistribute_probability!(probvec, risk, p_duration) 
         end
 
