@@ -57,8 +57,8 @@ they move to recovered or dead.
                         p_vax = vaxset[person.vaxrcvd[end]] # characteristics of the vaccine this person received
                         p_vaxday = person.vaxday[end]
                         p_variant = person.variant[end]
-                        infectfactor = 1.0
-                        vaxeffect(today, infectset, infectfactor, p_vax, p_vaxstatus, p_variant, p_vaxday)
+                        infectfactor = 1.0  # which means no effect for a multiplicative model
+                        vaxeffect(today, infectfactor, p_vax, p_vaxstatus, p_variant, p_vaxday)
                     end
 
             # vaccination changes probability, thus timing, of progressing to different stages of disease

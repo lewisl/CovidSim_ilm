@@ -3,6 +3,15 @@
 ####################################################################################################
 
 """
+ for Johns Hopkins US actual data
+"""
+struct Col_ref
+    date::String
+    col::Int64
+end
+
+
+"""
     function get_real_data(;series="confirmed")
 
 You must clone the Johns Hopkinds COVID-19 tracking data repository on Github at:

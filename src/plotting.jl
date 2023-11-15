@@ -41,14 +41,13 @@ function cumplot(series, locale, plotcols=[:unexposed, :infectious, :recovered, 
     xtickfmt = Dates.format.(xtickrange, "yyyy-mm-dd")
 
     # the plot
-    plot(   caldays, cumseries[days, :], 
+    plot(   caldays, cumseries[days, :]; 
             size = (700,500),
             label = labels, 
             lw=2.3,
             title = "Covid for $pop people for $n days\nActive Cases for Each Day",
             xlabel = "Simulation Days",
             xticks = (xtickrange, xtickfmt),
-            # xticks = caldays[10]:Day(180):caldays[length(caldays)-10],
             ylabel = "People",
             legendfontsize = 10,
             color_palette = co_pal,
@@ -83,7 +82,7 @@ function newplot(series, locale, plotcols=[:infectious]; days="all", geo=[], thm
     labels = reshape([labels...], 1, length(labels))
     pop = if !isempty(geo)
         geo.pop[geo.fips .== locale]
-     else # this will off by a tiny bit because of rounding
+     else  # this will off by a tiny bit because of rounding
         getproperty(cumhist, :unexposed_total)[1] + getproperty(cumhist, :infectious_total)[1]
      end   
      co_pal = length(plotcols) == 2 ? [theme_palette(thm)[2], theme_palette(thm)[4]] : theme_palette(thm)
@@ -93,7 +92,7 @@ function newplot(series, locale, plotcols=[:infectious]; days="all", geo=[], thm
  
 
     # the plot
-    plot(       caldays, newseries[days, :], 
+    plot(       caldays, newseries[days, :]; 
                 size = (700,500),
                 label = labels, 
                 lw=1.5,
@@ -208,7 +207,7 @@ function daily_cases_plot(series, popdat, locale, plotcols=[:total]; days="all",
                     )
 
     # the plot
-    plot(   caldays, plseries[days, :], 
+    plot(   caldays, plseries[days, :]; 
             label=labels,
             size = (700,500),
             lw = 1.5,

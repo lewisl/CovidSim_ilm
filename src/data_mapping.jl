@@ -46,7 +46,7 @@ end  # not used as hardwired if-test mapping is WAY faster
     end
 end
 
-@inline function countvec!(resvec::Vector{Int}, sourcevec, mapdict::Dict,  intmapper=mapviadict)
+@inline function countvec!(resvec::Vector{Int}, sourcevec, mapdict::Dict,  intmapper=mapwithdict)
     for val in sourcevec
         resvec[intmapper(mapdict, val)] += 1
     end
@@ -114,7 +114,7 @@ const vaxdict = Dict(:Pfizer=>1, :Moderna=>2, :JnJ=>3)
 const variantdict = Dict(:base => 1, :alpha=>2, :delta=>3, :omicron_ba1=>4, :omicron_ba2=>5, :omicron_ba4_5=>6)
 
 
-function mapviadict(mapdict, x::Symbol)
+function mapwithdict(mapdict, x::Symbol)
     get(mapdict, x) do
         throw(DomainError(x, "Argument must be one of $(keys(mapdict))"))
     end

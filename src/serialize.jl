@@ -176,7 +176,7 @@ function model_to_yaml(model; pathstr="", idstr="", overwrite=false, usetimestam
     YAML.write(io, scalars)
     write(io, "\n")
 
-    pad = "    "
+    pad = "    "  # 4 spaces
 
     parameter_structures = ["vaccinefile", "socialfile", "geofile", "vaxscheds", "variantfile"]
 
@@ -262,7 +262,46 @@ function model_to_yaml(model; pathstr="", idstr="", overwrite=false, usetimestam
             
 
         elseif section == "variantfile"
-            YAML.write(io, model.infectset)  
+            pgset = model.progressionset
+            infset = model.infectset
+            for variant in keys(pgset)
+                write(io, string("  ", variant, ":\n"))
+                pgvar = pgset[variant]
+                infvar = infset[variant]
+
+                println(typeof(pgvar))
+
+                write(io, string("  ", "  ","spread:\n"))
+                    write(io, string("  ", "  ", "  ", "sendrisk:  ["))
+                    for val in infvar.sendrisk
+                        write(io, string(val, ", "))
+                    end
+                    write(io, "]\n")
+                    #
+                    write(io, string("  ", "  ", "  ", "recvrisk:  ["))
+                    for val in infvar.recvrisk
+                        write(io, string(val, ", "))
+                    end
+                    write(io, "]\n")
+                    #
+                    write(io, string("  ", "  ", "  ", "basemultiplier: ", string(infvar.basemultiplier, "\n")))
+
+                write(io, string(pad, "immunity:\n"))
+                    write(io, string(pad, "  ", "recovery_immunity:\n"))
+                    for (k,v) in infvar.recovery_immunity
+                        write(io, string(pad, "  ", "  ", k, ": ", v, "\n"))
+                    end
+                    #
+                    write(io, string(pad, "  ", "immunehalflife: ", string(infvar.immunehalflife, "\n")))
+
+
+                write(io, string(pad, "progression_tree:\n"))
+                for age in fieldnames(typeof(pgvar.tree))
+
+                end
+            end
+            # YAML.write(io, model.infectset)  
+            # YAML.write(io, model.progressionset)
 
         end
 
@@ -383,6 +422,6 @@ function yaml_to_model(fname::String; basedir=:home, pathstr="")
 
     !isfile(readpathstr) && (throw(ErrorException("FATAL: File $writepathstr does not exist")))
 
-    yaml_model = YAML.load_file(readpathstr)
+    yaml_model = YAML.load_file(readpathstr)  # return type is big ugly dict
 
 end

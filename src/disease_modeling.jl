@@ -3,16 +3,16 @@
 #######################################################################################
 
 """
-    vaxeffect_spread(today, infectset, vaxset, vaxstatus, spr_variant, vaxrcvd, vaxday; 
+    vaxeffect(today, infectfactor, p_vax, vaxstatus, spr_variant, vaxday; 
                 csig=6.0, decay_lower=0.15)
 
-Immunity from vaccination for a single person.  Argument mode can be :spread or :progression to use
-in either spread! or progression!, respectively.
+Immunity from vaccination for a single person. In function progression!, the vaxeffect changes the severity and/or duration of the 
+disease. In function spread!, the vaxeffect reduces the likelihood of getting the disease.
 """
-@inline @fastmath function vaxeffect(today, infectset, infectfactor, p_vax, vaxstatus, spr_variant, vaxday;
+@inline @fastmath function vaxeffect(today, infectfactor, p_vax, vaxstatus, spr_variant, vaxday;
     csig=6.0, decay_lower=0.15)   # TODO decide where these inputs come from and what values to use
 
-    # vaccine characteristics
+    # vaccine characteristics shortcuts
     @inbounds begin
         halflife = p_vax.halflife
         vaxeffect = p_vax.effectiveness[vaxstatus][spr_variant]
@@ -22,7 +22,7 @@ in either spread! or progression!, respectively.
 
     # person's vaccine conditions
     days_after_vax = max(today - vaxday, 0)
-    days_after_full_effect = max(days_after_vax - full_effect_days, 0)     #clamp(today - (lastshotday + full_effect_days), 0, Int)
+    days_after_full_effect = max(days_after_vax - full_effect_days, 0)    
 
     rise = effect_rise(days_after_vax; mineff=mineff, delay_days=full_effect_days)
     decay = sigdecay(days_after_full_effect, halflife, csig=csig, decay_lower=decay_lower)     #   lindecay(days_after_full_effect, halflife, decay_lower)
@@ -64,11 +64,6 @@ Immunity from recovery for a single person.
     return factor
 end
 
-#############################################################################
-#
-#  effect of immunity from prior recovery and vaccination
-#
-#############################################################################
 
 # decay functions for immunity for decline from 1.0 to lower positive limit of function
 # multiply times max immunity if less than 1.0        
@@ -131,17 +126,18 @@ end
 
 function sigmoidshift(x; risk_discount=0.2)::Float64
     sigmoid(
-            shifter(
-                    clamp(x, 0.0, 1.0 + risk_discount),
-                    0.0, 1.0, -4.0, 4.0
-                    )
-            )
+        shifter(
+                clamp(x, 0.0, 1.0 + risk_discount),
+                0.0, 1.0, -4.0, 4.0
+                )
+        )
 end
 
 
 function vax_recov(vaxfactor, recovfactor)::Float64
     min(vaxfactor, recovfactor)  # each factor is 1 - immunity_effect: small is good because risk = infectrisk * combined factor
 end
+
 
 sigmoid(x) = 1.0 / (1.0 + exp(-x))  # smoosh input to 0.0, 1.0--> not used at this time 6/12/2023
 

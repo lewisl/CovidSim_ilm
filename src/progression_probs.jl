@@ -1,12 +1,50 @@
 
 ######################################################################
 # progression_probs.jl
-# decision tree for progression
+#   Create probabilities of progressing through stages of the illness,
+#   based on age group and variant of the virus.
+#   Estimates are adjusted to result in death rates roughly in line 
+#   with published death rates by age group.
 #
 # Set up decision matrix based on input file
-# Provide utilities for checking validity of progression probabilities
+# Provide utilities for checking plausibility of progression probabilities
 ######################################################################
 
+
+"""
+Hold progression matrices by age group.
+"""
+Base.@kwdef struct Agetree
+  age0_19::Dict{Int, Matrix{Float64}} = Dict{Int, Matrix{Float64}}()
+  age20_39::Dict{Int, Matrix{Float64}} = Dict{Int, Matrix{Float64}}()
+  age40_59::Dict{Int, Matrix{Float64}} = Dict{Int, Matrix{Float64}}()
+  age60_79::Dict{Int, Matrix{Float64}} =  Dict{Int, Matrix{Float64}}()
+  age80_up::Dict{Int, Matrix{Float64}} = Dict{Int, Matrix{Float64}}()
+end
+
+"""
+Hold factors to alter progression matrices off base for
+different vaccines and variants.
+"""
+Base.@kwdef struct ProgressionFactors
+  riskadjust::Union{Vector{Float64}, Nothing}
+  vaxhalflifeadjust::Union{Dict{Symbol, Float64}, Nothing}
+  
+      # inner method
+      function ProgressionFactors(factordict)
+          riskadj = get(factordict, :riskadjust, nothing)
+          vaxadj = get(factordict, :vaxhalflifeadjust, nothing)
+          vaxadj = if !isnothing(vaxadj)
+                      Dict(Symbol(k)=>v for (k,v) in vaxadj)
+                   end
+          new(riskadj, vaxadj)
+      end
+end
+
+Base.@kwdef struct ProgressionParams
+  tree::Union{Agetree, Nothing}
+  factors::ProgressionFactors   # use [] for nothing
+end
 
 
 # method for creating from Dict to nested structs

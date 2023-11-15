@@ -5,6 +5,58 @@
 ################################
 
 """
+Hold factors that characterize how infectious the disease is.
+Loaded by function setup from YAML parameter file.
+"""
+Base.@kwdef struct Infectparams
+    sendrisk::Vector{Float64}
+    recvrisk::Vector{Float64}
+    recovery_immunity::Dict{Symbol, Float64}
+    immunehalflife::Int64
+    basemultiplier::Float64
+end
+
+        """
+        Method for converting a dict loaded from YAML to this struct.
+        Derefing a small struct is much faster than derefing a dict.
+        """
+        function Infectparams(indict::Dict{Symbol, Any})
+            Infectparams(
+                sendrisk = indict[:sendrisk],
+                recvrisk = indict[:recvrisk],
+                recovery_immunity = indict[:recovery_immunity],
+                immunehalflife = indict[:immunehalflife],
+                basemultiplier = indict[:basemultiplier]
+                )
+        end
+
+"""
+Hold factors that describe social characteristics affecting spread of the disease.
+Loaded by function setup from YAML parameter file.
+"""
+Base.@kwdef struct SocialParams
+    gammashape::Float64
+    indoor_uplift::Float64
+    contactfactors::Matrix{Float64}     
+    touchfactors::Matrix{Float64}     
+end
+
+
+"""
+Hold parameters for social distancing cases used by callback function caserunner, below in file spread.jl.
+"""
+Base.@kwdef struct SpreadCase       # Base.@kwdef -> use keyword arguments and defaults in constructor
+    name::Symbol
+    day::Int
+    cfdelta::Tuple{Float64,Float64}  
+    tfdelta::Tuple{Float64,Float64}  
+    comply::Float64             # compliance fraction
+    cfcase::Matrix{Float64}
+    tfcase::Matrix{Float64}
+end
+
+
+"""
 Infectious people spread the virus to susceptible people for a single locale on thisday. 
 Changes attribute columns in the population table. Runs social distancing cases.
 """
@@ -64,7 +116,7 @@ Changes attribute columns in the population table. Runs social distancing cases.
                                 vaxday = contact.vaxday[end]
                                 p_vax = vaxset[contact.vaxrcvd[end]]  # characteristics of vaccine received by the contact
                                 infectfactor = p_vax.infectfactor[spr_variant]
-                                vaxeffect(thisday, infectset, infectfactor, p_vax, vaxstatus, spr_variant, vaxday)
+                                vaxeffect(thisday, infectfactor, p_vax, vaxstatus, spr_variant, vaxday)
                             end
             else
                 vaxfactor = 1.0
@@ -212,6 +264,9 @@ function sd_gen(;startday::Int, comply::Float64, cf::Tuple{Float64, Float64},
 end
 
 
+"""
+Callback function returnned by function caserunner for social distancing cases.
+"""
 @inline function s_d_seed!(locdat, sdcases, startday, comply, cf, tf, name, include_ages, socialparams, infectset, age_idx_loc; startofday)
     @assert 0.0 <= comply <= 1.0  "comply must be floating point in 0.0 to 1.0 inclusive"
     
