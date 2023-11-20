@@ -75,7 +75,7 @@ end
     const TOUCHES = [:unexposed, :recovered, :nil, :mild, :sick, :severe]
     const STATUSES = [:unexposed, :infectious, :recovered, :dead]
     const INFECTIOUS_CASES = [:nil, :mild, :sick, :severe]
-    const TRANSITION_CASES = [:recovered, :nil, :mild, :sick, :severe, :dead]
+    const PROGRESSION_CASES = [:recovered, :nil, :mild, :sick, :severe, :dead]
     const AGEGRPS = [:age0_19, :age20_39 , :age40_59, :age60_79, :age80_up]
     const AGENAMES = vcat(AGEGRPS, :total)
 
@@ -183,3 +183,9 @@ function do_math_t(math_func, x, y)
     math_func(x,y)::Int64 
 end
 
+# how to override an operator to make dict access easier.   <= also makes a good choice
+import Base.<=
+
+<=(dct::Dict{Symbol, T}, idx::Symbol) where T = getindex(dct, idx)
+
+# then you can do mydict<=idx

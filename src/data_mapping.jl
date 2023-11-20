@@ -56,7 +56,7 @@ end
     const TOUCHES = [:unexposed, :recovered, :nil, :mild, :sick, :severe]
     const STATUSES = [:unexposed, :infectious, :recovered, :dead]
     const INFECTIOUS_CASES = [:nil, :mild, :sick, :severe]
-    const TRANSITION_CASES = [:recovered, :nil, :mild, :sick, :severe, :dead]
+    const PROGRESSION_CASES = [:recovered, :nil, :mild, :sick, :severe, :dead]
     const AGEGRPS = [:age0_19, :age20_39, :age40_59, :age60_79, :age80_up]
 =#
 
@@ -81,11 +81,11 @@ end
 end
 
 @inline function map_progression(x::Symbol)
-    findit(x, TRANSITION_CASES)
+    findit(x, PROGRESSION_CASES)
 end
 
 @inline function map_progression(x::Int)
-    findit(x, TRANSITION_CASES)
+    findit(x, PROGRESSION_CASES)
 end
 
 @inline function maptouch(x::Symbol)

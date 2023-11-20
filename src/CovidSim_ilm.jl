@@ -129,7 +129,7 @@ const DURATIONS = 1:DURATIONLIM
 const TOUCHES = [:unexposed, :recovered, :nil, :mild, :sick, :severe]
 const STATUSES = [:unexposed, :infectious, :recovered, :dead]
 const INFECTIOUS_CASES = [:nil, :mild, :sick, :severe]
-const TRANSITION_CASES = [:recovered, :nil, :mild, :sick, :severe, :dead]
+const PROGRESSION_CASES = [:recovered, :nil, :mild, :sick, :severe, :dead]
 const AGEGRPS = [:age0_19, :age20_39 , :age40_59, :age60_79, :age80_up]
 const AGENAMES = vcat(AGEGRPS, :total)
 
@@ -256,7 +256,7 @@ export
     # values for Status, Condition and AGEGRP
     STATUSES,
     INFECTIOUS_CASES,
-    TRANSITION_CASES,
+    PROGRESSION_CASES,
     AGEGRPS,
     TOUCHES
 

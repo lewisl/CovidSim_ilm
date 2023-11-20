@@ -88,19 +88,18 @@ end
 
         # external method to accept inputs from a dict
         function Vaxsched(vs_dict::Dict) 
+            vaxesincluded = Dict(k => Vaxinclude(v) for (k, v) in vs_dict[:vaxesincluded])
             dayrange = vs_dict[:dayrange][1]:vs_dict[:dayrange][2]
             targetpct = vs_dict[:targetpct]
-            pattern = vs_dict[:pattern]
             filtervec = symbol2agegrp.(vs_dict[:filtervec])
             shotmode = Symbol(vs_dict[:shotmode])
-
-            vaxesincluded = Dict(k => Vaxinclude(v) for (k,v) in vs_dict[:vaxesincluded])
+            pattern = vs_dict[:pattern]
+            
             vaxmix = [v.mix for v in values(vaxesincluded)]
-
             @assert sum(vaxmix) == 1.0 "Sum of mix for vaccines does not equal 1: $vaxmix"
             @assert 0.0 <= targetpct <= 1.0 "targetpct must be in [0.0, 1.0], got: $targetpct"
 
-            vx =Vaxsched(
+            Vaxsched(
                 vaxesincluded = vaxesincluded,
                 dayrange =  dayrange,
                 targetpct = targetpct,
@@ -109,8 +108,6 @@ end
                 pattern = pattern,
                 spreadfunc = genvaxspreadfunc(dayrange, targetpct, pattern; shotmode=shotmode) 
                 )   
-
-            return vx
         end
 
 

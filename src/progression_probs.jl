@@ -70,26 +70,14 @@ vector for another variant.
 """
 function setup_dt(trdict::Dict)
     prepdict = Dict(age_key => Dict(parse(Int, string(duration)) =>
-                                    vcat(prob_vecs[:progression][:nil]',  prob_vecs[:progression][:mild]',
-                                         prob_vecs[:progression][:sick]', prob_vecs[:progression][:severe]')
-                                for (duration, prob_vecs) in sort(duration))  # this is where we ignore checkpoint as _
+                                    vcat(prob_vecs[:nil]',  prob_vecs[:mild]',  
+                                         prob_vecs[:sick]', prob_vecs[:severe]')
+                                for (duration, prob_vecs) in sort(duration))  
                         for (age_key, duration) in sort(trdict))
     
     # top-level key of dict, agegrp, becomes a field value of the struct Agetree
     return Agetree([prepdict[age] for age in keys(sort(trdict))]...) # splats to fields of Agetree: a dict per agegrp
 end
-
-# function setup_dt(trdict::Dict)
-
-#   prepdict = Dict(age_key => Dict(brk[:duration] =>
-#                                   vcat(brk[:progression][:nil]',  brk[:progression][:mild]',
-#                                        brk[:progression][:sick]', brk[:progression][:severe]')
-#                               for (_, brk) in sort(params))  # this is where we ignore checkpoint as _
-#                       for (age_key, params) in sort(trdict))
-
-#   return Agetree([prepdict[age] for age in keys(sort(trdict))]...) # splats to fields of Agetree: a dict per agegrp
-
-# end
 
 
 function setup_dt(basetree::Agetree, adjust::Vector{Float64})

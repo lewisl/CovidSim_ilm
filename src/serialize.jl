@@ -162,11 +162,190 @@ A model contains these elements of the type shown:
 =#
 
 
+function geo_to_yaml!(io, geo, pad)
+    colnames = Tables.columnnames(geo)
+    num_names = length(colnames)
+    # write header row
+    for i in 1:(num_names-1)
+        write(io, string(pad, colnames[i], ','))
+    end
+    write(io, string(pad, colnames[num_names], '\n'))
+    # write rows
+    for row in geo
+        print(io, pad)
+        for (i, v) in enumerate(values(row))
+            print(io, v)
+            if i < num_names
+                write(io, ", ")
+            else
+                write(io, '\n')
+            end
+        end
+    end
+end
+
+
+function vaccinefile_to_yaml!(io, vaxset, pad)
+    for (k, v) in vaxset
+        write(io, pad, k, ":\n")  # string(pad, k, ":\n")
+        for name in fieldnames(Vaccineparams)
+            if name === :infectfactor
+                write(io, pad, pad)
+                write(io, name, ":\n")
+                for (k, v) in getfield(v, name)
+                    write(io, pad, pad, "  ")
+                    write(io, string(k, ": ", v, '\n'))
+                end
+            elseif name === :effectiveness
+                write(io, pad, pad)
+                write(io, name, ":\n")
+                for (k, v) in getfield(v, name)
+                    # write(io, pad, pad, "  ")
+                    write(io, repeat(pad,3), string(k, ": ", "\n"))
+                    YAML.write(v)
+                    # for (k2, v2) in v
+                    #     # write(io, pad, pad, pad, "  ")
+                    #     write(io, repeat(pad,4), string(k2, ": ", v2, '\n'))
+                    # end
+                end
+            else
+                write(io, pad)
+                write(io, string(pad, name, ": ", getfield(v, name), '\n'))
+            end
+        end
+    end
+end
+
+
+function social_to_yaml!(io, social, pad)
+    for name in fieldnames(SocialParams)
+        write(io, pad)
+        write(io, name, ": ")
+        if (name === :contactfactors) | (name === :touchfactors)
+            arr = getfield(social, name)
+            mapfunc = name === :contactfactors ? mapcondition : maptouch
+            write(io, '\n')
+            for col in 1:size(arr, 2)  # columns = agegrps
+                write(io, pad, "  ")
+                write(io, string(mapagegrp(col), ": \n"))
+                write(io, string(pad, "  ", "  ", '{'))
+                for row in 1:size(arr, 1)   # rows = conditions
+                    write(io, string(mapfunc(row), ": ", arr[row, col]))
+                    write(io, ", ")
+                end
+                write(io, "}\n")
+            end
+        else
+            print(io, getfield(social, name))
+            write(io, '\n')
+        end
+    end
+end
+
+
+function variants_to_yaml!(io, infectset, progressionset, pad)
+    pgset = progressionset
+    infset = infectset
+    for variant in keys(pgset)
+        write(io, string("  ", variant, ":\n"))
+        pgvar = pgset[variant]
+        infvar = infset[variant]
+
+        write(io, string(repeat(pad,2), "spread:\n"))
+        write(io, string(repeat(pad,3), "sendrisk:  ["))
+            for val in infvar.sendrisk
+                write(io, string(val, ", "))
+            end
+            write(io, "]\n")
+        #
+        write(io, string(repeat(pad,3), "recvrisk:  ["))
+            for val in infvar.recvrisk
+                write(io, string(val, ", "))
+            end
+            write(io, "]\n")
+        #
+        write(io, string(repeat(pad,3), "basemultiplier: ", string(infvar.basemultiplier, "\n")))
+
+        write(io, string(repeat(pad,2), "immunity:\n"))
+            write(io, string(repeat(pad,3), "recovery_immunity:\n"))
+            for (k, v) in infvar.recovery_immunity
+                write(io, string(repeat(pad,4), k, ": ", v, "\n"))
+            end
+        #
+        write(io, string(repeat(pad,2), "immunehalflife: ", string(infvar.immunehalflife, "\n")))
+
+        write(io, string(repeat(pad,2), "progression_tree:\n"))
+        for age in fieldnames(typeof(pgvar.tree))
+            agetree = getproperty(pgvar.tree, age)
+            write(io, repeat(pad,3), age, ":\n")
+            for (duration, matrix) in sort(agetree) 
+                write(io, repeat(pad, 4), string(duration, ":\n"))
+                for i in eachindex(matrix[:,1])  # countup by row number--need row num to look up condition
+                    write(io, repeat(pad, 5), mapcondition(i), ": [")  # start a flow vector
+                    for val in matrix[i,:]  # write the column values of each row
+                        write(io, string(val, ", "))
+                    end
+                    write(io, "]\n")  # close the flow vector
+                end
+            end
+        end
+
+        write(io, string(repeat(pad,2), "progression_factors:\n"))
+            if !isnothing(pgvar.factors.riskadjust)  # no else: we can leave this key out if its value is empty
+                write(io, repeat(pad,3), string("riskadjust: ["))
+                for value in pgvar.factors.riskadjust
+                    write(io, string(value), ", ")
+                end
+                write(io, "]\n") # close the flow vector
+            end   
+            write(io, repeat(pad,3), string("vaxhalflifeadjust:", "\n"))
+            for (k,v) in pgvar.factors.vaxhalflifeadjust
+                Base.write(io, repeat(pad, 4), string(k, ": ", v, "\n"))
+            end
+    end
+end
+
+
+function vaxsched_to_yaml!(io, allvaxscheds, pad)
+    for (schedname,vaxsched) in allvaxscheds  # vaxsched is an instance of struct Vaxsched
+        write(io, repeat(pad,2), string(schedname, ":\n"))
+        for topfield in fieldnames(typeof(vaxsched))   # topfield is a Symbol of a field in vaxsched
+            if topfield == :vaxesincluded   # this field is a Dict of struct
+                # write the struct
+                write(io, repeat(pad, 3), string("vaxesincluded", ": \n"))
+                vaxesincluded = getproperty(vaxsched, :vaxesincluded) # this is a dict of struct Vaxinclude
+                for (vax, props) in vaxesincluded   # props is the instance of Vaxinclude
+                    write(io, repeat(pad, 4), string(vax, ": \n"))
+                    for vp in fieldnames(typeof(props))
+                        write(io, repeat(pad, 5), string(vp, ": ", getproperty(props, vp), "\n"))
+                    end
+                end
+            elseif topfield == :dayrange
+                startday = string(getproperty(allvaxscheds[schedname], topfield)[1])  # start of range
+                endday = string(getproperty(allvaxscheds[schedname], topfield)[end])  # end of range
+                write(io, repeat(pad, 3), topfield, ": [", startday, ", ", endday, "]\n")
+            else  # all other fields
+                write(io, repeat(pad, 3), string(topfield, ": ", getproperty(vaxsched, topfield), "\n"))
+            end
+        end
+    end
+end
+
+
 function model_to_yaml(model; pathstr="", idstr="", overwrite=false, usetimestamp=true, basedir=:current )
 
     # setup output
-    writepathstr, datestr = setpathstr(pathstr=pathstr, idstr=idstr, overwrite=overwrite,
-        usetimestamp=usetimestamp, basedir=basedir)
+        writepathstr, datestr = setpathstr(pathstr=pathstr, idstr=idstr, overwrite=overwrite,
+            usetimestamp=usetimestamp, basedir=basedir)
+
+        fname = join(filter(!=(""), ("modeldef", idstr, datestr, ".yml")), "_", "")
+        filepathstr = joinpath(writepathstr, fname)
+
+        if (isfile(filepathstr)) & (!overwrite)
+            throw(ErrorException("FATAL: Argument overwrite set to false: can't overwrite existing file"))
+        end
+
+    pad = "  "  # 2 spaces
 
     io = IOBuffer()
 
@@ -175,154 +354,36 @@ function model_to_yaml(model; pathstr="", idstr="", overwrite=false, usetimestam
 
     YAML.write(io, scalars)
     write(io, "\n")
+    
+    write(io, string("geofile", ": |\n"))
+        geo_to_yaml!(io, model.geo, pad)
+        write(io, "\n")
 
-    pad = "    "  # 4 spaces
+    write(io, string("socialfile", ": |\n"))
+        social_to_yaml!(io, model.social, pad)
+        write(io, "\n")
 
-    parameter_structures = ["vaccinefile", "socialfile", "geofile", "vaxscheds", "variantfile"]
+    write(io, string("variantfile", ": |\n"))
+        variants_to_yaml!(io, model.infectset, model.progressionset, pad)
+        write(io, "\n")
 
-    for section in parameter_structures
-        write(io, string(section, ": |\n"))
-        if section == "vaxscheds"
-            
-        elseif section == "geofile"
-            colnames = Tables.columnnames(model.geo)
-            num_names = length(colnames)
-            # write header row
-            for i in 1:(num_names-1)
-                write(io, string(pad, colnames[i], ','))
-            end
-            write(io, string(pad, colnames[num_names], '\n'))
-            # write rows
-            for row in model.geo
-                print(io, pad)  
-                for (i,v) in enumerate(values(row))
-                    print(io, v)
-                    if i < num_names
-                        write(io, ", ")
-                    else
-                        write(io, '\n')
-                    end
-                end
-            end
+    write(io, string("vaccinefile", ": |\n"))
+        vaccinefile_to_yaml!(io, model.vaxset, pad)
+        write(io, "\n")
 
+    write(io, string("vaxscheds", ": |\n"))
+        vaxsched_to_yaml!(io, model.vaxschedset, pad)
+        write(io, "\n")
 
-        elseif section == "vaccinefile"
-            for (k, v) in model.vaxset
-                write(io, string(pad, k, ":\n"))
-                for name in fieldnames(Vaccineparams)
-                    if name === :infectfactor
-                        write(io, pad, pad)
-                        write(io, name, ":\n")
-                        for (k,v) in getfield(v, name)
-                            write(io, pad, pad, "  ")
-                            write(io, string(k, ": ", v, '\n'))
-                        end
-                    elseif name === :effectiveness
-                        write(io, pad, pad)
-                        write(io, name, ":\n")
-                        for (k, v) in getfield(v, name)
-                            write(io, pad, pad, "  ")
-                            write(io, string(k, ": ", '\n'))
-                            for (k2,v2) in v
-                                write(io, pad, pad, pad, "  ")
-                                write(io, string(k2, ": ", v2, '\n'))
-                            end
-                        end
-                    else
-                        write(io, pad)
-                        write(io, string(pad, name, ": ", getfield(v, name), '\n'))
-                    end
-                end
-            end
-            
-        elseif section == "socialfile"
-            for name in fieldnames(SocialParams)
-                write(io, pad)
-                write(io, name, ": ")
-                if (name === :contactfactors) | (name === :touchfactors)
-                    arr = getfield(model.social, name)
-                    mapfunc = name === :contactfactors ? mapcondition : maptouch
-                    write(io, '\n')
-                    for col in 1:size(arr, 2)  # columns = agegrps
-                        write(io, pad, "  ")
-                        write(io, string(mapagegrp(col), ": \n"))
-                        write(io, string(pad, "  ", "  ", '{'))
-                        for row in 1:size(arr, 1)   # rows = conditions
-                            write(io, string(mapfunc(row), ": ", arr[row,col]))
-                            write(io, ", ")
-                        end
-                        write(io, "}\n")
-                    end
-                else
-                    print(io,getfield(model.social, name))
-                    write(io, '\n')
-                end
-            end
-
-            
-
-        elseif section == "variantfile"
-            pgset = model.progressionset
-            infset = model.infectset
-            for variant in keys(pgset)
-                write(io, string("  ", variant, ":\n"))
-                pgvar = pgset[variant]
-                infvar = infset[variant]
-
-                println(typeof(pgvar))
-
-                write(io, string("  ", "  ","spread:\n"))
-                    write(io, string("  ", "  ", "  ", "sendrisk:  ["))
-                    for val in infvar.sendrisk
-                        write(io, string(val, ", "))
-                    end
-                    write(io, "]\n")
-                    #
-                    write(io, string("  ", "  ", "  ", "recvrisk:  ["))
-                    for val in infvar.recvrisk
-                        write(io, string(val, ", "))
-                    end
-                    write(io, "]\n")
-                    #
-                    write(io, string("  ", "  ", "  ", "basemultiplier: ", string(infvar.basemultiplier, "\n")))
-
-                write(io, string(pad, "immunity:\n"))
-                    write(io, string(pad, "  ", "recovery_immunity:\n"))
-                    for (k,v) in infvar.recovery_immunity
-                        write(io, string(pad, "  ", "  ", k, ": ", v, "\n"))
-                    end
-                    #
-                    write(io, string(pad, "  ", "immunehalflife: ", string(infvar.immunehalflife, "\n")))
-
-
-                write(io, string(pad, "progression_tree:\n"))
-                for age in fieldnames(typeof(pgvar.tree))
-
-                end
-            end
-            # YAML.write(io, model.infectset)  
-            # YAML.write(io, model.progressionset)
-
-        end
-
-        write(io, "\n\n")
-    end
+    write(io, "\n\n")
     flush(io)
 
     #write IOBuffer to the modeldef file
         seekstart(io)
-        fname = join(filter(!=(""), ("modeldef", idstr, datestr, ".yml")), "_", "")
-        filepathstr = joinpath(writepathstr, fname)
-
-        if (isfile(filepathstr)) & (!overwrite)
-            throw(ErrorException("FATAL: Argument overwrite set to false: can't overwrite existing file"))
-        end
-
         write(filepathstr, io)
-
         close(io)
-
 end
+
 
 function modelinputs_to_yaml(ndays::Int, locales::Vector{Int};  
             # for inputs
@@ -394,9 +455,7 @@ function modelinputs_to_yaml(ndays::Int, locales::Vector{Int};
         end     
 
         write(filepathstr, io)
-
         close(io)
-
 end
 
 
