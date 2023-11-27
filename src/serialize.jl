@@ -28,6 +28,18 @@ function setpathstr(;pathstr="", idstr="", overwrite=false, usetimestamp=true, b
     return writepathstr, datestr
 end
 
+"""
+Utility function to change the type of the keys in the input dict.
+"""
+function change_key_type(d; f=Symbol)
+    Dict(f(k) =>
+        if !(typeof(v) <: AbstractDict)
+            v
+        else
+            change_key_type(v, f=f)
+        end
+         for (k, v) in d)
+end
 
 
 """
@@ -161,6 +173,9 @@ A model contains these elements of the type shown:
     :seriescolnames
 =#
 
+##############################################################################################
+#  functions called by model_to_yaml
+##############################################################################################
 
 function geo_to_yaml!(io, geo, pad)
     colnames = Tables.columnnames(geo)
@@ -190,27 +205,20 @@ function vaccinefile_to_yaml!(io, vaxset, pad)
         write(io, pad, k, ":\n")  # string(pad, k, ":\n")
         for name in fieldnames(Vaccineparams)
             if name === :infectfactor
-                write(io, pad, pad)
-                write(io, name, ":\n")
+                write(io, repeat(pad,2), name, ":\n")
                 for (k, v) in getfield(v, name)
-                    write(io, pad, pad, "  ")
-                    write(io, string(k, ": ", v, '\n'))
+                    write(io, repeat(pad,3), string(k, ": ", v, '\n'))
                 end
             elseif name === :effectiveness
-                write(io, pad, pad)
-                write(io, name, ":\n")
+                write(io, repeat(pad,2), name, ":\n")
                 for (k, v) in getfield(v, name)
-                    # write(io, pad, pad, "  ")
-                    write(io, repeat(pad,3), string(k, ": ", "\n"))
-                    YAML.write(v)
-                    # for (k2, v2) in v
-                    #     # write(io, pad, pad, pad, "  ")
-                    #     write(io, repeat(pad,4), string(k2, ": ", v2, '\n'))
-                    # end
+                    write(io, repeat(pad,3), string(k, ": \n"))
+                    for (k2, v2) in v
+                        write(io, string(repeat(pad,4), k2, ": ", v2, "\n"))
+                    end
                 end
             else
-                write(io, pad)
-                write(io, string(pad, name, ": ", getfield(v, name), '\n'))
+                write(io, string(repeat(pad,2), name, ": ", getfield(v, name), '\n'))
             end
         end
     end
@@ -226,12 +234,10 @@ function social_to_yaml!(io, social, pad)
             mapfunc = name === :contactfactors ? mapcondition : maptouch
             write(io, '\n')
             for col in 1:size(arr, 2)  # columns = agegrps
-                write(io, pad, "  ")
-                write(io, string(mapagegrp(col), ": \n"))
+                write(io, repeat(pad,2), string(mapagegrp(col), ": \n"))
                 write(io, string(pad, "  ", "  ", '{'))
                 for row in 1:size(arr, 1)   # rows = conditions
-                    write(io, string(mapfunc(row), ": ", arr[row, col]))
-                    write(io, ", ")
+                    write(io, string(mapfunc(row), ": ", arr[row, col], ", "))
                 end
                 write(io, "}\n")
             end
@@ -272,7 +278,7 @@ function variants_to_yaml!(io, infectset, progressionset, pad)
                 write(io, string(repeat(pad,4), k, ": ", v, "\n"))
             end
         #
-        write(io, string(repeat(pad,2), "immunehalflife: ", string(infvar.immunehalflife, "\n")))
+        write(io, string(repeat(pad,3), "immunehalflife: ", string(infvar.immunehalflife, "\n")))
 
         write(io, string(repeat(pad,2), "progression_tree:\n"))
         for age in fieldnames(typeof(pgvar.tree))
@@ -302,6 +308,8 @@ function variants_to_yaml!(io, infectset, progressionset, pad)
             for (k,v) in pgvar.factors.vaxhalflifeadjust
                 Base.write(io, repeat(pad, 4), string(k, ": ", v, "\n"))
             end
+
+        write(io, "\n")
     end
 end
 
@@ -311,19 +319,22 @@ function vaxsched_to_yaml!(io, allvaxscheds, pad)
         write(io, repeat(pad,2), string(schedname, ":\n"))
         for topfield in fieldnames(typeof(vaxsched))   # topfield is a Symbol of a field in vaxsched
             if topfield == :vaxesincluded   # this field is a Dict of struct
-                # write the struct
                 write(io, repeat(pad, 3), string("vaxesincluded", ": \n"))
                 vaxesincluded = getproperty(vaxsched, :vaxesincluded) # this is a dict of struct Vaxinclude
-                for (vax, props) in vaxesincluded   # props is the instance of Vaxinclude
+                for (vax, props) in vaxesincluded   # write all the props of vaxesincluded
                     write(io, repeat(pad, 4), string(vax, ": \n"))
                     for vp in fieldnames(typeof(props))
                         write(io, repeat(pad, 5), string(vp, ": ", getproperty(props, vp), "\n"))
                     end
                 end
-            elseif topfield == :dayrange
+            elseif topfield == :dayrange  # write the range as a flow vector
                 startday = string(getproperty(allvaxscheds[schedname], topfield)[1])  # start of range
                 endday = string(getproperty(allvaxscheds[schedname], topfield)[end])  # end of range
                 write(io, repeat(pad, 3), topfield, ": [", startday, ", ", endday, "]\n")
+            elseif topfield == :filtervec  # must convert :val to "val" only to convert it back at load time!
+                write(io, repeat(pad,3), topfield, ": ")
+                # for val in allvaxscheds[schedname].filtervec
+                write(io, string([string(x) for x in allvaxscheds[schedname].filtervec]), "\n")
             else  # all other fields
                 write(io, repeat(pad, 3), string(topfield, ": ", getproperty(vaxsched, topfield), "\n"))
             end
@@ -350,7 +361,8 @@ function model_to_yaml(model; pathstr="", idstr="", overwrite=false, usetimestam
     io = IOBuffer()
 
     # write output
-    scalars = Dict("day1" => string(model.day1), "ndays" => model.ndays, "locales" => model.locales)
+    scalars = Dict("day1" => string(model.day1), "ndays" => model.ndays, "locales" => model.locales,
+                "dovax"=>model.dovax)
 
     YAML.write(io, scalars)
     write(io, "\n")
@@ -382,6 +394,7 @@ function model_to_yaml(model; pathstr="", idstr="", overwrite=false, usetimestam
         seekstart(io)
         write(filepathstr, io)
         close(io)
+    return filepathstr
 end
 
 
@@ -456,6 +469,7 @@ function modelinputs_to_yaml(ndays::Int, locales::Vector{Int};
 
         write(filepathstr, io)
         close(io)
+    return filepathstr
 end
 
 
@@ -481,6 +495,5 @@ function yaml_to_model(fname::String; basedir=:home, pathstr="")
 
     !isfile(readpathstr) && (throw(ErrorException("FATAL: File $writepathstr does not exist")))
 
-    yaml_model = YAML.load_file(readpathstr)  # return type is big ugly dict
-
+    yaml_model = change_key_type(YAML.load_file(readpathstr), f=Symbol)  # return type is big ugly dict
 end

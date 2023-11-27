@@ -63,8 +63,8 @@ function setup(ndays::Int64, locales;
     indoor_seq = build_indoor_seq(locales, ndays, geodata, series, socialparams.indoor_uplift)
 
     model = (ndays=ndays, day1=day1, locales=locales, dat=dat, series=series, geo=geodata, 
-            progressionset=progressionset, vaxset=vaxset, vaxschedset=vaxschedset, infectset=infectset, 
-            social=socialparams, trvec=trvec, variantlist=variantlist, vaxlist = vaxlist, 
+            progressionset=progressionset, dovax=dovax, vaxset=vaxset, vaxschedset=vaxschedset, 
+            infectset=infectset, social=socialparams, trvec=trvec, variantlist=variantlist, vaxlist = vaxlist, 
             indoor_seq=indoor_seq, seriescolnames=seriescolnames)  
 
     return model
@@ -77,36 +77,45 @@ Create a complete simulation model from a previously saved YAML model definition
 The output model is identical to that created from input parameter files to the function buildsim. This output is a named tuple of all required model parameters. 
 """
 function setup(yaml_model)
-    ym = yaml_model
+    ym = change_key_type(yaml_model, f=Symbol)
 
-    day1 = Dates.Date(ym["day1"])
-    dovax = ym["dovax"]
-    ndays = ym["ndays"]
-    locales = ym["locales"]
+    day1 = Dates.Date(ym[:day1])
+    dovax = ym[:dovax]
+    ndays = ym[:ndays]
+    locales = ym[:locales]
 
-    geodata = buildgeodata(CSV.read(IOBuffer(ym["geofile"]), Table))
+    geodata = buildgeodata(CSV.read(IOBuffer(ym[:geofile]), LazyTable, normalizenames=true))
 
     dat = build_data(locales, geodata, ndays)
 
-    socialparams = build_socialparams(YAML.load(ym["socialfile"], dicttype=OrderedDict{Symbol, Any}))
+    socialparams = build_socialparams(YAML.load(ym[:socialfile], dicttype=OrderedDict{Symbol, Any}))
 
     # variants, spread parameters, progression arrays
-    infectset, progressionset, trvec, variantlist = build_infect_params(YAML.load(ym["variantfile"], dicttype=Dict{Symbol, Any}))
+    infectset, progressionset, trvec, variantlist = build_infect_params(YAML.load(ym[:variantfile], dicttype=Dict{Symbol, Any}))
 
     # vaccines  TODO this is not the right approach: test if we have vax inputs instead
     if dovax
-        vaxset = build_vaxset(YAML.load(ym["vaccinefile"], dicttype=Dict{Symbol,Any}))
-        vaxscheds = YAML.load(ym["vaxscheds"])  # a Dict{Any, Any}
+        vaxset, vaxlist = build_vaxset(YAML.load(ym[:vaccinefile], dicttype=Dict{Symbol,Any}))
+        vaxscheds = YAML.load(ym[:vaxscheds])  # a Dict{Any, Any}
         vaxschedset = build_vaxschedset(vaxscheds)
     else
         vaxset = Dict()  # nothing
+        vaxlist = []
         vaxschedset = Dict()  # nothing
     end
 
-    series = build_series_table(ym["locales"], ym["ndays"], day1, seriescolnames) 
+    # simulation data matrix: rows = persons, columns = traits
+    dat = build_data(locales, geodata, ndays)
+
+    # history series columns and history series
+    colgroups = [:statuscols => Symbol.(STATUSES), :condcols => push!(Symbol.(INFECTIOUS_CASES), :totinfected),
+        :vaxcols => push!(Symbol.(vaxlist), :totvaccinated), :variantcols => variantlist]
+
+    seriescolnames = make_col_names_dict(colgroups)
+    series = build_series_table(locales, ndays, day1, seriescolnames)
 
     # days that get indoor_uplift per locale for all days of the simulation
-    indoor_seq = build_indoor_seq(locales, geodata, caldays, socialparams.indoor_uplift)
+    indoor_seq = build_indoor_seq(locales, ndays, geodata, series, socialparams.indoor_uplift)
 
     model = (ndays=ndays, day1=day1, locales=locales, dat=dat, series=series, geo=geodata,
         progressionset=progressionset, vaxset=vaxset, vaxschedset=vaxschedset, infectset=infectset,
@@ -220,9 +229,9 @@ function build_indoor_seq(locales, ndays, geodata, series, indoor_lift)
     for loc in locales
         caldays = series[loc].cum.caldays  # TODO: dumb because it's always the same, but difficul to unwrap
 
-        indoor_end = Date(geodata.indoor_end[geodata.fips.==loc][1])
+        indoor_end = geodata.indoor_end[geodata.fips.==loc][1]
             year_end = year(indoor_end)
-        indoor_start = Date(geodata.indoor_st[geodata.fips.==loc][1])
+        indoor_start = geodata.indoor_st[geodata.fips.==loc][1]
             year_start = year(indoor_start)
 
         if year_end == year_start  # start and end within a calendar year
@@ -284,16 +293,16 @@ end
 
 
 function buildgeodata(filename::String, paramdir)
-    tmp = LazyTable(CSV.File(joinpath(paramdir, filename)))
+    tmp = LazyTable(CSV.File(joinpath(paramdir, filename), dateformat="yyyy-mm-dd", types=Dict(:anchor => Date)))
     buildgeodata(tmp)
 end
 
 function buildgeodata(geotable::T) where T <: LazyTable
     LazyTable(geotable, 
         density_factor = shifter(geotable.density,0.9,1.25), 
-        anchor         = quickdate(geotable.anchor),
-        indoor_st      = quickdate(geotable.indoor_st),
-        indoor_end     = quickdate(geotable.indoor_end)
+        anchor         = geotable.anchor,    # quickdate(geotable.anchor),
+        indoor_st      = geotable.indoor_st,  # quickdate(geotable.indoor_st),
+        indoor_end     = geotable.indoor_end  # quickdate(geotable.indoor_end)
         )
 end
 

@@ -157,11 +157,12 @@ end
 
 function build_vaxschedset(vaxscheds)  # input is a Dict{Any, Any}
     
+    vaxscheds = change_key_type(vaxscheds, f=Symbol)
+
     vaxschedset = Dict{Symbol, Vaxsched}()
 
     for sched in keys(vaxscheds)
-        vaxscheddict = YAML.load(vaxscheds[sched], dicttype=Dict{Symbol, Any})
-        vaxschedset[Symbol(sched)] = Vaxsched(vaxscheddict)
+        vaxschedset[Symbol(sched)] = Vaxsched(vaxscheds[sched])
     end
 
     return vaxschedset
