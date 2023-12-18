@@ -157,7 +157,7 @@ end
 
 function build_vaxschedset(vaxscheds)  # input is a Dict{Any, Any}
     
-    vaxscheds = change_key_type(vaxscheds, f=Symbol)
+    vaxscheds = change_dict_key(vaxscheds, Symbol)
 
     vaxschedset = Dict{Symbol, Vaxsched}()
 

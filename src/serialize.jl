@@ -31,16 +31,10 @@ end
 """
 Utility function to change the type of the keys in the input dict.
 """
-function change_key_type(d; f=Symbol)
-    Dict(f(k) =>
-        if !(typeof(v) <: AbstractDict)
-            v
-        else
-            change_key_type(v, f=f)
-        end
-         for (k, v) in d)
-end
+change_dict_key(d::AbstractDict, f) =
+    Dict(f(k) => change_dict_key(v, f) for (k, v) in d)
 
+@inline change_dict_key(v, f) = v  # every other value type but AbstractDict
 
 """
      **series\\_to\\_csv(series; pathstr="", idstr="", locale=0, overwrite=false, usetimestamp=true, basedir=:current)**
@@ -129,49 +123,7 @@ function popdat_to_csv(dat; pathstr="", idstr="", overwrite=false, usetimestamp=
     
 end
 
-#=
-A model is a named tuple of all of the data structures that are created and initialized before a
-simulation is run. You'll never use these types explicitly. The data structures are created by 
-function setup_model and functions it calls. Data for parameters are loaded from yaml files. The
-content of the parameter files are converted to appropriate Juia data structures.
 
-A model contains these elements of the type shown:
-    :ndays              => Int64
-    :day1               => Date
-    :locales            => Vector{Int64} 
-    :dat                => NamedTuple{(:popdat, :agegrp_idx)}
-        :popdat         => Dict{Int64, LazyTable} # the int is a locale identifier
-        :LazyTable      => contains columns:
-                           :status      => Symbol
-                           :agegrp      => Symbol
-                           :cond        => Symbol
-                           :duration    => Int64 
-                           :variant     => Vector{Symbol}
-                           :sickday     => Vector{Symbol}
-                           :recovday    => Vector{Int64}
-                           :deadday     => Vector{Int64} 
-                           :ring        => Int64
-                           :sdcase      => Int64 ???
-                           :vaxstatus   => Symbol 
-                           :vaxrcvd     => Vector{Symbol} 
-                           :vaxday      => Vector{Int64}
-                           :tested      => Bool
-                           :testday     => Int64
-                           :quar        => Bool
-                           :quarday     => Int64
-    :series, 
-    :geo, 
-    :progressionset, 
-    :vaxset, 
-    :vaxschedset, 
-    :infectset, 
-    :social, 
-    :trvec, 
-    :variantlist, 
-    :vaxlist, 
-    :indoor_seq, 
-    :seriescolnames
-=#
 
 ##############################################################################################
 #  functions called by model_to_yaml
@@ -398,80 +350,6 @@ function model_to_yaml(model; pathstr="", idstr="", overwrite=false, usetimestam
 end
 
 
-function modelinputs_to_yaml(ndays::Int, locales::Vector{Int};  
-            # for inputs
-            day1,
-            dovax,
-            paramdir = "../sample_parameters",
-            geofilename = "geo2data.csv", 
-            socialfilename = "socialparams.yml",
-            scheddir="vaccine_schedule",
-            vaccinefilename = "vaccines.yml",
-            variantfilename = "variants.yml",
-            # for outputs
-            pathstr="", idstr="", overwrite=false, usetimestamp=true, basedir=:current  
-        )
-
-    writepathstr, datestr = setpathstr(pathstr=pathstr, idstr=idstr, overwrite=overwrite, 
-                              usetimestamp=usetimestamp, basedir=basedir)
-
-    scalars = Dict("day1"=>string(day1), "ndays"=>ndays, "locales"=>locales, "dovax"=>dovax)
-
-    parameterfiles = Dict("geofile"=>geofilename, "socialfile"=>socialfilename, "scheddir"=>scheddir,
-                          "vaccinefile"=>vaccinefilename, "variantfile"=>variantfilename)
-
-    io = IOBuffer()
-
-    YAML.write(io, scalars)
-    write(io, "\n")
-
-    pad = "    "
-
-    # write modeldef components to an IOBuffer
-        for (key, pfname) in parameterfiles
-            if key == "scheddir"
-                write(io, string("vaxscheds", ": |\n\n"))
-                fnames = readdir(joinpath(paramdir, scheddir), join=true)
-                for filepath in fnames
-                    schedname = basename(splitext(filepath)[1])
-                    write(io, string(pad, schedname, ": |\n"))
-                    for l in readlines(filepath)
-                        write(io, string(pad, pad, l, "\n"))
-                    end     
-                    write(io, "\n\n")   
-                end
-                continue   # nothing left to do-->skip rest of loop body and get next (key, pfname)
-
-            # elseif key == "geofile"
-            #     filepath = pfname
-            else
-                filepath = joinpath(paramdir, pfname)
-            end
-
-            write(io, string(key, ": |\n"))
-            for l in readlines(filepath)
-                write(io, string(pad, l, "\n"))
-            end
-            write(io, "\n\n")
-            
-        end
-        flush(io)
-    
-
-    # write IOBuffer to the modeldef file
-        seekstart(io)
-        fname = join(filter(!=(""), ("modeldef", idstr, datestr, ".yml")), "_", "")
-        filepathstr = joinpath(writepathstr, fname)    
-
-        if (isfile(filepathstr)) & (!overwrite)
-            throw(ErrorException("FATAL: Argument overwrite set to false: can't overwrite existing file"))
-        end     
-
-        write(filepathstr, io)
-        close(io)
-    return filepathstr
-end
-
 
 """
     yaml_to_model(fname::String; basedir=:home, pathstr="")
@@ -495,5 +373,5 @@ function yaml_to_model(fname::String; basedir=:home, pathstr="")
 
     !isfile(readpathstr) && (throw(ErrorException("FATAL: File $writepathstr does not exist")))
 
-    yaml_model = change_key_type(YAML.load_file(readpathstr), f=Symbol)  # return type is big ugly dict
+    yaml_model = change_dict_key(YAML.load_file(readpathstr), Symbol)  # return type is big ugly dict
 end

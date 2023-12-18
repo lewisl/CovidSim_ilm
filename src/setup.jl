@@ -77,7 +77,7 @@ Create a complete simulation model from a previously saved YAML model definition
 The output model is identical to that created from input parameter files to the function buildsim. This output is a named tuple of all required model parameters. 
 """
 function setup(yaml_model)
-    ym = change_key_type(yaml_model, f=Symbol)
+    ym = change_dict_key(yaml_model, Symbol)
 
     day1 = Dates.Date(ym[:day1])
     dovax = ym[:dovax]
