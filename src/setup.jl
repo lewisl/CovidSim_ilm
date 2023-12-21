@@ -4,15 +4,15 @@
 
 """
     setup_files(ndays::Int64, locales;  
-    # must provide following inputs
-    day1,
-    dovax=false,
-    paramdir,
-    geofilename, 
-    socialfilename,
-    vaccinefilename,
-    scheddir,
-    variantfilename)
+        # must provide following inputs
+        day1,
+        dovax=false,
+        paramdir,
+        geofilename, 
+        socialfilename,
+        vaccinefilename,
+        scheddir,
+        variantfilename)
 
 """
 function setup_files(ndays::Int64, locales;  
@@ -26,27 +26,27 @@ function setup_files(ndays::Int64, locales;
     scheddir,
     variantfilename)
 
-    # use the inputs at each file to create the appropriate Dict
-    geo_input = buildgeodata(geofilename, paramdir)
-    social_input = build_socialparams(socialfilename, paramdir)
-    variant_input = build_infect_params(variantfilename, paramdir)
     # vaccines  TODO this is not the right approach: test if we have vax inputs instead. Maybe?
-    if dovax
-        vaccine_input = build_vaxset(vaccinefilename, paramdir)
-        vaxsched_input = build_vaxschedset(scheddir, paramdir)
-    else
-        vaccine_input = Dict(), Symbol[]  # even "empty" needs to be typed correctly--empty what?
-        vaxsched_input = Dict()  # nothing
-    end
+    vaccine_input = if dovax
+                        build_vaxset(vaccinefilename, paramdir)
+                    else
+                        Dict(), Symbol[]  # even "empty" needs to be typed correctly--empty what?
+                    end
+
+    vaxsched_input =    if dovax
+                            build_vaxschedset(scheddir, paramdir)
+                        else
+                            Dict()  # nothing
+                        end
 
     setup_model(ndays, locales;
-        day1=day1,
-        dovax=dovax,
-        geo_input=geo_input,
-        social_input=social_input,
-        vaccine_input=vaccine_input,
-        vaxsched_input=vaxsched_input,
-        variant_input=variant_input)
+        day1 = day1,
+        dovax = dovax,
+        geo_input = buildgeodata(geofilename, paramdir),
+        social_input = build_socialparams(socialfilename, paramdir),
+        vaccine_input = vaccine_input,
+        vaxsched_input = vaxsched_input,
+        variant_input = build_infect_params(variantfilename, paramdir))
 end
 
 
@@ -79,31 +79,30 @@ Pre-allocates all data storage for a simulation:
 """
 function setup_yaml(yaml_model)
     ym = change_dict_key(yaml_model, Symbol)
-
-    day1 = Dates.Date(ym[:day1])
     dovax = ym[:dovax]
-    ndays = ym[:ndays]
-    locales = ym[:locales]
-    geo_input = CSV.read(IOBuffer(ym[:geofile]), LazyTable, normalizenames=true)
-    social_input = YAML.load(ym[:socialfile], dicttype=OrderedDict{Symbol, Any})
-    variant_input = YAML.load(ym[:variantfile], dicttype=Dict{Symbol, Any})
-    # vaccines  TODO this is not the right approach: test if we have vax inputs instead
-    if dovax
-        vaccine_input = YAML.load(ym[:vaccinefile], dicttype=Dict{Symbol,Any})
-        vaxsched_input = YAML.load(ym[:vaxscheds])  # a Dict{Any, Any}
-    else
-        vaccine_input = Dict(), Symbol[]  
-        vaxsched_input = Dict()  # nothing
-    end
 
-    setup_model(ndays, locales;
-        day1=day1,
-        dovax=dovax,
-        geo_input=geo_input,
-        social_input=social_input,
-        vaccine_input=vaccine_input,
-        vaxsched_input=vaxsched_input,
-        variant_input=variant_input)
+    # vaccines  TODO this is not the right approach: test if we have vax inputs instead
+    vaccine_input = if dovax
+                        YAML.load(ym[:vaccinefile], dicttype=Dict{Symbol,Any})
+                    else
+                        Dict(), Symbol[]  
+                    end
+
+    vaxsched_input =    if dovax
+                            YAML.load(ym[:vaxscheds])  # a Dict{Any, Any}
+                        else
+                            Dict()  # nothing
+                        end
+
+
+    setup_model(ym[:ndays], ym[:locales];
+        day1 = Dates.Date(ym[:day1]),
+        dovax = dovax,
+        geo_input = CSV.read(IOBuffer(ym[:geofile]), LazyTable, normalizenames = true),
+        social_input=YAML.load(ym[:socialfile], dicttype=OrderedDict{Symbol,Any}),
+        vaccine_input = vaccine_input,
+        vaxsched_input = vaxsched_input,
+        variant_input=YAML.load(ym[:variantfile], dicttype=Dict{Symbol,Any}))
 end
 
 
@@ -134,7 +133,6 @@ function setup_model(ndays::Int64, locales;
     # vaccines  TODO this is not the right approach: test if we have vax inputs instead. Maybe?
     if dovax
         vaxset, vaxlist = build_vaxset(vaccine_input)
-        @show vaxsched_input
         vaxschedset = build_vaxschedset(vaxsched_input)
     else
         vaxset, vaxlist = Dict(), Symbol[]  # even "empty" needs to be typed correctly--empty what?
@@ -352,10 +350,7 @@ from infection for each variant. Build paramaters for progressioning infected pe
 different conditions of the virus and to recover or die at the end.
 """
 function build_infect_params(variantfilename, paramdir)
-
     variantdict = YAML.load_file(joinpath(paramdir, variantfilename), dicttype=Dict{Symbol, Any})
-
-    # build_infect_params(variantdict)
 end
 
 
@@ -449,11 +444,7 @@ end
 
 
 function build_socialparams(socialfilename, paramdir)  # first step: read the input file
-
     social_inputs_dict = YAML.load_file(joinpath(paramdir, socialfilename), dicttype=OrderedDict{Symbol, Any})
-
-    # build_socialparams(social_inputs_dict)
-
 end
 
 
