@@ -118,7 +118,7 @@ end
 
 function build_vaxset(vaccinefilename, paramdir)
     vaccines = YAML.load_file(joinpath(paramdir, vaccinefilename); dicttype=Dict{Symbol,Any})
-    build_vaxset(vaccines)
+    # build_vaxset(vaccines)
 end
 
 
@@ -143,19 +143,19 @@ function build_vaxschedset(scheddir, paramdir)
 
     # build_vaxschedset(fnames, paramdir=paramdir, scheddir=scheddir)
     schedpath = joinpath(paramdir, scheddir)
-    vaxschedset = Dict{Symbol, Vaxsched}()
+    vaxschedset = Dict{Symbol, AbstractDict}()  # Dict{Symbol, Vaxsched}()
 
     for schedfile in fnames
         schedname = first(splitext(schedfile))
         vaxscheddict = YAML.load_file(joinpath(schedpath, schedfile), dicttype=Dict{Symbol, Any})
-        vaxschedset[Symbol(schedname)] = Vaxsched(vaxscheddict)
+        vaxschedset[Symbol(schedname)] = vaxscheddict  #         Vaxsched(vaxscheddict)
     end
 
     return vaxschedset
 end
 
 
-function build_vaxschedset(vaxscheds)  # input is a Dict{Any, Any}
+function build_vaxschedset(vaxscheds::AbstractDict)  # input is a Dict{Any, Any}
     
     vaxscheds = change_dict_key(vaxscheds, Symbol)
 

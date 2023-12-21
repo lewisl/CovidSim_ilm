@@ -165,7 +165,9 @@ include("serialize.jl")
 export    
     buildsim,
     runsim,
-    setup,              
+    setup_model,
+    setup_files,
+    setup_yaml,              
     DAY_CTR,
     isolate!,
     unisolate!,

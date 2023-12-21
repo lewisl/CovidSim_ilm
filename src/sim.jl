@@ -18,7 +18,7 @@ function buildsim(ndays, locales;
 
     locales = locales isa Int ? [locales] : locales
 
-    model = setup(ndays, locales; 
+    model = setup_files(ndays, locales; 
         day1=day1,
         dovax=dovax, 
         paramdir=paramdir,
@@ -54,7 +54,7 @@ end
 Build the simulation from a YAML file of a model.
 """
 function buildsim(yaml_model)
-    model = setup(yaml_model)
+    model = setup_yaml(yaml_model)
 end
 
 

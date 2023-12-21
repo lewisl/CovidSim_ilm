@@ -3,7 +3,62 @@
 ######################################################################################
 
 """
-Setup a model
+    setup_files(ndays::Int64, locales;  
+    # must provide following inputs
+    day1,
+    dovax=false,
+    paramdir,
+    geofilename, 
+    socialfilename,
+    vaccinefilename,
+    scheddir,
+    variantfilename)
+
+"""
+function setup_files(ndays::Int64, locales;  
+    # must provide following inputs
+    day1,
+    dovax=false,
+    paramdir,
+    geofilename, 
+    socialfilename,
+    vaccinefilename,
+    scheddir,
+    variantfilename)
+
+    # use the inputs at each file to create the appropriate Dict
+    geo_input = buildgeodata(geofilename, paramdir)
+    social_input = build_socialparams(socialfilename, paramdir)
+    variant_input = build_infect_params(variantfilename, paramdir)
+    # vaccines  TODO this is not the right approach: test if we have vax inputs instead. Maybe?
+    if dovax
+        vaccine_input = build_vaxset(vaccinefilename, paramdir)
+        vaxsched_input = build_vaxschedset(scheddir, paramdir)
+    else
+        vaccine_input = Dict(), Symbol[]  # even "empty" needs to be typed correctly--empty what?
+        vaxsched_input = Dict()  # nothing
+    end
+
+    setup_model(ndays, locales;
+        day1=day1,
+        dovax=dovax,
+        geo_input=geo_input,
+        social_input=social_input,
+        vaccine_input=vaccine_input,
+        vaxsched_input=vaxsched_input,
+        variant_input=variant_input)
+end
+
+
+"""
+    setup_yaml(yaml_model)
+
+Create a complete simulation model from a previously saved YAML model definition. 
+The YAML file must first be loaded with function yaml_to_model. 
+The output model is identical to that created from input parameter 
+files to the function buildsim. This output is a named tuple of all 
+required model parameters. 
+
 Provides a definition of a model that can be saved and also allows re-running the simulation.
 
 Pre-allocates all data storage for a simulation:
@@ -20,87 +75,69 @@ Pre-allocates all data storage for a simulation:
     dat: a row for each person in a locale that tracks statistics for each person during the simulation
     series: "historical" statistics for outcomes at the end of each day(rows) of the simulation by new (change) and cumulative
     seriescolnames: column names for each statistic collected
-"""
-function setup(ndays::Int64, locales;  
-    # must provide following inputs
-    day1,
-    dovax=false,
-    paramdir,
-    geofilename, 
-    socialfilename,
-    vaccinefilename,
-    scheddir,
-    variantfilename)
-
-
-    geodata = buildgeodata(geofilename, paramdir)
-
-    socialparams = build_socialparams(socialfilename, paramdir)
-
-    # variants, spread parameters, progression arrays
-    infectset, progressionset, trvec, variantlist = build_infect_params(variantfilename, paramdir)
-
-    # vaccines  TODO this is not the right approach: test if we have vax inputs instead. Maybe?
-    if dovax
-        vaxset, vaxlist = build_vaxset(vaccinefilename, paramdir)
-        vaxschedset = build_vaxschedset(scheddir, paramdir)
-    else
-        vaxset, vaxlist = Dict(), Symbol[]  # even "empty" needs to be typed correctly--empty what?
-        vaxschedset = Dict()  # nothing
-    end
-
-    # simulation data matrix: rows = persons, columns = traits
-    dat = build_data(locales, geodata, ndays)
-
-    # history series columns and history series
-    colgroups = [:statuscols=>Symbol.(STATUSES), :condcols=>push!(Symbol.(INFECTIOUS_CASES), :totinfected), 
-                :vaxcols=>push!(Symbol.(vaxlist), :totvaccinated), :variantcols=>variantlist]
-
-    seriescolnames = make_col_names_dict(colgroups)
-    series = build_series_table(locales, ndays, day1, seriescolnames)
-
-    # days that get indoor_uplift per locale for all days of the simulation
-    indoor_seq = build_indoor_seq(locales, ndays, geodata, series, socialparams.indoor_uplift)
-
-    model = (ndays=ndays, day1=day1, locales=locales, dat=dat, series=series, geo=geodata, 
-            progressionset=progressionset, dovax=dovax, vaxset=vaxset, vaxschedset=vaxschedset, 
-            infectset=infectset, social=socialparams, trvec=trvec, variantlist=variantlist, vaxlist = vaxlist, 
-            indoor_seq=indoor_seq, seriescolnames=seriescolnames)  
-
-    return model
-end
 
 """
-    setup(yaml_model)
-
-Create a complete simulation model from a previously saved YAML model definition. The YAML file must first be loaded with function yaml_to_model. 
-The output model is identical to that created from input parameter files to the function buildsim. This output is a named tuple of all required model parameters. 
-"""
-function setup(yaml_model)
+function setup_yaml(yaml_model)
     ym = change_dict_key(yaml_model, Symbol)
 
     day1 = Dates.Date(ym[:day1])
     dovax = ym[:dovax]
     ndays = ym[:ndays]
     locales = ym[:locales]
-
-    geodata = buildgeodata(CSV.read(IOBuffer(ym[:geofile]), LazyTable, normalizenames=true))
-
-    dat = build_data(locales, geodata, ndays)
-
-    socialparams = build_socialparams(YAML.load(ym[:socialfile], dicttype=OrderedDict{Symbol, Any}))
-
-    # variants, spread parameters, progression arrays
-    infectset, progressionset, trvec, variantlist = build_infect_params(YAML.load(ym[:variantfile], dicttype=Dict{Symbol, Any}))
-
+    geo_input = CSV.read(IOBuffer(ym[:geofile]), LazyTable, normalizenames=true)
+    social_input = YAML.load(ym[:socialfile], dicttype=OrderedDict{Symbol, Any})
+    variant_input = YAML.load(ym[:variantfile], dicttype=Dict{Symbol, Any})
     # vaccines  TODO this is not the right approach: test if we have vax inputs instead
     if dovax
-        vaxset, vaxlist = build_vaxset(YAML.load(ym[:vaccinefile], dicttype=Dict{Symbol,Any}))
-        vaxscheds = YAML.load(ym[:vaxscheds])  # a Dict{Any, Any}
-        vaxschedset = build_vaxschedset(vaxscheds)
+        vaccine_input = YAML.load(ym[:vaccinefile], dicttype=Dict{Symbol,Any})
+        vaxsched_input = YAML.load(ym[:vaxscheds])  # a Dict{Any, Any}
     else
-        vaxset = Dict()  # nothing
-        vaxlist = []
+        vaccine_input = Dict(), Symbol[]  
+        vaxsched_input = Dict()  # nothing
+    end
+
+    setup_model(ndays, locales;
+        day1=day1,
+        dovax=dovax,
+        geo_input=geo_input,
+        social_input=social_input,
+        vaccine_input=vaccine_input,
+        vaxsched_input=vaxsched_input,
+        variant_input=variant_input)
+end
+
+
+"""
+    setup_model
+
+Set up a model using Julia data structures for the inputs--typically multi-level dicts.  
+Called by setup_files after converting input parameter files to appropriate dicts. 
+Called by setup_yaml after converting yaml text to appropriate dicts.
+"""
+function setup_model(ndays::Int64, locales;
+    # must provide following inputs
+    day1,
+    dovax=false,
+    geo_input,
+    social_input,
+    vaccine_input,
+    vaxsched_input,
+    variant_input)
+
+    geodata = buildgeodata(geo_input)
+
+    socialparams = build_socialparams(social_input)
+
+    # variants, spread parameters, progression arrays
+    infectset, progressionset, trvec, variantlist = build_infect_params(variant_input)
+
+    # vaccines  TODO this is not the right approach: test if we have vax inputs instead. Maybe?
+    if dovax
+        vaxset, vaxlist = build_vaxset(vaccine_input)
+        @show vaxsched_input
+        vaxschedset = build_vaxschedset(vaxsched_input)
+    else
+        vaxset, vaxlist = Dict(), Symbol[]  # even "empty" needs to be typed correctly--empty what?
         vaxschedset = Dict()  # nothing
     end
 
@@ -118,13 +155,12 @@ function setup(yaml_model)
     indoor_seq = build_indoor_seq(locales, ndays, geodata, series, socialparams.indoor_uplift)
 
     model = (ndays=ndays, day1=day1, locales=locales, dat=dat, series=series, geo=geodata,
-        progressionset=progressionset, vaxset=vaxset, vaxschedset=vaxschedset, infectset=infectset,
-        social=socialparams, trvec=trvec, variantlist=variantlist, vaxlist=vaxlist,
+        progressionset=progressionset, dovax=dovax, vaxset=vaxset, vaxschedset=vaxschedset,
+        infectset=infectset, social=socialparams, trvec=trvec, variantlist=variantlist, vaxlist=vaxlist,
         indoor_seq=indoor_seq, seriescolnames=seriescolnames)
 
     return model
 end
-
 
 """
 Convert a vector of dates from a csv file in format "mm/dd/yyyy"
@@ -134,6 +170,7 @@ function quickdate(strdates)  # 20x faster than the built-in date parsing, e.g.-
     ret = [parse.(Int,i) for i in split.(strdates, '/')]
     ret = [Date.(i[3], i[1], i[2]) for i in ret]
 end
+
 
 """
 Pre-allocate and initialize population data for all locales in the simulation.
@@ -174,23 +211,23 @@ function pop_data(pop; age_dist=AGE_DIST)
         # must use comprehension to initialize vector of vector NOT fill--fill creates vectors at same address
         # LazyTable faster than Table; allows single rows to be modified
         dat = LazyTable(
-            status = fill(:unexposed, pop),                                         
-            agegrp = reduce(vcat,[fill(age, parts[i]) for (i,age) in enumerate(AGEGRPS)]), 
-            cond = fill(:uninfected, pop),                                           
-            duration = zeros(Int, pop),                                             
-            variant = [Symbol[] for _ in 1:pop],                                   
-            sickday = [Int[] for _ in 1:pop],                                                                   
-            recovday = [Int[] for _ in 1:pop],                                 
-            deadday = zeros(Int, pop),                                             
-            ring = zeros(Int, pop),                                                
-            sdcase = fill(:none, pop),                                          
-            vaxstatus = fill(:none, pop),               # :none, :first, :full, :booster  maybe others later...
-            vaxrcvd = [[:none] for _ in 1:pop],         # Vector{Symbol} of vaccine symbols  :Pfizer, :Moderna, :JnJ
-            vaxday = [Int[] for _ in 1:pop],            
-            tested = falses(pop),                                                   
-            testday = zeros(Int, pop),                                              
-            quar = falses(pop),                                                     
-            quarday = zeros(Int, pop))                                             
+                status = fill(:unexposed, pop),                                         
+                agegrp = reduce(vcat,[fill(age, parts[i]) for (i,age) in enumerate(AGEGRPS)]), 
+                cond = fill(:uninfected, pop),                                           
+                duration = zeros(Int, pop),                                             
+                variant = [Symbol[] for _ in 1:pop],                                   
+                sickday = [Int[] for _ in 1:pop],                                                                   
+                recovday = [Int[] for _ in 1:pop],                                 
+                deadday = zeros(Int, pop),                                             
+                ring = zeros(Int, pop),                                                
+                sdcase = fill(:none, pop),                                          
+                vaxstatus = fill(:none, pop),               # :none, :first, :full, :booster  maybe others later...
+                vaxrcvd = [[:none] for _ in 1:pop],         # Vector{Symbol} of vaccine symbols  :Pfizer, :Moderna, :JnJ
+                vaxday = [Int[] for _ in 1:pop],            
+                tested = falses(pop),                                                   
+                testday = zeros(Int, pop),                                              
+                quar = falses(pop),                                                     
+                quarday = zeros(Int, pop))                                             
 
     return dat       
 end
@@ -293,8 +330,8 @@ end
 
 
 function buildgeodata(filename::String, paramdir)
-    tmp = LazyTable(CSV.File(joinpath(paramdir, filename), dateformat="yyyy-mm-dd", types=Dict(:anchor => Date)))
-    buildgeodata(tmp)
+    LazyTable(CSV.File(joinpath(paramdir, filename), dateformat="yyyy-mm-dd", types=Dict(:anchor => Date)))
+    # buildgeodata(tmp)
 end
 
 function buildgeodata(geotable::T) where T <: LazyTable
@@ -305,8 +342,6 @@ function buildgeodata(geotable::T) where T <: LazyTable
         indoor_end     = geotable.indoor_end  # quickdate(geotable.indoor_end)
         )
 end
-
-
 
 
 """
@@ -320,7 +355,7 @@ function build_infect_params(variantfilename, paramdir)
 
     variantdict = YAML.load_file(joinpath(paramdir, variantfilename), dicttype=Dict{Symbol, Any})
 
-    build_infect_params(variantdict)
+    # build_infect_params(variantdict)
 end
 
 
@@ -415,22 +450,21 @@ end
 
 function build_socialparams(socialfilename, paramdir)  # first step: read the input file
 
-    social_inputs = YAML.load_file(joinpath(paramdir, socialfilename), dicttype=OrderedDict{Symbol, Any})
+    social_inputs_dict = YAML.load_file(joinpath(paramdir, socialfilename), dicttype=OrderedDict{Symbol, Any})
 
-    build_socialparams(social_inputs)
+    # build_socialparams(social_inputs_dict)
 
 end
 
 
-
-function build_socialparams(social_inputs::T) where T <: AbstractDict  # build the data structures based on the inputs
+function build_socialparams(social_inputs_dict::T) where T <: AbstractDict  # build the data structures based on the inputs
 
     # check for all required params
         required_params = [:contactfactors, :touchfactors, :gammashape, :indoor_uplift]
         has_all = true
         lacking = []
         for p in required_params
-            if !haskey(social_inputs, p)
+            if !haskey(social_inputs_dict, p)
                 push!(lacking, p)
                 has_all = false
             end
@@ -440,20 +474,20 @@ function build_socialparams(social_inputs::T) where T <: AbstractDict  # build t
         # build arrays for contactfactors and touchfactors
             # keys are agegrps
             # values are a dict of conditions with values = probabilities
-        cfarr = zeros(length(keys(first(values(social_inputs[:contactfactors])))), length(keys(social_inputs[:contactfactors])))
-        tfarr = zeros(length(keys(first(values(social_inputs[:touchfactors])))), length(keys(social_inputs[:touchfactors])))
+        cfarr = zeros(length(keys(first(values(social_inputs_dict[:contactfactors])))), length(keys(social_inputs_dict[:contactfactors])))
+        tfarr = zeros(length(keys(first(values(social_inputs_dict[:touchfactors])))), length(keys(social_inputs_dict[:touchfactors])))
 
-        for (i, v1) in enumerate(sort(social_inputs[:contactfactors]))
+        for (i, v1) in enumerate(sort(social_inputs_dict[:contactfactors]))
             cfarr[:, i] .= Float64.(values(v1[2]))
         end
-        for (i, v1) in enumerate(sort(social_inputs[:touchfactors]))
+        for (i, v1) in enumerate(sort(social_inputs_dict[:touchfactors]))
             tfarr[:, i] .= Float64.(values(v1[2]))
         end
 
     
     SocialParams(       # struct defined in CovidSim_ilm.jl
-        gammashape      = Float64(social_inputs[:gammashape]),
-        indoor_uplift   = Float64(social_inputs[:indoor_uplift]),
+        gammashape      = Float64(social_inputs_dict[:gammashape]),
+        indoor_uplift   = Float64(social_inputs_dict[:indoor_uplift]),
         contactfactors  = cfarr,
         touchfactors    = tfarr
         )
