@@ -28,16 +28,73 @@ function setpathstr(;pathstr="", idstr="", overwrite=false, usetimestamp=true, b
     return writepathstr, datestr
 end
 
+
 """
-Utility function to change the type of the keys in the input dict.
+    change_dict_key(d::AbstractDict, f)
+Utility function to recursively change the type of the keys in the input dict.
+f is a function that converts the key to the desired type, for example: Symbol.
 """
 change_dict_key(d::AbstractDict, f) =
     Dict(f(k) => change_dict_key(v, f) for (k, v) in d)
 
-@inline change_dict_key(v, f) = v  # every other value type but AbstractDict
+@inline change_dict_key(v, f) = v  # leave the same every other value type but AbstractDict
 
 """
-     **series\\_to\\_csv(series; pathstr="", idstr="", locale=0, overwrite=false, usetimestamp=true, basedir=:current)**
+    write2yaml_obj!(io, pad, datvec, labelstr)
+Write a flow vector to a stream for YAML text.
+"""
+function write2yaml_obj!(io, pad, datvec::T, labelstr="") where T <: AbstractVector{E} where E <: Union{Number, String, Symbol}
+    write(io, string(pad, labelstr, ":  ["))
+    for val in datvec
+        write(io, string(val), ", ") # write doesn't always convert to string correctly (or at all)
+    end
+    write(io, "]\n")
+end
+
+
+"""
+    write2yaml_obj!(io, pad, dct, labelstr)
+Write a dict to a stream for YAML text.
+"""
+function write2yaml_obj!(io, pad, dct::T, labelstr="") where T <: AbstractDict{K,V} where K where V
+    for (k, v) in dct
+        write(io, string(pad, k, ": ", v, "\n"))
+    end
+end
+
+"""
+    write2yaml_obj!(io, pad, tbl::T, labelstr)
+Write a Table to YAML stream object as csv rows. Known to work for LazyTable,
+TypedTable, untested as yet for DataFrame.
+"""
+function write2yaml_obj!(io, pad, tbl::T, labelstr="") where T <: Union{
+                        AbstractArray{E} where {E<:Union{NamedTuple,LazyTables.LazyRow}},
+                        Vector{NamedTuple}}
+
+    colnames = Tables.columnnames(tbl)
+    num_names = length(colnames)
+    # write header row
+    for i in 1:(num_names-1)
+        write(io, string(pad, colnames[i], ','))
+    end
+    write(io, string(pad, colnames[num_names], '\n'))
+    # write rows
+    for row in tbl
+        print(io, pad)
+        for (i, v) in enumerate(values(row))
+            print(io, v)
+            if i < num_names
+                write(io, ", ")
+            else
+                write(io, '\n')
+            end
+        end
+    end
+end
+
+
+"""
+     series_to_csv(series; pathstr="", idstr="", locale=0, overwrite=false, usetimestamp=true, basedir=:current)
 
 Outputs simulation history series as csv. Each locale results in 
 two csv files: one for the cum (cumulative) values and 
@@ -86,7 +143,7 @@ end
 
 
 """
-     **popdat\\_to\\_csv(dat; pathstr="", idstr="", locale=0, overwrite=false, usetimestamp=true, basedir=:current)**
+    popdat_to_csv(dat; pathstr="", idstr="", locale=0, overwrite=false, usetimestamp=true, basedir=:current)
 
 Outputs simulation population data as csv. Note that this "popdat" refers to a moment in time during the simulation and includes limited history data.
 
@@ -129,45 +186,18 @@ end
 #  functions called by model_to_yaml
 ##############################################################################################
 
-function geo_to_yaml!(io, geo, pad)
-    colnames = Tables.columnnames(geo)
-    num_names = length(colnames)
-    # write header row
-    for i in 1:(num_names-1)
-        write(io, string(pad, colnames[i], ','))
-    end
-    write(io, string(pad, colnames[num_names], '\n'))
-    # write rows
-    for row in geo
-        print(io, pad)
-        for (i, v) in enumerate(values(row))
-            print(io, v)
-            if i < num_names
-                write(io, ", ")
-            else
-                write(io, '\n')
-            end
-        end
-    end
-end
-
-
 function vaccinefile_to_yaml!(io, vaxset, pad)
     for (k, v) in vaxset
         write(io, pad, k, ":\n")  # string(pad, k, ":\n")
         for name in fieldnames(Vaccineparams)
             if name === :infectfactor
                 write(io, repeat(pad,2), name, ":\n")
-                for (k, v) in getfield(v, name)
-                    write(io, repeat(pad,3), string(k, ": ", v, '\n'))
-                end
+                write2yaml_obj!(io, repeat(pad, 4), getfield(v,name))
             elseif name === :effectiveness
                 write(io, repeat(pad,2), name, ":\n")
                 for (k, v) in getfield(v, name)
                     write(io, repeat(pad,3), string(k, ": \n"))
-                    for (k2, v2) in v
-                        write(io, string(repeat(pad,4), k2, ": ", v2, "\n"))
-                    end
+                    write2yaml_obj!(io, repeat(pad,4), v)
                 end
             else
                 write(io, string(repeat(pad,2), name, ": ", getfield(v, name), '\n'))
@@ -177,7 +207,7 @@ function vaccinefile_to_yaml!(io, vaxset, pad)
 end
 
 
-function social_to_yaml!(io, social, pad)
+function social_to_yaml!(io, social, pad)  # TODO method for matrix with row names
     for name in fieldnames(SocialParams)
         write(io, pad)
         write(io, name, ": ")
@@ -186,9 +216,9 @@ function social_to_yaml!(io, social, pad)
             mapfunc = name === :contactfactors ? mapcondition : maptouch
             write(io, '\n')
             for col in 1:size(arr, 2)  # columns = agegrps
-                write(io, repeat(pad,2), string(mapagegrp(col), ": \n"))
-                write(io, string(pad, "  ", "  ", '{'))
-                for row in 1:size(arr, 1)   # rows = conditions
+                write(io, repeat(pad,2), string(mapagegrp(col), ": \n"))  # agegrp
+                write(io, string(repeat(pad,3), '{'))
+                for row in 1:size(arr, 1)   # rows = conditions or status : probability
                     write(io, string(mapfunc(row), ": ", arr[row, col], ", "))
                 end
                 write(io, "}\n")
@@ -210,57 +240,34 @@ function variants_to_yaml!(io, infectset, progressionset, pad)
         infvar = infset[variant]
 
         write(io, string(repeat(pad,2), "spread:\n"))
-        write(io, string(repeat(pad,3), "sendrisk:  ["))
-            for val in infvar.sendrisk
-                write(io, string(val, ", "))
-            end
-            write(io, "]\n")
-        #
-        write(io, string(repeat(pad,3), "recvrisk:  ["))
-            for val in infvar.recvrisk
-                write(io, string(val, ", "))
-            end
-            write(io, "]\n")
+            write2yaml_obj!(io, repeat(pad,3), infvar.sendrisk, "sendrisk")
+            write2yaml_obj!(io, repeat(pad,3), infvar.recvrisk, "recvrisk")
         #
         write(io, string(repeat(pad,3), "basemultiplier: ", string(infvar.basemultiplier, "\n")))
 
         write(io, string(repeat(pad,2), "immunity:\n"))
             write(io, string(repeat(pad,3), "recovery_immunity:\n"))
-            for (k, v) in infvar.recovery_immunity
-                write(io, string(repeat(pad,4), k, ": ", v, "\n"))
-            end
-        #
-        write(io, string(repeat(pad,3), "immunehalflife: ", string(infvar.immunehalflife, "\n")))
+            write2yaml_obj!(io, repeat(pad,4), infvar.recovery_immunity)
+            write(io, string(repeat(pad,3), "immunehalflife: ", string(infvar.immunehalflife, "\n")))
 
         write(io, string(repeat(pad,2), "progression_tree:\n"))
         for age in fieldnames(typeof(pgvar.tree))
             agetree = getproperty(pgvar.tree, age)
             write(io, repeat(pad,3), age, ":\n")
-            for (duration, matrix) in sort(agetree) 
+            for (duration, matrix) in sort(agetree)    # TODO method for nested dicts
                 write(io, repeat(pad, 4), string(duration, ":\n"))
                 for i in eachindex(matrix[:,1])  # countup by row number--need row num to look up condition
-                    write(io, repeat(pad, 5), mapcondition(i), ": [")  # start a flow vector
-                    for val in matrix[i,:]  # write the column values of each row
-                        write(io, string(val, ", "))
-                    end
-                    write(io, "]\n")  # close the flow vector
+                    write2yaml_obj!(io, repeat(pad,5), matrix[i,:], mapcondition(i))
                 end
             end
         end
 
         write(io, string(repeat(pad,2), "progression_factors:\n"))
             if !isnothing(pgvar.factors.riskadjust)  # no else: we can leave this key out if its value is empty
-                write(io, repeat(pad,3), string("riskadjust: ["))
-                for value in pgvar.factors.riskadjust
-                    write(io, string(value), ", ")
-                end
-                write(io, "]\n") # close the flow vector
+                write2yaml_obj!(io, repeat(pad,3), pgvar.factors.riskadjust, "riskadjust")
             end   
             write(io, repeat(pad,3), string("vaxhalflifeadjust:", "\n"))
-            for (k,v) in pgvar.factors.vaxhalflifeadjust
-                Base.write(io, repeat(pad, 4), string(k, ": ", v, "\n"))
-            end
-
+            write2yaml_obj!(io, repeat(pad,4), pgvar.factors.vaxhalflifeadjust)
         write(io, "\n")
     end
 end
@@ -280,12 +287,10 @@ function vaxsched_to_yaml!(io, allvaxscheds, pad)
                     end
                 end
             elseif topfield == :dayrange  # write the range as a flow vector
-                startday = string(getproperty(allvaxscheds[schedname], topfield)[1])  # start of range
-                endday = string(getproperty(allvaxscheds[schedname], topfield)[end])  # end of range
-                write(io, repeat(pad, 3), topfield, ": [", startday, ", ", endday, "]\n")
+                write2yaml_obj!(io, repeat(pad,3), 
+                    [allvaxscheds[schedname].dayrange[1], allvaxscheds[schedname].dayrange[end]], string(topfield))
             elseif topfield == :filtervec  # must convert :val to "val" only to convert it back at load time!
                 write(io, repeat(pad,3), topfield, ": ")
-                # for val in allvaxscheds[schedname].filtervec
                 write(io, string([string(x) for x in allvaxscheds[schedname].filtervec]), "\n")
             else  # all other fields
                 write(io, repeat(pad, 3), string(topfield, ": ", getproperty(vaxsched, topfield), "\n"))
@@ -320,7 +325,7 @@ function model_to_yaml(model; pathstr="", idstr="", overwrite=false, usetimestam
     write(io, "\n")
     
     write(io, string("geofile", ": |\n"))
-        geo_to_yaml!(io, model.geo, pad)
+        write2yaml_obj!(io, pad, model.geo, "")
         write(io, "\n")
 
     write(io, string("socialfile", ": |\n"))
