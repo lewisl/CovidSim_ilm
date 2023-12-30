@@ -63,7 +63,7 @@ Changes attribute columns in the population table. Runs social distancing cases.
 @inline function spread!(locdat, spr::Int, thisday::Int, sdcases, socialparams, 
      infectset, dovax, vaxset, density_factor, indoor_seq, poprange)
 
-    spreader = locdat[spr]  # row of traits of the spreader person
+    spreader = locdat[spr]  # row of traits of the spreader person: a spreader "object"
 
     # initialize return value
     num_infected = 0
@@ -76,23 +76,16 @@ Changes attribute columns in the population table. Runs social distancing cases.
 
     # how many contacts does the infected person have?
     @inbounds contact_param = spreader.sdcase === :none ? contactfactors : sdcases[spreader.sdcase]
-    numcontacts = @inbounds @fastmath how_many_contacts(density_factor, indoor_factor, gammashape, 
-                                                        spreader.agegrp, spreader.cond, contact_param) 
     
-    contacts = rand(poprange, numcontacts)
+    contacts = get_contacts(spreader, poprange, density_factor, indoor_factor, gammashape, contact_param)
+
     for c in contacts
 
-        contact = locdat[c] # row of traits of the contact person
+        contact = locdat[c] # row of traits of the contact person (think of it like a contact object with properties)
         
-        contact_status = contact.status
+        touch_param = contact.sdcase === :none ? touchfactors : sdcases[contact.sdcase].tfcase
 
-        # does this contact experience a meaningful touch by the spreader?
-        touched =   if (contact_status == :unexposed) | (contact_status == :recovered)  # only conditions that can get infected   
-                        touch_param = contact.sdcase === :none ? touchfactors : sdcases[contact.sdcase].tfcase
-                        istouched(contact.agegrp, contact_status, indoor_factor, touch_param)   # returns true or false
-                    else
-                        false
-                    end
+        touched = istouched(contact, touch_param, indoor_factor)
 
         # will this contact get infected?
         if touched
@@ -177,14 +170,28 @@ end
 
 
 """
+    get_contacts(spreader, poprange, density_factor, indoor_factor, gammashape, contact_param)
+
+Return a vector of contacts, which are indices to the population table for the current locale
+"""
+@inline function get_contacts(spreader, poprange, density_factor, indoor_factor, gammashape, contact_param)
+
+    numcontacts = @inbounds @fastmath how_many_contacts(density_factor, indoor_factor, gammashape,
+        spreader.agegrp, spreader.cond, contact_param)
+
+    contacts = rand(poprange, numcontacts)
+end
+
+
+"""
     how_many_contacts(density_factor, gammashape, agegrp, cond, contactfactors)::Int
 
-Returns the number of contacts that someone spreading the disease will make on a day. This
+Return the number of contacts that someone spreading the disease will make on a day. This
 method uses the default contactfactors for the current spreader.
 """
-@inline function how_many_contacts(density_factor, indoor_factor, gammashape, agegrp, cond, contactfactors)::Int64 
+@inline function how_many_contacts(density_factor, indoor_factor, gammashape, spr_agegrp, spr_cond, contactfactors)::Int64 
     # indoor_factor is in [1.0, 1.4]. greater than 1.0 increases scale factor for gamma distribution
-    @inbounds @fastmath scale = density_factor * indoor_factor * contactfactors[mapcondition(cond), mapagegrp(agegrp)]
+    @inbounds @fastmath scale = density_factor * indoor_factor * contactfactors[mapcondition(spr_cond), mapagegrp(spr_agegrp)]
     @fastmath round(Int,rand(Gamma(gammashape, scale)))
 end
 
@@ -202,22 +209,23 @@ a spreadcase.
     @fastmath round(Int,rand(Gamma(gammashape, scale)))
 end
 
-
+# TODO assuming touch only depends on recipient (the contact) may be BAD.
 """
     function istouched(agegrp, lookup, touchfactors)::Bool
 
 Returns true if the contact made was significant to the recipient or false if not.
-First method uses the default touchfactors for the current recipient.
-Second method uses the spreadcase for the recipient.
+This assumes touch only depends on the recipient.    
 """
-@inline function istouched(agegrp, lookup, indoor_factor, touchfactors)::Bool
-    touchprob = (   indoor_factor == 1.0 ? touchfactors[maptouch(lookup), mapagegrp(agegrp)] : 
-                    # squash multiplicative factor to stay under 1.0
-                    clamp(indoor_factor * touchfactors[maptouch(lookup), mapagegrp(agegrp)], 0.0, 0.97) # or tanh--much slower
-                    )
-    return @inbounds @fastmath rand(Binomial(1, touchprob)) == 1
+@inline function istouched(contact, touch_param, indoor_factor)
+    touched =   if (contact.status == :unexposed) | (contact.status == :recovered)  # only conditions that can get infected   
+                    touchprob = (indoor_factor == 1.0 ? touch_param[maptouch(contact.status), mapagegrp(contact.agegrp)] :
+                                # squash multiplicative factor to stay under 1.0
+                                clamp(indoor_factor * touch_param[maptouch(contact.status), mapagegrp(contact.agegrp)], 0.0, 0.97)) # or tanh--much slower
+                    rand(Binomial(1, touchprob)) == 1
+                else
+                    false
+                end
 end
-
 
 """
     function isinfected(infectparams, spreaderduration, contactagegrp)::Bool

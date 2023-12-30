@@ -31,7 +31,8 @@ The agegroups are:
 The basic processes of the simulation are:
 - Spread
 
-	The disease spreads from those who are infected to those who are not. Transmissibility varies with the number of days that an infected person has had it, with asymptomatic transmission assumed. Susceptibility varies by the age group of the recipient. Variants, vaccination, and recovery from prior infection all affect spread. Partial, temporary immunity conferred by recovering from an infection or being vaccinated declines over time.
+	The disease spreads from those who are infected, spreaders, to those who are not, contacts. 
+    Contact by spreaders depends on patterns of social interaction. Transmissibility varies with the number of days that an infected person has had it, with asymptomatic transmission assumed. Susceptibility varies by the age group of the recipient. Variants, vaccination, and recovery from prior infection all affect spread. Partial, temporary immunity conferred by recovering from an infection or being vaccinated declines over time.
 
 - Progression
 
