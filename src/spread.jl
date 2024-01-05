@@ -64,9 +64,6 @@ Changes attribute columns in the population table. Runs social distancing cases.
      infectset, dovax, vaxset, density_factor, indoor_seq, poprange)
 
     spreader = locdat[spr]  # row of traits of the spreader person: a spreader "object"
-
-    # initialize return value
-    num_infected = 0
      
     # retrieve params
     contactfactors = socialparams.contactfactors
@@ -81,51 +78,21 @@ Changes attribute columns in the population table. Runs social distancing cases.
 
     for c in contacts
 
-        contact = locdat[c] # row of traits of the contact person (think of it like a contact object with properties)
+        contact = locdat[c] # row of traits of the contact person: a contact "object" 
         
         touch_param = contact.sdcase === :none ? touchfactors : sdcases[contact.sdcase].tfcase
 
+        # is this a meaningful interaction?
         touched = istouched(contact, touch_param, indoor_factor)
 
         # will this contact get infected?
         if touched
-            recovday = isempty(contact.recovday) ? 0 : contact.recovday[end]
-            spr_variant = isempty(spreader.variant)  ? 0 : spreader.variant[end]
-    
-            # effect on transmission based on how long ago a previously infected contact got over the disease
-            recovfactor =   if contact.status === :recovered
-                                contact_variant = contact.variant[end]
-                                recoveffect(thisday, recovday, contact_variant, spr_variant, infectset)
-                            else 
-                                1.0
-                            end
-    
-            if dovax
-                vaxstatus = contact.vaxstatus
-                # effect on transmission based on which vaccine the contact received, how many times, and how long ago
-                vaxfactor = if vaxstatus === :none
-                                1.0 
-                            else
-                                vaxday = contact.vaxday[end]
-                                p_vax = vaxset[contact.vaxrcvd[end]]  # characteristics of vaccine received by the contact
-                                infectfactor = p_vax.infectfactor[spr_variant]
-                                vaxeffect(thisday, infectfactor, p_vax, vaxstatus, spr_variant, vaxday)
-                            end
-            else
-                vaxfactor = 1.0
-            end
-        
-            # binomial probability of the contact getting infected from the contact with this spreader
-            risk = infectrisk(infectset, spr_variant, spreader.duration, contact.agegrp, recovfactor, vaxfactor)
-
-            if isinfected(risk)
+            if isinfected(contact, spreader, vaxset, dovax, infectset, thisday)
+                @inbounds spr_variant = isempty(spreader.variant)  ? 0 : spreader.variant[end]
                 make_sick!(contact, thisday, :nil, spr_variant)
-                num_infected += 1
             end
         end
-
     end
-    return num_infected
 end       
 
 
@@ -227,12 +194,44 @@ This assumes touch only depends on the recipient.
                 end
 end
 
-"""
-    function isinfected(infectparams, spreaderduration, contactagegrp)::Bool
 
-Returns true if the spreader infected the contact. 
 """
-@inline function isinfected(risk)::Bool
+    isinfected(contact, spreader, vaxset, dovax, infectset, thisday)::Bool
+
+Returns true if the spreader infected the contact or false if not. 
+Considers partial immunity if contact has recovered from previous infection.
+Considers vaccination status of the contact.
+Considers the variant of the disease the spreader is carrying.
+"""
+@inline function isinfected(contact, spreader, vaxset, dovax, infectset, thisday)::Bool
+
+    @inbounds recovday = isempty(contact.recovday) ? 0 : contact.recovday[end]
+    @inbounds spr_variant = isempty(spreader.variant) ? 0 : spreader.variant[end]
+
+    # effect on transmission based on how long ago a previously infected contact got over the disease
+    recovfactor = if contact.status === :recovered
+        @inbounds recoveffect(thisday, recovday, contact.variant[end], spr_variant, infectset)
+    else
+        1.0
+    end
+
+    if dovax
+        vaxstatus = contact.vaxstatus
+        # effect on transmission based on which vaccine the contact received, how many times, and how long ago
+        vaxfactor = if vaxstatus === :none
+            1.0
+        else
+            vaxday = contact.vaxday[end]
+            @inbounds p_vax = vaxset[contact.vaxrcvd[end]]  # characteristics of vaccine received by the contact
+            @inbounds infectfactor = p_vax.infectfactor[spr_variant]
+            vaxeffect(thisday, infectfactor, p_vax, vaxstatus, spr_variant, vaxday)
+        end
+    else
+        vaxfactor = 1.0
+    end
+
+    # binomial probability of the contact getting infected from the contact with this spreader
+    risk = infectrisk(infectset, spr_variant, spreader.duration, contact.agegrp, recovfactor, vaxfactor)
     return @fastmath rand(Binomial(1, risk)) == 1
 end
 
