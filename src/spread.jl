@@ -71,22 +71,18 @@ Changes attribute columns in the population table. Runs social distancing cases.
     gammashape     = socialparams.gammashape
     indoor_factor  = indoor_seq[thisday]
 
-    # how many contacts does the infected person have?
     @inbounds contact_param = spreader.sdcase === :none ? contactfactors : sdcases[spreader.sdcase]
-    
+
+    # how many contacts does the infected person have?
     contacts = get_contacts(spreader, poprange, density_factor, indoor_factor, gammashape, contact_param)
 
     for c in contacts
-
         contact = locdat[c] # row of traits of the contact person: a contact "object" 
-        
         touch_param = contact.sdcase === :none ? touchfactors : sdcases[contact.sdcase].tfcase
 
         # is this a meaningful interaction?
-        touched = istouched(contact, touch_param, indoor_factor)
-
-        # will this contact get infected?
-        if touched
+        if istouched(contact, touch_param, indoor_factor)
+            # will this contact get infected?
             if isinfected(contact, spreader, vaxset, dovax, infectset, thisday)
                 @inbounds spr_variant = isempty(spreader.variant)  ? 0 : spreader.variant[end]
                 make_sick!(contact, thisday, :nil, spr_variant)
@@ -100,7 +96,7 @@ end
 # basic functions for the default definition of spread
 ###################################################################
 
-# simple make_sick! for a single person. Assumes that caller doesn't invoke structure of population data
+# make_sick! for a single person. Assumes that caller doesn't invoke structure of population data
 @inline function make_sick!(contact, thisday, cond, variant)  
     push!(contact.variant, variant)  # first of possibly several infections...  
     push!(contact.sickday, thisday)
@@ -110,7 +106,7 @@ end
 end
 
 
-# complex make sick
+# make_sick! for multiple people
 function make_sick!(dat; cnt, ages, tocond, tovariant, toduration=1) 
 
     @assert size(cnt, 1) == size(ages, 1) "size(cnt, 1) = $(size(cnt,1)) not equal size(ages, 1) = $(size(ages,1))"
@@ -135,119 +131,6 @@ function make_sick!(dat; cnt, ages, tocond, tovariant, toduration=1)
     end
 end
 
-
-"""
-    get_contacts(spreader, poprange, density_factor, indoor_factor, gammashape, contact_param)
-
-Return a vector of contacts, which are indices to the population table for the current locale
-"""
-@inline function get_contacts(spreader, poprange, density_factor, indoor_factor, gammashape, contact_param)
-
-    numcontacts = @inbounds @fastmath how_many_contacts(density_factor, indoor_factor, gammashape,
-        spreader.agegrp, spreader.cond, contact_param)
-
-    contacts = rand(poprange, numcontacts)
-end
-
-
-"""
-    how_many_contacts(density_factor, gammashape, agegrp, cond, contactfactors)::Int
-
-Return the number of contacts that someone spreading the disease will make on a day. This
-method uses the default contactfactors for the current spreader.
-"""
-@inline function how_many_contacts(density_factor, indoor_factor, gammashape, spr_agegrp, spr_cond, contactfactors)::Int64 
-    # indoor_factor is in [1.0, 1.4]. greater than 1.0 increases scale factor for gamma distribution
-    @inbounds @fastmath scale = density_factor * indoor_factor * contactfactors[mapcondition(spr_cond), mapagegrp(spr_agegrp)]
-    @fastmath round(Int,rand(Gamma(gammashape, scale)))
-end
-
-
-"""
-    how_many_contacts(density_factor, gammashape, agegrp, cond, acase::SpreadCase)::Int
-
-Returns the number of contacts that someone spreading the disease will make on a day. This 
-method uses the spreadcase applicable to the current spreader but with contactfactors set by
-a spreadcase.
-"""
-@inline function how_many_contacts(density_factor, indoor_factor, gammashape, agegrp, cond, acase::SpreadCase)::Int64
-    # indoor_factor is in [1.0, 1.4]. greater than 1.0 increases scale factor for gamma distribution
-    @inbounds @fastmath scale = density_factor * indoor_factor * acase.cfcase[mapcondition(cond), mapagegrp(agegrp)]  
-    @fastmath round(Int,rand(Gamma(gammashape, scale)))
-end
-
-# TODO assuming touch only depends on recipient (the contact) may be BAD.
-"""
-    function istouched(agegrp, lookup, touchfactors)::Bool
-
-Returns true if the contact made was significant to the recipient or false if not.
-This assumes touch only depends on the recipient.    
-"""
-@inline function istouched(contact, touch_param, indoor_factor)
-    touched =   if (contact.status == :unexposed) | (contact.status == :recovered)  # only conditions that can get infected   
-                    touchprob = (indoor_factor == 1.0 ? touch_param[maptouch(contact.status), mapagegrp(contact.agegrp)] :
-                                # squash multiplicative factor to stay under 1.0
-                                clamp(indoor_factor * touch_param[maptouch(contact.status), mapagegrp(contact.agegrp)], 0.0, 0.97)) # or tanh--much slower
-                    rand(Binomial(1, touchprob)) == 1
-                else
-                    false
-                end
-end
-
-
-"""
-    isinfected(contact, spreader, vaxset, dovax, infectset, thisday)::Bool
-
-Returns true if the spreader infected the contact or false if not. 
-Considers partial immunity if contact has recovered from previous infection.
-Considers vaccination status of the contact.
-Considers the variant of the disease the spreader is carrying.
-"""
-@inline function isinfected(contact, spreader, vaxset, dovax, infectset, thisday)::Bool
-
-    @inbounds recovday = isempty(contact.recovday) ? 0 : contact.recovday[end]
-    @inbounds spr_variant = isempty(spreader.variant) ? 0 : spreader.variant[end]
-
-    # effect on transmission based on how long ago a previously infected contact got over the disease
-    recovfactor = if contact.status === :recovered
-        @inbounds recoveffect(thisday, recovday, contact.variant[end], spr_variant, infectset)
-    else
-        1.0
-    end
-
-    if dovax
-        vaxstatus = contact.vaxstatus
-        # effect on transmission based on which vaccine the contact received, how many times, and how long ago
-        vaxfactor = if vaxstatus === :none
-            1.0
-        else
-            vaxday = contact.vaxday[end]
-            @inbounds p_vax = vaxset[contact.vaxrcvd[end]]  # characteristics of vaccine received by the contact
-            @inbounds infectfactor = p_vax.infectfactor[spr_variant]
-            vaxeffect(thisday, infectfactor, p_vax, vaxstatus, spr_variant, vaxday)
-        end
-    else
-        vaxfactor = 1.0
-    end
-
-    # binomial probability of the contact getting infected from the contact with this spreader
-    risk = infectrisk(infectset, spr_variant, spreader.duration, contact.agegrp, recovfactor, vaxfactor)
-    return @fastmath rand(Binomial(1, risk)) == 1
-end
-
-
-@inline @fastmath function infectrisk(infectset, spr_variant, spr_duration, 
-    targ_agegrp, recovfactor::Float64, vaxfactor::Float64)
-
-    # spreader person characteristics
-    sendrisk = @inbounds infectset[spr_variant].sendrisk[spr_duration]
-
-    # target person characteristics
-    recvrisk = @inbounds infectset[spr_variant].recvrisk[mapagegrp(targ_agegrp)]
-
-    combinedfactor = recvrisk * sendrisk * vax_recov(vaxfactor, recovfactor)
-    risk = clamp(combinedfactor, 0.0, 0.97)                 # this is required because combinedfactor could exceed 1.0
-end
 
 
 #######################################################################
