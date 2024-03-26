@@ -80,12 +80,11 @@ Changes attribute columns in the population table. Runs social distancing cases.
         contact = locdat[c] # row of traits of the contact person: a contact "object" 
         touch_param = contact.sdcase === :none ? touchfactors : sdcases[contact.sdcase].tfcase
 
-        # is this a meaningful interaction?
+        # is this a meaningful interaction? # if touched, will this contact get infected?
         if istouched(contact, touch_param, indoor_factor)
-            # will this contact get infected?
             if isinfected(contact, spreader, vaxset, dovax, infectset, thisday)
                 @inbounds spr_variant = isempty(spreader.variant)  ? 0 : spreader.variant[end]
-                make_sick!(contact, thisday, :nil, spr_variant)
+                make_sick!(contact, thisday, :nil, spr_variant) # update the contact row
             end
         end
     end
@@ -97,6 +96,7 @@ end
 ###################################################################
 
 # make_sick! for a single person. Assumes that caller doesn't invoke structure of population data
+# this works because population data is in a lazytable
 @inline function make_sick!(contact, thisday, cond, variant)  
     push!(contact.variant, variant)  # first of possibly several infections...  
     push!(contact.sickday, thisday)
@@ -155,7 +155,7 @@ end
 
 
 """
-Callback function returnned by function caserunner for social distancing cases.
+Callback function returned by function caserunner for social distancing cases.
 """
 @inline function s_d_seed!(locdat, sdcases, startday, comply, cf, tf, name, include_ages, socialparams, infectset, age_idx_loc; startofday)
     @assert 0.0 <= comply <= 1.0  "comply must be floating point in 0.0 to 1.0 inclusive"

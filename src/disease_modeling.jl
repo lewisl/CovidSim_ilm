@@ -72,30 +72,13 @@ Considers the variant of the disease the spreader is carrying.
 """
 @inline function isinfected(contact, spreader, vaxset, dovax, infectset, thisday)::Bool
 
-    @inbounds recovday = isempty(contact.recovday) ? 0 : contact.recovday[end]
     @inbounds spr_variant = isempty(spreader.variant) ? 0 : spreader.variant[end]
 
     # effect on transmission based on how long ago a previously infected contact got over the disease
-    recovfactor = if contact.status === :recovered
-        @inbounds recoveffect(thisday, recovday, contact.variant[end], spr_variant, infectset)
-    else
-        1.0
-    end
+    recovfactor = recoveffect(thisday, contact, spr_variant, infectset)
 
-    if dovax
-        vaxstatus = contact.vaxstatus
-        # effect on transmission based on which vaccine the contact received, how many times, and how long ago
-        vaxfactor = if vaxstatus === :none
-            1.0
-        else
-            vaxday = contact.vaxday[end]
-            @inbounds p_vax = vaxset[contact.vaxrcvd[end]]  # characteristics of vaccine received by the contact
-            @inbounds infectfactor = p_vax.infectfactor[spr_variant]
-            vaxeffect(thisday, infectfactor, p_vax, vaxstatus, spr_variant, vaxday)
-        end
-    else
-        vaxfactor = 1.0
-    end
+    # effect on transmission based on whether, when, and which vaccine contact received
+    vaxfactor = dovax ? vaxeffect(thisday, contact, vaxset, infectfactor, spr_variant) : 1.0
 
     # binomial probability of the contact getting infected from the contact with this spreader
     risk = infectrisk(infectset, spr_variant, spreader.duration, contact.agegrp, recovfactor, vaxfactor)
@@ -122,32 +105,40 @@ end
 
 
 """
-    vaxeffect(today, infectfactor, p_vax, vaxstatus, spr_variant, vaxday; 
+    vaxeffect(thisday, infectfactor, p_vax, vaxstatus, spr_variant, vaxday; 
                 csig=6.0, decay_lower=0.15)
 
 Immunity from vaccination for a single person. In function progression!, the vaxeffect changes the severity and/or duration of the 
 disease. In function spread!, the vaxeffect reduces the likelihood of getting the disease.
 """
-@inline @fastmath function vaxeffect(today, infectfactor, p_vax, vaxstatus, spr_variant, vaxday;
+@inline @fastmath function vaxeffect(thisday, contact, vaxset, infectfactor, spr_variant;
     csig=6.0, decay_lower=0.15)   # TODO decide where these inputs come from and what values to use
 
-    # vaccine characteristics shortcuts
-    @inbounds begin
-        halflife = p_vax.halflife
-        vaxeffect = p_vax.effectiveness[vaxstatus][spr_variant]
-        mineff = p_vax.day1_effect
-        full_effect_days = p_vax.full_effect_days
+    factor = 1.0 # default value
+    vaxstatus = contact.vaxstatus
+
+    if !(vaxstatus === :none)
+
+        # vaccine characteristics shortcuts
+        @inbounds begin
+            vaxday = contact.vaxday[end]
+            p_vax = vaxset[contact.vaxrcvd[end]]  # struct of characteristics of vaccine received by the contact
+            infectfactor = p_vax.infectfactor[spr_variant]
+            halflife = p_vax.halflife
+            vaxeffect = p_vax.effectiveness[vaxstatus][spr_variant]
+            mineff = p_vax.day1_effect
+            full_effect_days = p_vax.full_effect_days
+        end
+
+        # person's vaccine conditions
+        days_after_vax = max(thisday - vaxday, 0)
+        days_after_full_effect = max(days_after_vax - full_effect_days, 0)    
+        rise = effect_rise(days_after_vax; mineff=mineff, delay_days=full_effect_days)
+        decay = sigdecay(days_after_full_effect, halflife, csig=csig, decay_lower=decay_lower)     #   lindecay(days_after_full_effect, halflife, decay_lower)
+        time_mod = rise * decay
+
+        factor = max(1.0 - (time_mod * vaxeffect * infectfactor), 0.0)
     end
-
-    # person's vaccine conditions
-    days_after_vax = max(today - vaxday, 0)
-    days_after_full_effect = max(days_after_vax - full_effect_days, 0)    
-
-    rise = effect_rise(days_after_vax; mineff=mineff, delay_days=full_effect_days)
-    decay = sigdecay(days_after_full_effect, halflife, csig=csig, decay_lower=decay_lower)     #   lindecay(days_after_full_effect, halflife, decay_lower)
-    time_mod = rise * decay
-
-    factor = max(1.0 - (time_mod * vaxeffect * infectfactor), 0.0)
 
     return factor
 end
@@ -155,32 +146,37 @@ end
 
 
 """
-    recoveffect(recovday, targ_variant, spr_variant, infectset)
+    recoveffect(recovday, contact_varient, spr_variant, infectset)
 
 Immunity from recovery for a single person.
 """
-@inline function recoveffect(today, recovday, targ_variant, spr_variant, infectset; csig=6.0, decay_lower=0.15)::Float64
+@inline function recoveffect(thisday, contact, spr_variant, infectset; csig=6.0, decay_lower=0.15)::Float64
 
-    days_post_recov = today - recovday
+    factor = 1.0 # default return value
 
-    @inbounds if days_post_recov >= 0
-        # get the max immunity for the variant that target recovered from against the variant of the spreader
-        immstrength = infectset[targ_variant].recovery_immunity[spr_variant]
+    if contact.status === :recovered
+        @inbounds recovday = isempty(contact.recovday) ? 0 : contact.recovday[end]
+        days_post_recov = thisday - recovday
 
-        # get the declined value
-        immhalflife = infectset[targ_variant].immunehalflife
+        contact_varient = contact.variant[end]
 
-        # immdecline = lindecay(days_post_recov, immhalflife, decay_lower)
-        decay = sigdecay(days_post_recov, immhalflife, csig=csig, decay_lower=decay_lower)
-        rise = effect_rise(days_post_recov)
-        time_mod = rise * decay
+        @inbounds if days_post_recov >= 0
+            # get the max immunity for the variant that target recovered from against the variant of the spreader
+            immstrength = infectset[contact_varient].recovery_immunity[spr_variant]
 
-        factor = 1.0 - (time_mod * immstrength)
-    else
-        factor = 1.0
+            # get the declined value
+            immhalflife = infectset[contact_varient].immunehalflife
+
+            # immdecline = lindecay(days_post_recov, immhalflife, decay_lower)
+            decay = sigdecay(days_post_recov, immhalflife, csig=csig, decay_lower=decay_lower)
+            rise = effect_rise(days_post_recov)
+            time_mod = rise * decay
+
+            factor = 1.0 - (time_mod * immstrength)
+        end
     end
 
-    return factor
+    return factor  # this isn't Julian, but it's more obvious to most people
 end
 
 

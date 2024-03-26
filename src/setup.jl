@@ -196,11 +196,20 @@ end
 
 
 """
+    pop_data(pop; age_dist=AGE_DIST)
+
 Pre-allocate and initialize population data for one locale in the simulation.
-Returns a TypedTable which is a tuple of arrays:
-- each column is a trait of people
-- each row is a person who lives in that locale
+Returns a LazyTable which is a tuple of arrays:
+- each column is a trait of people in the simulation
+- each row is a person who lives in the locale
+
 This table is updated each day of the simulation.
+
+# Examples
+A row can be viewed as a person object as follows:
+
+    person = popdat[1]
+    println("This person's condition is \$(person.cond) and age group is \$(person.agegrp).")
 """
 function pop_data(pop; age_dist=AGE_DIST)
     
@@ -412,7 +421,7 @@ all variants.
 Returns (progressionset, trvec)
 """
 function build_progression_params(variantdict)
-    variantlist = collect(keys(variantdict)) # array of strings to array of symbols
+    variantlist = collect(keys(variantdict)) # vector of symbols
     progressionset = Dict{Symbol, ProgressionParams}()
 
     @assert :base in variantlist "Variants parameter file must contain a variant called :base--not there!"
@@ -426,7 +435,7 @@ function build_progression_params(variantdict)
                                             )
 
     for variant in variantlist
-        variant === :base && continue
+        variant === :base && continue  # we did this above...
         progressionset[Symbol(variant)] = ProgressionParams(
                 tree=(  !isnothing(variantdict[variant][:progression_tree])   ?   
                             setup_dt(variantdict[variant][:progression_tree]) :    # progression tree was provided for this variant

@@ -1,5 +1,4 @@
 # TODO
-    # make all date inputs canonical:   yyyy-mm-dd
     # log simulation run messages, or print, or both
     # R0 is broken by shifting spread to one person at a time and update-in-place
     # rewrite test and trace to fit new population matrix
