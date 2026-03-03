@@ -9,3 +9,4 @@ test-notebooks/
 ilm-src/~$comp_spread.xlsx
 .*
 */.DS_Store
+*modeldef*

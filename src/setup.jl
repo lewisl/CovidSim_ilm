@@ -140,7 +140,7 @@ function setup_model(ndays::Int64, locales;
     end
 
     # simulation data matrix: rows = persons, columns = traits
-    dat = build_data(locales, geodata, ndays)
+    dat = build_data(locales, geodata)
 
     # history series columns and history series
     colgroups = [:statuscols => Symbol.(STATUSES), :condcols => push!(Symbol.(INFECTIOUS_CASES), :totinfected),
@@ -174,7 +174,7 @@ end
 Pre-allocate and initialize population data for all locales in the simulation.
 Calls pop_data for each locale.
 """
-function build_data(locales, geodata, n_days)
+function build_data(locales, geodata)
 
     popdat = Dict(loc => pop_data(geodata.pop[geodata.fips .== loc][1]) for loc in locales)
 
@@ -260,7 +260,7 @@ function build_series_table(locales, n_days, day1, seriescolnames)
     cols = [col for group in values(seriescolnames) for item in values(group) for col in values(item)]
     colvals = [zeros(Int,n_days) for _ in 1:length(cols)]
     series = Dict(loc => (cum = LazyTable(; caldays=caldays, zip(cols,[zeros(Int,n_days) for _ in 1:length(cols)])...), 
-                          new = LazyTable(; caldays=caldays, zip(cols,[zeros(Int,n_days) for _ in 1:length(cols)])...))
+                        new = LazyTable(; caldays=caldays, zip(cols,[zeros(Int,n_days) for _ in 1:length(cols)])...))
              for loc in locales)
 
     return series
@@ -283,10 +283,10 @@ function build_indoor_seq(locales, ndays, geodata, series, indoor_lift)
             for i in eachindex(indoor_seq)
                 testdate = Date(year_end, month(caldays[i]), day(caldays[i]))  # use relative year
                 if (testdate >= indoor_start) & (testdate <= indoor_end) 
-                    indoor_seq[loc][i] += indoor_lift
+                    indoor_seq[loc][i] *= indoor_lift
                 end
             end
-
+# TODO this logic is wrong for northern hemisphere climate....
         elseif year_end > year_start  # start in first year, end in following year
 
             current_year = year(first(caldays))
@@ -598,7 +598,10 @@ function apportion(x::Int, splits::Array)  # x is the number to be split into po
     @assert isapprox(sum(splits), 1.0)
     maxidx = argmax(splits)
     parts = round.(Int, splits .* x)
+    
+    # absorb rounding error
     diff = sum(parts) - x
     parts[maxidx] -= diff
+
     return parts
 end

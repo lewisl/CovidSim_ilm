@@ -15,11 +15,11 @@
 Hold progression matrices by age group.
 """
 Base.@kwdef struct Agetree
-  age0_19::Dict{Int, Matrix{Float64}} = Dict{Int, Matrix{Float64}}()
-  age20_39::Dict{Int, Matrix{Float64}} = Dict{Int, Matrix{Float64}}()
-  age40_59::Dict{Int, Matrix{Float64}} = Dict{Int, Matrix{Float64}}()
-  age60_79::Dict{Int, Matrix{Float64}} =  Dict{Int, Matrix{Float64}}()
-  age80_up::Dict{Int, Matrix{Float64}} = Dict{Int, Matrix{Float64}}()
+    age0_19::Dict{Int, Matrix{Float64}} = Dict{Int, Matrix{Float64}}()
+    age20_39::Dict{Int, Matrix{Float64}} = Dict{Int, Matrix{Float64}}()
+    age40_59::Dict{Int, Matrix{Float64}} = Dict{Int, Matrix{Float64}}()
+    age60_79::Dict{Int, Matrix{Float64}} =  Dict{Int, Matrix{Float64}}()
+    age80_up::Dict{Int, Matrix{Float64}} = Dict{Int, Matrix{Float64}}()
 end
 
 """
@@ -27,23 +27,23 @@ Hold factors to alter progression matrices off base for
 different vaccines and variants.
 """
 Base.@kwdef struct ProgressionFactors
-  riskadjust::Union{Vector{Float64}, Nothing}
-  vaxhalflifeadjust::Union{Dict{Symbol, Float64}, Nothing}
-  
-      # inner method
-      function ProgressionFactors(factordict)
-          riskadj = get(factordict, :riskadjust, nothing)
-          vaxadj = get(factordict, :vaxhalflifeadjust, nothing)
-          vaxadj = if !isnothing(vaxadj)
-                      Dict(Symbol(k)=>v for (k,v) in vaxadj)
-                   end
-          new(riskadj, vaxadj)
-      end
+    riskadjust::Union{Vector{Float64}, Nothing}
+    vaxhalflifeadjust::Union{Dict{Symbol, Float64}, Nothing}
+    
+        # inner method
+        function ProgressionFactors(factordict)
+            riskadj = get(factordict, :riskadjust, nothing)
+            vaxadj = get(factordict, :vaxhalflifeadjust, nothing)
+            vaxadj = if !isnothing(vaxadj)
+                        Dict(Symbol(k)=>v for (k,v) in vaxadj)
+                    end
+            new(riskadj, vaxadj)
+        end
 end
 
 Base.@kwdef struct ProgressionParams
-  tree::Union{Agetree, Nothing}
-  factors::ProgressionFactors   # use [] for nothing
+    tree::Union{Agetree, Nothing}
+    factors::ProgressionFactors   # use [] for nothing
 end
 
 
@@ -79,7 +79,9 @@ function setup_dt(trdict::Dict)
     return Agetree([prepdict[age] for age in keys(sort(trdict))]...) # splats to fields of Agetree: a dict per agegrp
 end
 
-
+"""
+Setup a progression tree by modifying another complete tree
+"""
 function setup_dt(basetree::Agetree, adjust::Vector{Float64})
 
     prepdict = Dict{Symbol, Dict{Int, Matrix{Float64}}}()
@@ -167,7 +169,7 @@ function getseqs(dt_this_age::Dict; maxsearches = 100)
         nxtidx = findfirst(isequal(breakday), breakdays) + 1
         for brk in breakdays[nxtidx:end]
             # @show(brk); println()
-  
+
             for i in 1:size(dt_this_age[k1],2)  # no. of columns
                 outcome = map_progression(i)
                 prob = dt_this_age[brk][mapcondition(tocond), map_progression(outcome)]

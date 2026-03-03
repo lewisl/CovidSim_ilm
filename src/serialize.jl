@@ -215,10 +215,10 @@ function social_to_yaml!(io, social, pad)  # TODO method for matrix with row nam
             arr = getfield(social, name)
             mapfunc = name === :contactfactors ? mapcondition : maptouch
             write(io, '\n')
-            for col in 1:size(arr, 2)  # columns = agegrps
+            for col in axes(arr,2)     #1:size(arr, 2)  # columns = agegrps
                 write(io, repeat(pad,2), string(mapagegrp(col), ": \n"))  # agegrp
                 write(io, string(repeat(pad,3), '{'))
-                for row in 1:size(arr, 1)   # rows = conditions or status : probability
+                for row in axes(arr, 1)     # 1:size(arr, 1)   # rows = conditions or status : probability
                     write(io, string(mapfunc(row), ": ", arr[row, col], ", "))
                 end
                 write(io, "}\n")

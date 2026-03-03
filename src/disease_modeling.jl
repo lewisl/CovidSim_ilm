@@ -49,6 +49,8 @@ end
 
 Returns true if the contact made was significant to the recipient or false if not.
 This assumes touch only depends on the recipient.    
+
+Very tricky.  We are ignoring the 4 sick conditions because even if touched they can't get sick.
 """
 @inline function istouched(contact, touch_param, indoor_factor)
     touched = if (contact.status == :unexposed) | (contact.status == :recovered)  # only conditions that can get infected   
@@ -100,10 +102,6 @@ end
 end
 
 
-
-
-
-
 """
     vaxeffect(thisday, infectfactor, p_vax, vaxstatus, spr_variant, vaxday; 
                 csig=6.0, decay_lower=0.15)
@@ -148,7 +146,7 @@ end
 """
     recoveffect(recovday, contact_varient, spr_variant, infectset)
 
-Immunity from recovery for a single person.
+Immunity from recovery for a single person. Also, affects progression through disease stages.
 """
 @inline function recoveffect(thisday, contact, spr_variant, infectset; csig=6.0, decay_lower=0.15)::Float64
 

@@ -260,7 +260,9 @@ export
     INFECTIOUS_CASES,
     PROGRESSION_CASES,
     AGEGRPS,
-    TOUCHES
+    TOUCHES,
+    mapcondition,
+    mapagegrp
 
 # functions for serialization
 export

@@ -7,21 +7,18 @@ Beginning as group or compartment model, a shift was made to an agent-based mode
 The agent-based model (or individual level model, "ilm", from now on) tracks each individual in a locale with an individual's specific traits and outcomes. Because a simulation doesn't know actual individual people, we use the same age groups, disease status conditions, and infection durations as in the group model. But, the ilm enables more complex policy scenarios to be simulated with more understandable logic. However, the ilm runs slower than the group model because each individual must be queried and updated. The rest of the readme describes the individual level model.
 
 The statuses are:
-
 - Unexposed
 - Infectious (summary of the 4 disease conditions)
 - Recovered
 - Dead
 
 The disease conditions are:
-
 - Nil (infected and asymptomatic)
 - Mild
 - Sick
 - Severe
 
 The agegroups are:
-
 - age0_19
 - age20_39 
 - age40_59 
@@ -95,4 +92,3 @@ There are several different approaches to epidemiological models that have been 
 [1] "Prediction and analysis of Coronavirus Disease 2019," Lin Jia, Kewen Li, Yu Jiang, Xin Guo and Ting Zhao, https://arxiv.org/abs/2003.05447
 
 [2] "Correcting under-reported COVID-19 case numbers: estimating the true scale of the pandemic," Kathleen M. Jagodnik, Forest Ray, Federico M. Giorgi, and Alexander Lachmann, medRxiv pre-print, https://www.medrxiv.org/content/10.1101/2020.03.14.20036178v2
-

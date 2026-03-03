@@ -158,7 +158,7 @@ function runsim(model;
             # person loop
             @inbounds for p in infect_idx    # p is an infected person who potentially spreads virus
 
-                person = locdat[p]
+                person = locdat[p]  # probably slow because it materialized the row!
 
                 sprtime += @elapsed begin
                     # is this person ACTIVELY infectious

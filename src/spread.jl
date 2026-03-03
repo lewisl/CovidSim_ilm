@@ -73,7 +73,7 @@ Changes attribute columns in the population table. Runs social distancing cases.
 
     @inbounds contact_param = spreader.sdcase === :none ? contactfactors : sdcases[spreader.sdcase]
 
-    # how many contacts does the infected person have?
+    # which contacts does the infected person have?
     contacts = get_contacts(spreader, poprange, density_factor, indoor_factor, gammashape, contact_param)
 
     for c in contacts
@@ -97,12 +97,12 @@ end
 
 # make_sick! for a single person. Assumes that caller doesn't invoke structure of population data
 # this works because population data is in a lazytable
-@inline function make_sick!(contact, thisday, cond, variant)  
+@inline function make_sick!(contact, thisday, cond, variant, duration=1, status=:infectious)  
     push!(contact.variant, variant)  # first of possibly several infections...  
     push!(contact.sickday, thisday)
-    contact.duration = 1
+    contact.duration = duration
     contact.cond = cond
-    contact.status = :infectious
+    contact.status = status
 end
 
 
