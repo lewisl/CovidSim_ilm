@@ -128,7 +128,8 @@ end
 """
     maketraitseedfunc( ; cond=:nil, variant=:base, duration=1, filter::Vector{Term}, cnt, forlocale=0, triggerdate, startofday)
 
-Create a Seedset that contains the filter for whom to make sick, the traits to be set, and the cnt of people to be changed. 
+Create a Seedset that contains the filter for whom to make sick, the traits to be set, 
+and the cnt of people to be changed. 
 
 **And** call seed\\_case\\_gen for you to return the callback function that encloses this Seedset.
 """
@@ -143,7 +144,8 @@ end
 """
     makenotsickseedfunc( ; status, filter::Vector{Term}, cnt, forlocale=0, triggerdate, startofday)
 
-Create a Seedset that contains the filter for whom to change from sick to either recovered or dead, and the cnt of people to be changed. 
+Create a Seedset that contains the filter for whom to change from sick to either recovered or dead, 
+and the cnt of people to be changed. 
 
 This is just a shortcut for maketraitseedfunc with defaults to make people "well" again.
 

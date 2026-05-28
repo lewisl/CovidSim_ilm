@@ -70,7 +70,7 @@ function newplot(series, locale, plotcols=[:infectious]; days="all", geo=[], thm
     theme(thm, foreground_color_border=:black, 
             tickfontsize=9, gridlinewidth=1)
 
-    !(typeof(plotcols) <: Array) && (plotcols = [plotcols])
+    !(typeof(plotcols) <: Array) && (plotcols = [plotcols])  # make a single plotcol into an array of one
 
     # the data and labels
     n = length(newhist)

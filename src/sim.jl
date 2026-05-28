@@ -63,8 +63,13 @@ function runsim(model;
             showr0 = false, 
             silent=true, 
             dovax=false,  # OK to set false even if valid vaccine data part of yaml_to_model
-            vaxscheds=:none
+            seed=99999,
+            vaxscheds=:none,
+            runtime_trace=nothing,
+            spread_debug_trace=nothing
             )
+
+    Random.seed!(seed)
 
     # split up  members of model
     ndays = model.ndays
@@ -143,12 +148,14 @@ function runsim(model;
             today = DAY_CTR[:day]
             silent || println("simulation day: ", today)
 
+            ds.day = today
+
             for case in runcases  # cases that run at the beginning of the day
                 case(locdat, socialparams, infectset, sdcases, age_idx_loc; day=today, startofday=true, locale=loc) 
             end    ## TODO extend ages to be any filter for who participates in a given case
 
             # filter for key people
-            idxtime += @elapsed infect_idx = findall(locdat.status .== :infectious) # all the sick and maybe infectious
+            # idxtime += @elapsed infect_idx = findall(locdat.status .== :infectious) # all the sick and maybe infectious
             
             # if dovax vaccinate (e.g., give shots)
             dovax && begin
@@ -156,21 +163,25 @@ function runsim(model;
                      end
 
             # person loop
-            @inbounds for p in infect_idx    # p is an infected person who potentially spreads virus
+            for p in poprange   #  @inbounds  infect_idx    # p is an infected person who potentially spreads virus
 
-                person = locdat[p]  # probably slow because it materialized the row!
-
+                person = locdat[p]  # probably slow because it materialized the row! no, it's fast!
+                if person.status != :infectious 
+                    continue
+                end
                 sprtime += @elapsed begin
                     # is this person ACTIVELY infectious
                     spr_duration = person.duration  # duration determines if spreader is really able to spread the virus
                     spr_variant = person.variant[end]
                     
-                    sendrisk = infectset[spr_variant].sendrisk[spr_duration]
+                    sendrisk = spread_sendrisk(infectset, spr_variant, spr_duration)
                     
                     # transmission of the virus
                     if sendrisk > 0.0     
+                        ds.starting_spreaders += 1
                         spread!(locdat, p, today, sdcases,  socialparams, 
-                                infectset, dovax, vaxset, density_factor, indoor_seq, poprange)       
+                                infectset, dovax, vaxset, density_factor, indoor_seq, poprange;
+                                spread_debug_trace=isnothing(spread_debug_trace) ? nothing : spread_debug_trace[loc])       
                     end
                 end  # sprtime
                 
@@ -195,6 +206,20 @@ function runsim(model;
 
             histtime += @elapsed collect_history!(locdat, newhist, cumhist, age_idx_loc, today, vaxlist, variantlist, seriescolnames)
 
+            if !isnothing(runtime_trace)
+                runtime_trace[loc].contacts[today] = ds.num_contacts
+                runtime_trace[loc].touched[today] = ds.num_touched
+                runtime_trace[loc].spread_new_infected[today] = ds.num_new_infected
+                runtime_trace[loc].recovered[today] = ds.num_recovered
+                runtime_trace[loc].dead[today] = ds.num_died
+            end
+
+            # print("Day $(ds.day): spreaders: $(ds.starting_spreaders), contacts: $(ds.num_contacts), ") # touched: $(ds.num_touched), newly infected: $(ds.num_new_infected), recovered: $(ds.num_recovered), died: $(ds.num_died)")
+            # println("touched: $(ds.num_touched), newly infected: $(ds.num_new_infected), recovered: $(ds.num_recovered), died: $(ds.num_died)")
+
+
+            reset(ds) # reset all the daily statistics
+
         end # day loop
 
         # calculate history totals by agegroup, infected for all conditions, vaccinated for all vaccines
@@ -203,6 +228,45 @@ function runsim(model;
             update_totinfected_series!(newhist, cumhist, seriescolnames) 
             update_totvaccinated_series!(newhist, cumhist, vaxlist, seriescolnames)
         end
+
+
+    # output summary results
+
+    # simple no agegrp breakdown
+    # println("Simulation summary results for locale $loc.")
+    # count1 = count(length.(locdat.variant) .> 0)
+    # println("Count of everyone who ever got infected:      $count1")
+    # count2 = count(length.(locdat.variant) .> 1)
+    # println("Count of people who got sick 2 or more times: $count2")
+
+    # count3 = count(locdat.status .== :recovered)
+    # println("Count of everyone who recovered:              $count3")
+    # count4 = count(locdat.status .== :dead)
+    # println("Count of everyone who died:                   $count4")
+
+println("\nSimulation summary results for locale $loc.")
+println("\n$(rpad("Age Group", 12)) $(lpad("Unexposed", 10)) $(lpad("Infected", 10)) $(lpad("Reinfected", 12)) $(lpad("Recovered", 11)) $(lpad("Dead", 8)) $(lpad("Death %", 10))")
+println("-"^80)
+
+# get the fucking scope to function level not the loop!!!!!
+unexposed = Int[]
+infected = Int[]
+reinfected = Int[]
+recovered = Int[]
+dead = Int[]
+death_pct = Float64[]
+for (i, ag) in enumerate(AGEGRPS)
+    mask = locdat.agegrp .== ag
+    push!(unexposed, count(mask .& (locdat.status .== :unexposed)))  
+    push!(infected, count(mask .& (length.(locdat.variant) .> 0)))
+    push!(reinfected, count(mask .& (length.(locdat.variant) .> 1)))
+    push!(recovered, count(mask .& (locdat.status .== :recovered)))
+    push!(dead, count(mask .& (locdat.status .== :dead)))
+    push!(death_pct, infected[i] > 0 ? 100.0 * dead[i] / infected[i] : 0.0)
+    println("$(rpad(string(ag), 12)) $(lpad(unexposed[i], 10)) $(lpad(infected[i], 10)) $(lpad(reinfected[i], 12)) $(lpad(recovered[i], 11)) $(lpad(dead[i], 8)) $(lpad(@sprintf("%.2f%%", death_pct[i]), 10))")
+end
+println("$(rpad("Total", 12)) $(lpad(sum(unexposed), 10)) $(lpad(sum(infected), 10)) $(lpad(sum(reinfected), 12)) $(lpad(sum(recovered), 11)) $(lpad(sum(dead), 8)) ")
+println("(Note: Remaining still infected across all ages: $(count(infected .> 0)))")
 
         silent || println("Simulation completed for $(DAY_CTR[:day]) days for locale $loc.")
 
@@ -217,6 +281,9 @@ function runsim(model;
 
     flush(stdout); print_timings(idxtime, vaxtime, sprtime, trtime, histtime, totalsimtime); flush(stdout)
     showr0 && begin; flush(stdout); println(printthis); end
+
+
+
 
     return popdat, series  # final state of population matrix, history data for simulation run by day
 end
@@ -468,10 +535,7 @@ second method runs in less than 50% of the time.
 The second method generates results for n trials. 
 The assert test is done only once if do_assert is true.
 """
-function categorical_sim(prs)
-    if !isapprox(sum(prs), 1.0)
-        return 0
-    end
+@inline function categorical_draw(prs)
     x = rand()
     cumpr = 0.0
     i = 0
@@ -485,12 +549,19 @@ function categorical_sim(prs)
     i
 end
 
+function categorical_sim(prs)
+    if !isapprox(sum(prs), 1.0)
+        return 0
+    end
+    categorical_draw(prs)
+end
+
 function categorical_sim(prs, n::Int, do_assert=true)
     do_assert && @assert isapprox(sum(prs), 1.0)
     ret = Vector{Int}(undef, n)
     
     @inbounds for i in 1:n
-        ret[i] = categorical_sim(prs, false)
+        ret[i] = categorical_draw(prs)
     end
     ret
 end

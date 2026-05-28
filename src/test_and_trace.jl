@@ -27,7 +27,7 @@ const Test_Loc = NamedTuple{(:locale, :test_date),Tuple{Int64,Int64}}
 const map2access = (unexposed= 1, infectious=-1, recovered=2, dead=-1, 
                   nil= 3, mild=  4, sick= -1, severe= -1)
 
-# cache values needed during test and track
+# cache values needed during test and trace
 const tnt_stash = Dict{NamedTuple, Array}() # works for Quar_loc or Test_loc--and they are different
 
 
@@ -44,7 +44,7 @@ function t_n_t_case_gen(start_day, end_day;         # these args go into the ret
     target_test=false, past_contacts=false) 
     # args match runcases loop in run_a_sim
     function caserunner(locale; opendat, isodat, testdat, infectparams)  # case loop in run_a_sim provides required args
-        t_n_t_case(start_day, end_day; 
+        t_n_t_case(start_day, end_day;   # this will be the call site
                    socialparams=socialparams, infectparams=infectparams, opendat=opendat, isodat=isodat,  
                    testdat=testdat, locale=locale, tc_perday=tc_perday, sensitivity=sensitivity, specificity=specificity, 
                    infect_prior=infect_prior, test_pct=test_pct, q_comply=q_comply, c_comply=c_comply,

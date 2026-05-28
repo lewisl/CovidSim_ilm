@@ -16,17 +16,29 @@ indoor_uplift: 1.1
 #     - determines number of contacts per day for each spreader
 #     - converted to Matrix{Float64} 4 x 5 (conditions converted to rows, agegrps to columns)
 #
-contactfactors:                                        
+# contactfactors:  # original                                      
+#   age0_19:                                            
+#     {nil: 1.1, mild: 1.1, sick: 0.7, severe: 0.5}       
+#   age20_39:
+#     {nil: 2.1, mild: 2.0, sick: 1.0, severe: 0.6}
+#   age40_59:
+#     {nil: 2.1, mild: 2.0, sick: 1.0, severe: 0.6}
+#   age60_79:
+#     {nil: 1.7, mild: 1.6, sick: 0.7, severe: 0.5}
+#   age80_up:
+#     {nil: 1.0, mild: 0.9, sick: 0.6, severe: 0.5}
+#
+contactfactors:  # adjusted after bug fix in indoor_seq                                     
   age0_19:                                            
-    {nil: 1.1, mild: 1.1, sick: 0.7, severe: 0.5}       
+    {nil: 1.045, mild: 1.045, sick: 0.665, severe: 0.475}       
   age20_39:
-    {nil: 2.1, mild: 2.0, sick: 1.0, severe: 0.6}
+    {nil: 1.995, mild: 1.9, sick: 0.95, severe: 0.57}
   age40_59:
-    {nil: 2.1, mild: 2.0, sick: 1.0, severe: 0.6}
+    {nil: 1.995, mild: 1.9, sick: 0.95, severe: 0.57}
   age60_79:
-    {nil: 1.7, mild: 1.6, sick: 0.7, severe: 0.5}
+    {nil: 1.615, mild: 1.52, sick: 0.665, severe: 0.475}
   age80_up:
-    {nil: 1.0, mild: 0.9, sick: 0.6, severe: 0.5}
+    {nil: 0.95, mild: 0.855, sick: 0.57, severe: 0.475}
 #
 # touchfactors: probability input to binomial distribution 
 #     - determines if target is "touched"

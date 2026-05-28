@@ -28,6 +28,10 @@ they move to recovered or dead.
     p_recovday = p_status === :recovered ? person.recovday[end] : 0
     p_variant = person.variant[end]
 
+    # set function scope
+    risk = 1.0
+    vaxeff = 1.0
+
     probtree = progressionset[p_variant].tree   
 
     # if person's agegrp and duration match a progression stage, 
@@ -43,8 +47,8 @@ they move to recovered or dead.
         probvec[:] = pr_arr[mapcondition(p_cond), :] # probabilities of recovery, nil, mild, sick, severe, dead given p's current condition
 
         # effect on severity and progressing based on recovery from a previous infection
-        recoveff =  if p_status == :recovered
-                        recoveffect(today, p_recovday, p_variant, infectset)
+        recoveff =  if !isempty(person.recovday)
+                        recoveffect(today, person, p_variant, infectset)
                     else
                         1.0
                     end
@@ -54,17 +58,17 @@ they move to recovered or dead.
             vaxeff = if p_vaxstatus === :none
                         1.0
                     else
-                        p_vax = vaxset[person.vaxrcvd[end]] # characteristics of the vaccine this person received
-                        p_vaxday = person.vaxday[end]
-                        p_variant = person.variant[end]
                         infectfactor = 1.0  # which means no effect for a multiplicative model
-                        vaxeffect(today, infectfactor, p_vax, p_vaxstatus, p_variant, p_vaxday)
+                        vaxeffect(today, person, vaxset, infectfactor, p_variant)
                     end
-
-            # vaccination changes probability, thus timing, of progressing to different stages of disease
-            risk = riskfactor(recoveff, vaxeff)
-            redistribute_probability!(probvec, risk, p_duration) 
         end
+        risk = riskfactor(recoveff, vaxeff)
+        redistribute_probability!(probvec, risk, p_duration) 
+
+        # print diagnostics
+        # if p_agegrp == :age80_up && p_cond == :severe && (p_duration == 19 || p_duration == 25)
+        #     println("vaxstatus $p_vaxstatus, recoveff $recoveff, vaxeff $vaxeff, risk $risk, before probs $(pr_arr[mapcondition(p_cond), :]), after probs $probvec")
+        # end
 
         doprogression!(person, probvec)   
     end
@@ -75,7 +79,7 @@ end
 
 function riskfactor(recoveff, vaxeff)
     combinedfactor = min(recoveff, vaxeff)
-    riskfactor = clamp(combinedfactor, 0.0, 0.97)  
+    riskfactor = clamp(combinedfactor, 0.0, 1.0)  
 end
 
 
@@ -125,10 +129,12 @@ function doprogression!(person, probvec)
     if tocond == :dead  
         person.deadday = DAY_CTR[:day]
         person.status = :dead  # change the status
+        ds.num_died += 1
         person.cond = :uninfected # change the condition   TODO: could we leave this as it was to summarize how people died
     elseif tocond == :recovered
         push!(person.recovday, DAY_CTR[:day])
         person.status = :recovered
+        ds.num_recovered += 1
         person.cond = :uninfected   # TODO decide if this makes sense--using this to maintain a history of past infection
     else  # tocond is another disease condition 
         person.cond = tocond   # change the condition = degree of sickness

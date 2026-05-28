@@ -61,7 +61,7 @@ Infectious people spread the virus to susceptible people for a single locale on 
 Changes attribute columns in the population table. Runs social distancing cases.
 """
 @inline function spread!(locdat, spr::Int, thisday::Int, sdcases, socialparams, 
-     infectset, dovax, vaxset, density_factor, indoor_seq, poprange)
+     infectset, dovax, vaxset, density_factor, indoor_seq, poprange; spread_debug_trace=nothing)
 
     spreader = locdat[spr]  # row of traits of the spreader person: a spreader "object"
      
@@ -75,17 +75,72 @@ Changes attribute columns in the population table. Runs social distancing cases.
 
     # which contacts does the infected person have?
     contacts = get_contacts(spreader, poprange, density_factor, indoor_factor, gammashape, contact_param)
+    ds.num_contacts += length(contacts)
 
-    for c in contacts
+    if should_trace_spreader(spread_debug_trace, thisday)
+        push_spreader_debug!(spread_debug_trace;
+            day=thisday,
+            spreader_id=spr,
+            spr_agegrp=spreader.agegrp,
+            spr_cond=spreader.cond,
+            spr_duration=spreader.duration,
+            spr_variant=isempty(spreader.variant) ? :none : spreader.variant[end],
+            indoor_factor=indoor_factor,
+            density_factor=density_factor,
+            contact_factor=contact_factor(contact_param, spreader.agegrp, spreader.cond),
+            contact_scale=contact_scale(density_factor, indoor_factor, spreader.agegrp, spreader.cond, contact_param),
+            num_contacts=length(contacts),
+            sendrisk=spread_sendrisk(infectset, spreader.variant[end], spreader.duration),
+        )
+    end
+
+    for (contact_order, c) in enumerate(contacts)
         contact = locdat[c] # row of traits of the contact person: a contact "object" 
+        targ_status = contact.status
+        targ_cond = contact.cond
         touch_param = contact.sdcase === :none ? touchfactors : sdcases[contact.sdcase].tfcase
+        touch_prob = touch_probability(contact, touch_param, indoor_factor)
+        touched = false
+        infected = false
+        comps = nothing
 
         # is this a meaningful interaction? # if touched, will this contact get infected?
-        if istouched(contact, touch_param, indoor_factor)
-            if isinfected(contact, spreader, vaxset, dovax, infectset, thisday)
-                @inbounds spr_variant = isempty(spreader.variant)  ? 0 : spreader.variant[end]
+        if touch_prob > 0.0 && rand(Binomial(1, touch_prob)) == 1
+            touched = true
+            ds.num_touched += 1
+            comps = infectrisk_components(contact, spreader, vaxset, dovax, infectset, thisday)
+            if rand(Binomial(1, comps.risk)) == 1
+                infected = true
+                @inbounds spr_variant = comps.spr_variant
                 make_sick!(contact, thisday, :nil, spr_variant) # update the contact row
+                ds.num_new_infected += 1
             end
+        end
+
+        if should_trace_contact(spread_debug_trace, thisday)
+            if isnothing(comps)
+                comps = infectrisk_components(contact, spreader, vaxset, dovax, infectset, thisday)
+            end
+
+            push_contact_debug!(spread_debug_trace;
+                day=thisday,
+                spreader_id=spr,
+                contact_order=contact_order,
+                contact_id=c,
+                targ_agegrp=contact.agegrp,
+                targ_status=targ_status,
+                targ_cond=targ_cond,
+                indoor_factor=indoor_factor,
+                touch_factor=touch_factor(contact, touch_param),
+                touch_prob=touch_prob,
+                touched=touched,
+                sendrisk=comps.sendrisk,
+                recvrisk=comps.recvrisk,
+                recovfactor=comps.recovfactor,
+                vaxfactor=comps.vaxfactor,
+                infect_risk=comps.risk,
+                infected=infected,
+            )
         end
     end
 end       

@@ -23,10 +23,30 @@ end
 Return the number of contacts that someone spreading the disease will make on a day. This
 method uses the default contactfactors for the current spreader.
 """
+@inline function contact_factor(contactfactors::AbstractMatrix, spr_agegrp, spr_cond)::Float64
+    @inbounds contactfactors[mapcondition(spr_cond), mapagegrp(spr_agegrp)]
+end
+
+
+@inline function contact_factor(acase::SpreadCase, spr_agegrp, spr_cond)::Float64
+    @inbounds acase.cfcase[mapcondition(spr_cond), mapagegrp(spr_agegrp)]
+end
+
+
+@inline function contact_scale(density_factor, indoor_factor, spr_agegrp, spr_cond, contact_param)::Float64
+    density_factor * indoor_factor * contact_factor(contact_param, spr_agegrp, spr_cond)
+end
+
+
 @inline function how_many_contacts(density_factor, indoor_factor, gammashape, spr_agegrp, spr_cond, contactfactors)::Int64
     # indoor_factor is in [1.0, 1.4]. greater than 1.0 increases scale factor for gamma distribution
-    @inbounds @fastmath scale = density_factor * indoor_factor * contactfactors[mapcondition(spr_cond), mapagegrp(spr_agegrp)]
-    @fastmath round(Int, rand(Gamma(gammashape, scale)))
+    @inbounds @fastmath scale = contact_scale(density_factor, indoor_factor, spr_agegrp, spr_cond, contactfactors)
+    cf = contact_factor(contactfactors, spr_agegrp, spr_cond)
+#   if DAY_CTR[:day] == 2 
+#     println("density $density_factor, indoor $indoor_factor, cf $cf, scale $scale, cond $spr_cond, agegrp $spr_agegrp")
+#   end
+
+    @fastmath clamp(round(Int, rand(Gamma(gammashape, scale))), 0, 12)
 end
 
 
@@ -39,8 +59,8 @@ a spreadcase.
 """
 @inline function how_many_contacts(density_factor, indoor_factor, gammashape, agegrp, cond, acase::SpreadCase)::Int64
     # indoor_factor is in [1.0, 1.4]. greater than 1.0 increases scale factor for gamma distribution
-    @inbounds @fastmath scale = density_factor * indoor_factor * acase.cfcase[mapcondition(cond), mapagegrp(agegrp)]
-    @fastmath round(Int, rand(Gamma(gammashape, scale)))
+    @inbounds @fastmath scale = contact_scale(density_factor, indoor_factor, agegrp, cond, acase)
+    @fastmath clamp(round(Int, rand(Gamma(gammashape, scale))), 0, 12)
 end
 
 # TODO assuming touch only depends on recipient (the contact) may be BAD.
@@ -52,11 +72,24 @@ This assumes touch only depends on the recipient.
 
 Very tricky.  We are ignoring the 4 sick conditions because even if touched they can't get sick.
 """
+@inline function touch_factor(contact, touch_param)::Float64
+    @inbounds touch_param[maptouch(contact.status), mapagegrp(contact.agegrp)]
+end
+
+
+@inline function touch_probability(contact, touch_param, indoor_factor)::Float64
+    if (contact.status == :unexposed) | (contact.status == :recovered)
+        baseprob = touch_factor(contact, touch_param)
+        indoor_factor == 1.0 ? baseprob : clamp(indoor_factor * baseprob, 0.0, 0.97)
+    else
+        0.0
+    end
+end
+
+
 @inline function istouched(contact, touch_param, indoor_factor)
     touched = if (contact.status == :unexposed) | (contact.status == :recovered)  # only conditions that can get infected   
-        touchprob = (indoor_factor == 1.0 ? touch_param[maptouch(contact.status), mapagegrp(contact.agegrp)] :
-                     # squash multiplicative factor to stay under 1.0
-                     clamp(indoor_factor * touch_param[maptouch(contact.status), mapagegrp(contact.agegrp)], 0.0, 0.97)) # or tanh--much slower
+        touchprob = touch_probability(contact, touch_param, indoor_factor)
         rand(Binomial(1, touchprob)) == 1
     else
         false
@@ -72,19 +105,31 @@ Considers partial immunity if contact has recovered from previous infection.
 Considers vaccination status of the contact.
 Considers the variant of the disease the spreader is carrying.
 """
-@inline function isinfected(contact, spreader, vaxset, dovax, infectset, thisday)::Bool
+@inline function infectrisk_components(contact, spreader, vaxset, dovax, infectset, thisday)
 
     @inbounds spr_variant = isempty(spreader.variant) ? 0 : spreader.variant[end]
 
-    # effect on transmission based on how long ago a previously infected contact got over the disease
     recovfactor = recoveffect(thisday, contact, spr_variant, infectset)
-
-    # effect on transmission based on whether, when, and which vaccine contact received
-    vaxfactor = dovax ? vaxeffect(thisday, contact, vaxset, infectfactor, spr_variant) : 1.0
-
-    # binomial probability of the contact getting infected from the contact with this spreader
+    vaxfactor = dovax ? vaxeffect(thisday, contact, vaxset, 1.0, spr_variant) : 1.0
+    sendrisk = spread_sendrisk(infectset, spr_variant, spreader.duration)
+    recvrisk = @inbounds infectset[spr_variant].recvrisk[mapagegrp(contact.agegrp)]
     risk = infectrisk(infectset, spr_variant, spreader.duration, contact.agegrp, recovfactor, vaxfactor)
+
+    (spr_variant=spr_variant, sendrisk=sendrisk, recvrisk=recvrisk, recovfactor=recovfactor,
+        vaxfactor=vaxfactor, risk=risk)
+end
+
+
+@inline function isinfected(contact, spreader, vaxset, dovax, infectset, thisday)::Bool
+
+    comps = infectrisk_components(contact, spreader, vaxset, dovax, infectset, thisday)
+    risk = comps.risk
     return @fastmath rand(Binomial(1, risk)) == 1
+end
+
+
+@inline function spread_sendrisk(infectset, spr_variant, spr_duration)::Float64
+    @inbounds infectset[spr_variant].sendrisk[spr_duration]
 end
 
 
@@ -92,13 +137,13 @@ end
     targ_agegrp, recovfactor::Float64, vaxfactor::Float64)
 
     # spreader person characteristics
-    sendrisk = @inbounds infectset[spr_variant].sendrisk[spr_duration]
+    sendrisk = spread_sendrisk(infectset, spr_variant, spr_duration)
 
     # target person characteristics
     recvrisk = @inbounds infectset[spr_variant].recvrisk[mapagegrp(targ_agegrp)]
 
     combinedfactor = recvrisk * sendrisk * vax_recov(vaxfactor, recovfactor)
-    risk = clamp(combinedfactor, 0.0, 0.97)    # required because combinedfactor could exceed 1.0
+    risk = clamp(combinedfactor, 0.0, 1.0)    # required because combinedfactor could exceed 1.0
 end
 
 
@@ -151,14 +196,16 @@ Immunity from recovery for a single person. Also, affects progression through di
 @inline function recoveffect(thisday, contact, spr_variant, infectset; csig=6.0, decay_lower=0.15)::Float64
 
     factor = 1.0 # default return value
-
-    if contact.status === :recovered
-        @inbounds recovday = isempty(contact.recovday) ? 0 : contact.recovday[end]
+    if !isempty(contact.recovday)
+    # if contact.status === :recovered
+        # @inbounds recovday = isempty(contact.recovday) ? 0 : contact.recovday[end]
+        @inbounds recovday = contact.recovday[end]
         days_post_recov = thisday - recovday
 
-        contact_varient = contact.variant[end]
-
         @inbounds if days_post_recov >= 0
+
+            contact_varient = contact.variant[end]
+
             # get the max immunity for the variant that target recovered from against the variant of the spreader
             immstrength = infectset[contact_varient].recovery_immunity[spr_variant]
 

@@ -82,6 +82,29 @@ const DAY_CTR = counter(Symbol) # from package DataStructures
 
 hash(x::Integer) = uint(x)  # speed up dicts that use integers as keys--especially for progression
 
+# collect statistics during simulation
+
+mutable struct daystats
+    day::Int
+    starting_spreaders::Int
+    num_contacts::Int
+    num_touched::Int
+    num_new_infected::Int
+    num_died::Int
+    num_recovered::Int
+end
+
+function reset(ds::daystats)
+    ds.starting_spreaders = 0;
+    ds.num_contacts = 0;
+    ds.num_touched = 0;
+    ds.num_new_infected = 0;
+    ds.num_died = 0;
+    ds.num_recovered = 0;
+end
+
+ds = daystats(0,0,0,0,0,0,0)
+
 
 ################################################################
 # constants for data structure indices
@@ -143,6 +166,7 @@ include("data_mapping.jl")
 include("progression_probs.jl")
 include("setup.jl")
 include("plotting.jl")
+include("spread_debug.jl")
 include("simstats.jl")
 include("cases.jl")
 include("test_and_trace.jl")
@@ -164,6 +188,8 @@ include("serialize.jl")
 export    
     buildsim,
     runsim,
+    runsim_trace,
+    runsim_spread_debug,
     setup_model,
     setup_files,
     setup_yaml,              
@@ -264,9 +290,18 @@ export
     mapcondition,
     mapagegrp
 
+export
+    build_daily_trace,
+    SpreadDebugConfig
+
 # functions for serialization
 export
     series_to_csv,
+    daily_trace_to_csv,
+    runsim_trace_to_csv,
+    runsim_seed_sweep_to_csv,
+    spread_debug_to_csv,
+    runsim_spread_debug_to_csv,
     popdat_to_csv,
     modelinputs_to_yaml,
     model_to_yaml,

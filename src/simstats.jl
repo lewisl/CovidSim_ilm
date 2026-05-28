@@ -6,6 +6,100 @@
 gt(dict, key) = get(dict, key, 0)
 
 
+function init_runtime_trace(locales, ndays)
+    Dict(loc => (
+            contacts = zeros(Int, ndays),
+            touched = zeros(Int, ndays),
+            spread_new_infected = zeros(Int, ndays),
+            recovered = zeros(Int, ndays),
+            dead = zeros(Int, ndays),
+        ) for loc in locales)
+end
+
+
+function count_event_days!(dest, days)
+    for day in days
+        if 1 <= day <= length(dest)
+            dest[day] += 1
+        end
+    end
+    return dest
+end
+
+
+function count_event_days!(dest, day::Int)
+    if 1 <= day <= length(dest)
+        dest[day] += 1
+    end
+    return dest
+end
+
+
+function build_daily_trace(popdat, series, locale; runtime_trace=nothing, trace_ages=[:age60_79, :age80_up])
+    locdat = popdat[locale]
+    caldays = collect(series[locale].cum.caldays)
+    ndays = length(caldays)
+
+    contacts = isnothing(runtime_trace) ? zeros(Int, ndays) : copy(runtime_trace[locale].contacts)
+    touched = isnothing(runtime_trace) ? zeros(Int, ndays) : copy(runtime_trace[locale].touched)
+    spread_new_infected = isnothing(runtime_trace) ? zeros(Int, ndays) : copy(runtime_trace[locale].spread_new_infected)
+    total_new_infected = zeros(Int, ndays)
+    total_recovered = isnothing(runtime_trace) ? zeros(Int, ndays) : copy(runtime_trace[locale].recovered)
+    total_dead = isnothing(runtime_trace) ? zeros(Int, ndays) : copy(runtime_trace[locale].dead)
+
+    count_event_days!.(Ref(total_new_infected), locdat.sickday)
+    if isnothing(runtime_trace)
+        count_event_days!.(Ref(total_recovered), locdat.recovday)
+        count_event_days!.(Ref(total_dead), locdat.deadday)
+    end
+
+    cols = Pair{Symbol, Any}[
+        :day => collect(1:ndays),
+        :calday => caldays,
+        :contacts => contacts,
+        :touched => touched,
+        :new_infected => total_new_infected,
+        :spread_new_infected => spread_new_infected,
+        :recovered => total_recovered,
+        :dead => total_dead,
+    ]
+
+    for age in trace_ages
+        mask = locdat.agegrp .== age
+        age_infected = zeros(Int, ndays)
+        age_recovered = zeros(Int, ndays)
+        age_dead = zeros(Int, ndays)
+
+        count_event_days!.(Ref(age_infected), locdat.sickday[mask])
+        count_event_days!.(Ref(age_recovered), locdat.recovday[mask])
+        count_event_days!.(Ref(age_dead), locdat.deadday[mask])
+
+        push!(cols, Symbol(:new_infected_, age) => age_infected)
+        push!(cols, Symbol(:recovered_, age) => age_recovered)
+        push!(cols, Symbol(:dead_, age) => age_dead)
+    end
+
+    LazyTable(; (name => value for (name, value) in cols)...)
+end
+
+
+function runsim_trace(model; trace_ages=[:age60_79, :age80_up], kwargs...)
+    runtime_trace = init_runtime_trace(model.locales, model.ndays)
+    popdat, series = runsim(model; runtime_trace=runtime_trace, kwargs...)
+    trace = Dict(loc => build_daily_trace(popdat, series, loc; runtime_trace=runtime_trace, trace_ages=trace_ages)
+                 for loc in model.locales)
+    return popdat, series, trace
+end
+
+
+function runsim_spread_debug(model; config=SpreadDebugConfig(), kwargs...)
+    spread_debug_trace = init_spread_debug_trace(model.locales; config=config)
+    popdat, series = runsim(model; spread_debug_trace=spread_debug_trace, kwargs...)
+    trace = Dict(loc => spread_debug_tables(spread_debug_trace[loc]) for loc in model.locales)
+    return popdat, series, trace
+end
+
+
 """
     function stat1(series, locale)
 

@@ -181,6 +181,140 @@ function popdat_to_csv(dat; pathstr="", idstr="", overwrite=false, usetimestamp=
 end
 
 
+function daily_trace_to_csv(trace; pathstr="", idstr="", locale=0, overwrite=false, usetimestamp=true, basedir=:current)
+    writepathstr, datestr = setpathstr(pathstr=pathstr, idstr=idstr, overwrite=overwrite,
+                              usetimestamp=usetimestamp, basedir=basedir)
+
+    if locale == 0
+        sourcelocales = keys(trace)
+    else
+        if in(locale, keys(trace))
+            sourcelocales = [locale]
+        else
+            throw(DomainError(locale, "Locale $locale not in trace data"))
+        end
+    end
+
+    for loc in sourcelocales
+        fname = join(filter(!=(""), ("daily_trace", idstr, "loc", loc, datestr, ".csv")), "_", "")
+        filepathstr = joinpath(writepathstr, fname)
+
+        if (isfile(filepathstr)) & (!overwrite)
+            throw(ErrorException("FATAL: Argument overwrite set to false: can't overwrite existing file"))
+        end
+
+        CSV.write(filepathstr, trace[loc])
+    end
+end
+
+
+function runsim_trace_to_csv(model; pathstr="", idstr="", locale=0, overwrite=false, usetimestamp=true,
+        basedir=:current, trace_ages=[:age60_79, :age80_up], kwargs...)
+    popdat, series, trace = runsim_trace(model; trace_ages=trace_ages, kwargs...)
+    daily_trace_to_csv(trace; pathstr=pathstr, idstr=idstr, locale=locale, overwrite=overwrite,
+        usetimestamp=usetimestamp, basedir=basedir)
+    return popdat, series, trace
+end
+
+
+function spread_debug_to_csv(trace; pathstr="", idstr="", locale=0, overwrite=false, usetimestamp=true, basedir=:current)
+    writepathstr, datestr = setpathstr(pathstr=pathstr, idstr=idstr, overwrite=overwrite,
+                              usetimestamp=usetimestamp, basedir=basedir)
+
+    if locale == 0
+        sourcelocales = keys(trace)
+    else
+        if in(locale, keys(trace))
+            sourcelocales = [locale]
+        else
+            throw(DomainError(locale, "Locale $locale not in spread debug trace"))
+        end
+    end
+
+    for loc in sourcelocales
+        for (kind, table) in pairs(trace[loc])
+            fname = join(filter(!=(""), ("spread_debug", idstr, kind, "loc", loc, datestr, ".csv")), "_", "")
+            filepathstr = joinpath(writepathstr, fname)
+
+            if (isfile(filepathstr)) & (!overwrite)
+                throw(ErrorException("FATAL: Argument overwrite set to false: can't overwrite existing file"))
+            end
+
+            CSV.write(filepathstr, table)
+        end
+    end
+end
+
+
+function runsim_spread_debug_to_csv(model; pathstr="", idstr="", locale=0, overwrite=false, usetimestamp=true,
+        basedir=:current, config=SpreadDebugConfig(), kwargs...)
+    popdat, series, trace = runsim_spread_debug(model; config=config, kwargs...)
+    spread_debug_to_csv(trace; pathstr=pathstr, idstr=idstr, locale=locale, overwrite=overwrite,
+        usetimestamp=usetimestamp, basedir=basedir)
+    return popdat, series, trace
+end
+
+
+function seed_sweep_row(locdat, seed, locale)
+    mask = locdat.agegrp .== :age80_up
+    infected_mask = mask .& (length.(locdat.variant) .> 0)
+    reinfected_mask = mask .& (length.(locdat.variant) .> 1)
+    recovered_mask = mask .& (locdat.status .== :recovered)
+    dead_mask = mask .& (locdat.status .== :dead)
+    active_mask = mask .& (locdat.status .== :infectious)
+    active_durations = locdat.duration[active_mask]
+
+    infected = count(infected_mask)
+    dead = count(dead_mask)
+
+    return (
+        seed = seed,
+        locale = locale,
+        age80_up_infected = infected,
+        age80_up_reinfected = count(reinfected_mask),
+        age80_up_recovered = count(recovered_mask),
+        age80_up_dead = dead,
+        age80_up_death_pct = infected > 0 ? dead / infected : 0.0,
+        age80_up_still_infected = count(active_mask),
+        age80_up_at_durationlim = count(active_mask .& (locdat.duration .== DURATIONLIM)),
+        age80_up_max_active_duration = isempty(active_durations) ? 0 : maximum(active_durations),
+    )
+end
+
+
+function runsim_seed_sweep_to_csv(model, seeds; pathstr="", idstr="", filename="seed_sweep.csv",
+        locale=0, overwrite=false, basedir=:current, kwargs...)
+    writepathstr, _ = setpathstr(pathstr=pathstr, idstr=idstr, overwrite=overwrite,
+        usetimestamp=false, basedir=basedir)
+
+    filename = isempty(idstr) ? filename : string(first(splitext(filename)), "_", idstr, last(splitext(filename)))
+    filepathstr = joinpath(writepathstr, filename)
+
+    sourcelocales = if locale == 0
+                        collect(model.locales)
+                    elseif in(locale, model.locales)
+                        [locale]
+                    else
+                        throw(DomainError(locale, "Locale $locale not in model locales"))
+                    end
+
+    rows = NamedTuple[]
+    writeheader = overwrite || !isfile(filepathstr)
+
+    for seed in seeds
+        popdat, _ = runsim(model; seed=seed, kwargs...)
+        for loc in sourcelocales
+            row = seed_sweep_row(popdat[loc], seed, loc)
+            push!(rows, row)
+            CSV.write(filepathstr, [row]; append=!writeheader, writeheader=writeheader)
+            writeheader = false
+        end
+    end
+
+    return rows
+end
+
+
 
 ##############################################################################################
 #  functions called by model_to_yaml

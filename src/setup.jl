@@ -274,44 +274,31 @@ function build_indoor_seq(locales, ndays, geodata, series, indoor_lift)
         caldays = series[loc].cum.caldays  # TODO: dumb because it's always the same, but difficul to unwrap
 
         indoor_end = geodata.indoor_end[geodata.fips.==loc][1]
-            year_end = year(indoor_end)
         indoor_start = geodata.indoor_st[geodata.fips.==loc][1]
-            year_start = year(indoor_start)
+        year_end = year(indoor_end)
+        year_start = year(indoor_start)
+        indoor_start_md = (month(indoor_start), day(indoor_start))
+        indoor_end_md = (month(indoor_end), day(indoor_end))
 
         if year_end == year_start  # start and end within a calendar year
 
-            for i in eachindex(indoor_seq)
-                testdate = Date(year_end, month(caldays[i]), day(caldays[i]))  # use relative year
-                if (testdate >= indoor_start) & (testdate <= indoor_end) 
+            for i in eachindex(indoor_seq[loc])
+                calday_md = (month(caldays[i]), day(caldays[i]))
+                if indoor_start_md <= calday_md <= indoor_end_md
                     indoor_seq[loc][i] *= indoor_lift
                 end
             end
-# TODO this logic is wrong for northern hemisphere climate....
         elseif year_end > year_start  # start in first year, end in following year
 
-            current_year = year(first(caldays))
-            set_year = year_start
-
             for i in eachindex(indoor_seq[loc])
-                if year(caldays[i]) > current_year
-                    set_year = set_year == year_start ? year_end : year_start # toggle set_year
-                    current_year = year(caldays[i])     # advance current_year
-                end
-
-                if (month(caldays[i]) == 2) & (day(caldays[i]) == 29)
-                    continue  # the simulation year may be a leap year but the pseudo year is not
-                end
-
-                testdate = Date(set_year, month(caldays[i]), day(caldays[i]))
-                if (testdate >= indoor_start) & (testdate <= indoor_end) 
+                calday_md = (month(caldays[i]), day(caldays[i]))
+                if calday_md >= indoor_start_md || calday_md <= indoor_end_md
                     indoor_seq[loc][i] *= indoor_lift
                 end
             end
 
         else
-
-            throw(DomainError((indoor_start_str, indoor_end_str), "Date for indoor_end must be > indoor_start"))
-
+            throw(DomainError((indoor_start, indoor_end), "Date for indoor_end must be >= indoor_start"))
         end
     end
     return indoor_seq
