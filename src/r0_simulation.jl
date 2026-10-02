@@ -94,7 +94,7 @@ function _run_r0_sim(r0pop, progressionset, trvec, infectset, vaxset,
         all_infect_idx = findall(r0pop.status .== :infectious)
 
         for spr in gen1_infect_idx  # only spreaders from the gen1 infected pool
-            cnt_newly_infected = spread!(r0pop, spr, simday, [], socialparams,   
+            cnt_newly_infected = spread!(r0pop, spr, simday, [], socialparams,   # THIS NO LONGER WORKS WITH SPREAD!
                             infectset, vaxset, density_factor, indoor_seq, poprange)
 
             r0_infected += cnt_newly_infected
